@@ -11,18 +11,39 @@ The Discord bot now supports character name tracking, allowing users to identify
 Use the format `CharacterName: message` when chatting with the bot:
 
 ```
-!chat Alice: Hello, how are you today?
-!chat Bob: *waves* Hi everyone!
-!chat Charlie: I'm doing great, thanks!
+!chat Alice: "Hello, how are you today?"
+!chat Bob: *waves* "Hi everyone!"
+!chat Charlie: "I'm doing great, thanks!"
 ```
 
-### With Actions
+### Message Formatting Guidelines
 
-You can use `*action*` to describe what your character is doing:
+The bot supports three types of content in messages:
+
+1. **Spoken Dialogue** - Use `"quotes"` for words spoken by the character:
+   ```
+   !chat Alice: "Hello! How can I help you?"
+   ```
+
+2. **Actions** - Use `*asterisks*` for actions performed by the character:
+   ```
+   !chat Bob: *walks into the room*
+   !chat Sarah: *waves enthusiastically*
+   ```
+
+3. **Descriptive Text** - Text without quotes or asterisks is descriptive or contextual:
+   ```
+   !chat Tom: Looks around the room carefully
+   ```
+
+### Combining Formats
+
+You can combine dialogue, actions, and descriptions in a single message:
 
 ```
-!chat Sarah: *enters the room* Good morning everyone!
-!chat Tom: *looks up from his book* Oh, hello Sarah!
+!chat Sarah: *enters the room* "Good morning everyone!" She smiles warmly
+!chat Tom: *looks up from his book* "Oh, hello Sarah!" *closes the book*
+!chat Alice: Notices the newcomers "Welcome! Please, have a seat." *gestures to the chairs*
 ```
 
 ### How It Works
@@ -45,21 +66,30 @@ IMPORTANT: In this conversation, users will identify themselves as characters
 by prefixing their messages with 'CharacterName:'. The following character 
 names are being used by users: Alice, Bob, Charlie. You should NEVER pretend 
 to be these characters or respond as if you are them. You are a separate 
-entity having a conversation with these characters."
+entity having a conversation with these characters.
+
+FORMAT GUIDELINES:
+- Text in "quotes" represents spoken dialogue by the character
+- Text in *asterisks* represents actions performed by the character
+- Text without quotes or asterisks is descriptive text or additional context"
 ```
 
 ## Example Conversation
 
 ```
-User: !chat Alice: Hello! Is anyone here?
+User: !chat Alice: "Hello! Is anyone here?"
 Bot: Hello Alice! Yes, I'm here. How can I help you today?
 
-User: !chat Bob: *walks in* Hey Alice! I just arrived.
+User: !chat Bob: *walks in* "Hey Alice! I just arrived."
 Bot: Welcome, Bob! I see you've just joined Alice. How are you both doing?
 
-User: !chat Alice: We're planning an adventure, care to help us prepare?
+User: !chat Alice: *turns to Bob* "We're planning an adventure, care to help us prepare?"
 Bot: Of course! I'd be happy to help you and Bob prepare for your adventure. 
      What kind of adventure are you planning?
+
+User: !chat Bob: Pulls out a map "We're thinking of exploring the ancient ruins to the north."
+Bot: That sounds exciting! Exploring ancient ruins can be quite an adventure. 
+     What supplies do you think you'll need for this journey?
 ```
 
 ## Commands
