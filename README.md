@@ -10,6 +10,8 @@ A feature-rich Discord bot with OpenAI-compatible API integration, preset manage
 - 👤 **Character Cards** - Support for character cards with personality, scenarios, and custom system prompts
 - 🌐 **Web Configuration Interface** - Beautiful web UI to manage all settings, presets, and characters
 - 💾 **Import/Export** - Full import/export functionality for presets and character cards
+- 🔄 **Swipe Functionality** - Generate and navigate through alternative AI responses (like SillyTavern)
+- 📊 **Extended Token Limits** - Support for up to 200,000 context tokens with separate response length control
 
 ## 🚀 Quick Start
 
@@ -62,6 +64,7 @@ python main.py
   "default_preset": {
     "temperature": 0.7,
     "max_tokens": 2000,
+    "max_response_length": 2000,
     "top_p": 1.0,
     "frequency_penalty": 0.0,
     "presence_penalty": 0.0,
@@ -89,6 +92,9 @@ This bot works with any OpenAI-compatible API endpoint:
 - `!presets` - List all available presets
 - `!character <name>` - Load a specific character card
 - `!characters` - List all available character cards
+- `!swipe` - Generate an alternative response to the last message
+- `!swipe_left` - Navigate to the previous alternative response
+- `!swipe_right` - Navigate to the next alternative response
 - `!help_bot` - Show help information
 
 ## 🎨 Preset System
@@ -96,7 +102,8 @@ This bot works with any OpenAI-compatible API endpoint:
 Presets allow you to customize the AI's behavior with different parameters:
 
 - **Temperature** - Controls randomness (0.0 = deterministic, 2.0 = very random)
-- **Max Tokens** - Maximum length of response
+- **Max Tokens (Context)** - Maximum context window size (up to 200,000 tokens)
+- **Max Response Length** - Maximum length of AI response (separate from context limit)
 - **Top P** - Nucleus sampling parameter
 - **Frequency Penalty** - Reduces repetition of frequent tokens
 - **Presence Penalty** - Reduces repetition of any tokens
@@ -114,12 +121,24 @@ Example preset (`presets/creative.json`):
 {
   "temperature": 0.9,
   "max_tokens": 2000,
+  "max_response_length": 2000,
   "top_p": 1.0,
   "frequency_penalty": 0.7,
   "presence_penalty": 0.6,
   "system_prompt": "You are a creative and imaginative AI assistant."
 }
 ```
+
+### Swipe Functionality
+
+Similar to SillyTavern, you can generate and navigate through alternative AI responses:
+
+1. Use `!chat` to get an initial response
+2. Use `!swipe` to generate alternative responses to the last message
+3. Use `!swipe_left` and `!swipe_right` to navigate between alternatives
+4. Each alternative is stored and you can switch between them at any time
+
+This allows you to explore different creative directions without losing previous responses!
 
 ### Import/Export Presets
 

@@ -6,13 +6,22 @@ A fully-featured Discord bot with OpenAI-compatible API integration, preset mana
 
 ## ✅ Requirements Met
 
-All requirements from the problem statement have been successfully implemented:
+All requirements from the original problem statement have been successfully implemented:
 
 1. **✓ Discord Bot** - Fully functional Discord bot with conversation management
 2. **✓ Custom OpenAI-Compatible API** - Support for any OpenAI-compatible endpoint with custom API key and base URL
-3. **✓ Web Server/HTML Interface** - Complete web UI for configuration
+3. **✓ Web Server/HTML Interface** - Complete web UI for configuration (fixed with threading support)
 4. **✓ Preset System** - Full import/export functionality similar to SillyTavern
 5. **✓ Character Cards** - Complete character card system with multiple formats
+
+## 🆕 Recent Enhancements
+
+Based on user feedback, the following improvements have been added:
+
+1. **✓ Web Server Fix** - Added threading support to Flask server for proper operation
+2. **✓ Extended Token Limits** - Increased max_tokens from 4,000 to 200,000 for large context windows
+3. **✓ Separate Response Length** - Added max_response_length parameter distinct from context tokens
+4. **✓ Swipe Functionality** - Implemented SillyTavern-style response alternatives with !swipe commands
 
 ## 📦 What Was Delivered
 
@@ -49,20 +58,23 @@ All requirements from the problem statement have been successfully implemented:
 
 ### Discord Bot
 - Per-channel conversation history (last 20 messages)
-- 7 commands: `!chat`, `!clear`, `!preset`, `!presets`, `!character`, `!characters`, `!help_bot`
+- 10 commands: `!chat`, `!clear`, `!preset`, `!presets`, `!character`, `!characters`, `!swipe`, `!swipe_left`, `!swipe_right`, `!help_bot`
 - Automatic message splitting for long responses
 - Async message handling
+- Alternative response generation (swipe feature)
 
 ### OpenAI-Compatible API
 - Works with OpenAI, LM Studio, Ollama, Text Generation WebUI, KoboldAI, etc.
 - Configurable API key, base URL, and model
 - Full parameter control (temperature, tokens, penalties)
+- Support for large context windows (up to 200,000 tokens)
 
 ### Preset System
 - Create, read, update, delete presets via web UI or API
 - Import/Export as JSON files
-- Control temperature, max_tokens, top_p, frequency_penalty, presence_penalty
+- Control temperature, max_tokens (context), max_response_length, top_p, frequency_penalty, presence_penalty
 - Custom system prompts
+- Separate context and response length controls
 
 ### Character Cards
 - SillyTavern-compatible format

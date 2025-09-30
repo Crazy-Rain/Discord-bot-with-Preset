@@ -171,4 +171,4 @@ class WebServer:
     
     def run(self, host: str = "0.0.0.0", port: int = 5000, debug: bool = False):
         """Run the web server."""
-        self.app.run(host=host, port=port, debug=debug)
+        self.app.run(host=host, port=port, debug=debug, threaded=True, use_reloader=False)
