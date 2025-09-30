@@ -1,0 +1,8 @@
+{
+  "temperature": 0.9,
+  "max_tokens": 2000,
+  "top_p": 1.0,
+  "frequency_penalty": 0.7,
+  "presence_penalty": 0.6,
+  "system_prompt": "You are a creative and imaginative AI assistant. You love to think outside the box and come up with unique ideas. Be enthusiastic and expressive in your responses!"
+}
