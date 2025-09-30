@@ -6,6 +6,7 @@ import re
 from config_manager import ConfigManager
 from preset_manager import PresetManager
 from character_manager import CharacterManager
+from user_characters_manager import UserCharactersManager
 from openai_client import OpenAIClient
 
 class DiscordBot(commands.Bot):
@@ -17,6 +18,7 @@ class DiscordBot(commands.Bot):
         self.config_manager = config
         self.preset_manager = PresetManager()
         self.character_manager = CharacterManager()
+        self.user_characters_manager = UserCharactersManager()
         
         # Initialize OpenAI client
         openai_config = config.get("openai_config", {})
@@ -96,6 +98,13 @@ FORMAT GUIDELINES:
 - Text in "quotes" represents spoken dialogue by the character
 - Text in *asterisks* represents actions performed by the character
 - Text without quotes or asterisks is descriptive text or additional context"""
+                
+                # Add user character descriptions to the system prompt
+                user_char_section = self.user_characters_manager.get_system_prompt_section(
+                    self.character_names[channel_id]
+                )
+                if user_char_section:
+                    enhanced_system_prompt += user_char_section
             
             # Build messages
             messages = []
@@ -212,6 +221,50 @@ FORMAT GUIDELINES:
             else:
                 await ctx.send("No characters available.")
         
+        @self.command(name="update", help="Update user character description")
+        async def update(ctx, *, message: str):
+            """Update a user character description.
+            
+            Usage: !update <Character Name>: <Description>
+            """
+            # Parse character name and description
+            character_name, description = self.parse_character_message(message)
+            
+            if not character_name:
+                await ctx.send("Invalid format. Use: !update <Character Name>: <Description>")
+                return
+            
+            # Add or update the user character
+            self.user_characters_manager.add_or_update_character(character_name, description)
+            await ctx.send(f"Updated user character: {character_name}")
+        
+        @self.command(name="user_chars", help="List saved user characters")
+        async def user_chars(ctx):
+            """List all saved user character names."""
+            char_list = self.user_characters_manager.list_characters()
+            if char_list:
+                await ctx.send(f"Saved user characters: {', '.join(char_list)}")
+            else:
+                await ctx.send("No user characters saved.")
+        
+        @self.command(name="user_char", help="View a user character")
+        async def user_char(ctx, character_name: str):
+            """View a specific user character's details."""
+            char_data = self.user_characters_manager.get_character(character_name)
+            if char_data:
+                response = f"**{char_data['name']}**\n{char_data['description']}"
+                await ctx.send(response)
+            else:
+                await ctx.send(f"User character not found: {character_name}")
+        
+        @self.command(name="delete_user_char", help="Delete a user character")
+        async def delete_user_char(ctx, character_name: str):
+            """Delete a saved user character."""
+            if self.user_characters_manager.delete_character(character_name):
+                await ctx.send(f"Deleted user character: {character_name}")
+            else:
+                await ctx.send(f"User character not found: {character_name}")
+        
         @self.command(name="help_bot", help="Show bot help")
         async def help_bot(ctx):
             """Show bot help information."""
@@ -226,11 +279,20 @@ FORMAT GUIDELINES:
 `!swipe` - Generate alternative response to last message
 `!swipe_left` - Show previous alternative response
 `!swipe_right` - Show next alternative response
+`!update <Name>: <Description>` - Update user character description
+`!user_chars` - List saved user characters
+`!user_char <name>` - View a user character
+`!delete_user_char <name>` - Delete a user character
 `!help_bot` - Show this help message
 
 **Character Name Feature:**
 You can identify yourself as a character by using the format:
 `!chat CharacterName: message`
+
+**User Character Descriptions:**
+Save descriptions for your characters using:
+`!update Alice: A brave warrior with long red hair and green eyes`
+The AI will use these descriptions for context.
 
 **Formatting Guidelines:**
 - Use `"quotes"` for spoken dialogue: `!chat Alice: "Hello, how are you?"`

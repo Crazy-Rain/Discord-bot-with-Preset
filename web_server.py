@@ -5,6 +5,7 @@ import os
 from config_manager import ConfigManager
 from preset_manager import PresetManager
 from character_manager import CharacterManager
+from user_characters_manager import UserCharactersManager
 
 class WebServer:
     def __init__(self, config_manager: ConfigManager):
@@ -12,6 +13,7 @@ class WebServer:
         self.config_manager = config_manager
         self.preset_manager = PresetManager()
         self.character_manager = CharacterManager()
+        self.user_characters_manager = UserCharactersManager()
         
         self.setup_routes()
     
@@ -188,6 +190,65 @@ class WebServer:
                 
                 self.character_manager.import_character(character_name, character_json)
                 return jsonify({"status": "success", "message": f"Character '{character_name}' imported"})
+            except Exception as e:
+                return jsonify({"status": "error", "message": str(e)}), 400
+        
+        @self.app.route('/api/user_characters', methods=['GET'])
+        def list_user_characters():
+            """List all user characters."""
+            characters = self.user_characters_manager.get_all_characters()
+            return jsonify({"characters": characters})
+        
+        @self.app.route('/api/user_characters/<character_name>', methods=['GET'])
+        def get_user_character(character_name):
+            """Get a specific user character."""
+            character = self.user_characters_manager.get_character(character_name)
+            if character:
+                return jsonify(character)
+            return jsonify({"error": "User character not found"}), 404
+        
+        @self.app.route('/api/user_characters/<character_name>', methods=['POST'])
+        def save_user_character(character_name):
+            """Save a user character."""
+            try:
+                data = request.json
+                description = data.get('description', '')
+                self.user_characters_manager.add_or_update_character(character_name, description)
+                return jsonify({"status": "success", "message": f"User character '{character_name}' saved"})
+            except Exception as e:
+                return jsonify({"status": "error", "message": str(e)}), 400
+        
+        @self.app.route('/api/user_characters/<character_name>', methods=['DELETE'])
+        def delete_user_character(character_name):
+            """Delete a user character."""
+            try:
+                if self.user_characters_manager.delete_character(character_name):
+                    return jsonify({"status": "success", "message": f"User character '{character_name}' deleted"})
+                return jsonify({"status": "error", "message": "User character not found"}), 404
+            except Exception as e:
+                return jsonify({"status": "error", "message": str(e)}), 400
+        
+        @self.app.route('/api/user_characters/export', methods=['GET'])
+        def export_user_characters():
+            """Export all user characters as JSON."""
+            try:
+                characters_json = self.user_characters_manager.export_characters()
+                return jsonify({"characters": characters_json})
+            except Exception as e:
+                return jsonify({"error": str(e)}), 500
+        
+        @self.app.route('/api/user_characters/import', methods=['POST'])
+        def import_user_characters():
+            """Import user characters from JSON."""
+            try:
+                data = request.json
+                characters_json = data.get('characters')
+                
+                if not characters_json:
+                    return jsonify({"status": "error", "message": "Missing characters data"}), 400
+                
+                self.user_characters_manager.import_characters(characters_json)
+                return jsonify({"status": "success", "message": "User characters imported"})
             except Exception as e:
                 return jsonify({"status": "error", "message": str(e)}), 400
     
