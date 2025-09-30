@@ -7,6 +7,7 @@ from config_manager import ConfigManager
 from preset_manager import PresetManager
 from character_manager import CharacterManager
 from user_characters_manager import UserCharactersManager
+from lorebook_manager import LorebookManager
 from openai_client import OpenAIClient
 
 class DiscordBot(commands.Bot):
@@ -19,6 +20,7 @@ class DiscordBot(commands.Bot):
         self.preset_manager = PresetManager()
         self.character_manager = CharacterManager()
         self.user_characters_manager = UserCharactersManager()
+        self.lorebook_manager = LorebookManager()
         
         # Initialize OpenAI client
         openai_config = config.get("openai_config", {})
@@ -105,6 +107,12 @@ FORMAT GUIDELINES:
                 )
                 if user_char_section:
                     enhanced_system_prompt += user_char_section
+            
+            # Add lorebook entries to the system prompt
+            # Use the message content to find relevant lorebook entries
+            lorebook_section = self.lorebook_manager.get_system_prompt_section(message)
+            if lorebook_section:
+                enhanced_system_prompt += "\n\n" + lorebook_section
             
             # Build messages
             messages = []
@@ -265,6 +273,73 @@ FORMAT GUIDELINES:
             else:
                 await ctx.send(f"User character not found: {character_name}")
         
+        @self.command(name="lorebook_add", help="Add or update a lorebook entry")
+        async def lorebook_add(ctx, key: str, *, content: str):
+            """Add or update a lorebook entry.
+            
+            Usage: !lorebook_add <key> <content>
+            Example: !lorebook_add "Kingdom of Aldoria" A vast kingdom ruled by King Aldric...
+            """
+            # Parse keywords and always_active flag from content if present
+            # Format: content [keywords: word1, word2] [always_active]
+            import re
+            
+            keywords = []
+            always_active = False
+            
+            # Check for always_active flag
+            if "[always_active]" in content.lower():
+                always_active = True
+                content = re.sub(r'\[always_active\]', '', content, flags=re.IGNORECASE).strip()
+            
+            # Check for keywords
+            keyword_match = re.search(r'\[keywords?:\s*([^\]]+)\]', content, re.IGNORECASE)
+            if keyword_match:
+                keywords_str = keyword_match.group(1)
+                keywords = [k.strip() for k in keywords_str.split(',')]
+                content = re.sub(r'\[keywords?:\s*[^\]]+\]', '', content, flags=re.IGNORECASE).strip()
+            
+            self.lorebook_manager.add_or_update_entry(key, content, keywords, always_active)
+            
+            status_parts = [f"Added/updated lorebook entry: **{key}**"]
+            if keywords:
+                status_parts.append(f"Keywords: {', '.join(keywords)}")
+            if always_active:
+                status_parts.append("Always active: Yes")
+            
+            await ctx.send("\n".join(status_parts))
+        
+        @self.command(name="lorebook_list", help="List all lorebook entries")
+        async def lorebook_list(ctx):
+            """List all lorebook entry keys."""
+            entries = self.lorebook_manager.list_entries()
+            if entries:
+                await ctx.send(f"Lorebook entries: {', '.join(entries)}")
+            else:
+                await ctx.send("No lorebook entries saved.")
+        
+        @self.command(name="lorebook_view", help="View a lorebook entry")
+        async def lorebook_view(ctx, key: str):
+            """View a specific lorebook entry."""
+            entry = self.lorebook_manager.get_entry(key)
+            if entry:
+                response_parts = [f"**{entry['key']}**", entry['content']]
+                if entry.get('keywords'):
+                    response_parts.append(f"*Keywords: {', '.join(entry['keywords'])}*")
+                if entry.get('always_active'):
+                    response_parts.append("*Always active: Yes*")
+                await ctx.send("\n".join(response_parts))
+            else:
+                await ctx.send(f"Lorebook entry not found: {key}")
+        
+        @self.command(name="lorebook_delete", help="Delete a lorebook entry")
+        async def lorebook_delete(ctx, key: str):
+            """Delete a lorebook entry."""
+            if self.lorebook_manager.delete_entry(key):
+                await ctx.send(f"Deleted lorebook entry: {key}")
+            else:
+                await ctx.send(f"Lorebook entry not found: {key}")
+        
         @self.command(name="help_bot", help="Show bot help")
         async def help_bot(ctx):
             """Show bot help information."""
@@ -283,6 +358,10 @@ FORMAT GUIDELINES:
 `!user_chars` - List saved user characters
 `!user_char <name>` - View a user character
 `!delete_user_char <name>` - Delete a user character
+`!lorebook_add <key> <content>` - Add/update lorebook entry
+`!lorebook_list` - List all lorebook entries
+`!lorebook_view <key>` - View a lorebook entry
+`!lorebook_delete <key>` - Delete a lorebook entry
 `!help_bot` - Show this help message
 
 **Character Name Feature:**
@@ -293,6 +372,12 @@ You can identify yourself as a character by using the format:
 Save descriptions for your characters using:
 `!update Alice: A brave warrior with long red hair and green eyes`
 The AI will use these descriptions for context.
+
+**Lorebook Feature:**
+Add world-building and lore information:
+`!lorebook_add "Kingdom of Aldoria" A vast kingdom... [keywords: kingdom, aldoria] [always_active]`
+- Use `[keywords: word1, word2]` to make entry appear when keywords are mentioned
+- Use `[always_active]` to include entry in all conversations
 
 **Formatting Guidelines:**
 - Use `"quotes"` for spoken dialogue: `!chat Alice: "Hello, how are you?"`

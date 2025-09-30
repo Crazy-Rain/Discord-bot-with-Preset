@@ -6,6 +6,7 @@ from config_manager import ConfigManager
 from preset_manager import PresetManager
 from character_manager import CharacterManager
 from user_characters_manager import UserCharactersManager
+from lorebook_manager import LorebookManager
 
 class WebServer:
     def __init__(self, config_manager: ConfigManager):
@@ -14,6 +15,7 @@ class WebServer:
         self.preset_manager = PresetManager()
         self.character_manager = CharacterManager()
         self.user_characters_manager = UserCharactersManager()
+        self.lorebook_manager = LorebookManager()
         
         self.setup_routes()
     
@@ -249,6 +251,70 @@ class WebServer:
                 
                 self.user_characters_manager.import_characters(characters_json)
                 return jsonify({"status": "success", "message": "User characters imported"})
+            except Exception as e:
+                return jsonify({"status": "error", "message": str(e)}), 400
+        
+        # Lorebook API endpoints
+        @self.app.route('/api/lorebook', methods=['GET'])
+        def list_lorebook_entries():
+            """List all lorebook entries."""
+            entries = self.lorebook_manager.get_all_entries()
+            return jsonify({"entries": entries})
+        
+        @self.app.route('/api/lorebook/<key>', methods=['GET'])
+        def get_lorebook_entry(key):
+            """Get a specific lorebook entry."""
+            entry = self.lorebook_manager.get_entry(key)
+            if entry:
+                return jsonify(entry)
+            return jsonify({"error": "Lorebook entry not found"}), 404
+        
+        @self.app.route('/api/lorebook/<key>', methods=['POST'])
+        def save_lorebook_entry(key):
+            """Save a lorebook entry."""
+            try:
+                data = request.json
+                content = data.get('content', '')
+                keywords = data.get('keywords', [])
+                always_active = data.get('always_active', False)
+                
+                self.lorebook_manager.add_or_update_entry(key, content, keywords, always_active)
+                return jsonify({"status": "success", "message": f"Lorebook entry '{key}' saved"})
+            except Exception as e:
+                return jsonify({"status": "error", "message": str(e)}), 400
+        
+        @self.app.route('/api/lorebook/<key>', methods=['DELETE'])
+        def delete_lorebook_entry(key):
+            """Delete a lorebook entry."""
+            try:
+                if self.lorebook_manager.delete_entry(key):
+                    return jsonify({"status": "success", "message": f"Lorebook entry '{key}' deleted"})
+                return jsonify({"status": "error", "message": "Lorebook entry not found"}), 404
+            except Exception as e:
+                return jsonify({"status": "error", "message": str(e)}), 400
+        
+        @self.app.route('/api/lorebook/export', methods=['GET'])
+        def export_lorebook():
+            """Export all lorebook entries as JSON."""
+            try:
+                lorebook_json = self.lorebook_manager.export_lorebook()
+                return jsonify({"lorebook": lorebook_json})
+            except Exception as e:
+                return jsonify({"error": str(e)}), 500
+        
+        @self.app.route('/api/lorebook/import', methods=['POST'])
+        def import_lorebook():
+            """Import lorebook entries from JSON."""
+            try:
+                data = request.json
+                lorebook_json = data.get('lorebook')
+                merge = data.get('merge', True)
+                
+                if not lorebook_json:
+                    return jsonify({"status": "error", "message": "Missing lorebook data"}), 400
+                
+                self.lorebook_manager.import_lorebook(lorebook_json, merge)
+                return jsonify({"status": "success", "message": "Lorebook imported"})
             except Exception as e:
                 return jsonify({"status": "error", "message": str(e)}), 400
     

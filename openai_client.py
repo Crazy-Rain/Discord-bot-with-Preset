@@ -4,25 +4,30 @@ from typing import Dict, Any, List, Optional
 
 class OpenAIClient:
     def __init__(self, api_key: str, base_url: str, model: str = "gpt-3.5-turbo"):
-        # Validate API key is not a placeholder
-        if not api_key or api_key in ["YOUR_API_KEY", ""]:
-            raise ValueError(
-                "API key is not configured. Please set a valid API key in the configuration. "
-                "You can configure it via the web interface at http://localhost:5000 or by editing config.json"
-            )
-        
-        self.client = OpenAI(
-            api_key=api_key,
-            base_url=base_url
-        )
+        # Store the API key even if it's a placeholder
+        # This allows the bot to start and be configured via web interface
+        self.api_key = api_key or "none"
         self.model = model
-        self.api_key = api_key
+        
+        # Only create the client if we have a valid API key
+        # Otherwise, defer client creation until a valid key is provided
+        if self.api_key and self.api_key not in ["YOUR_API_KEY", "", "none"]:
+            self.client = OpenAI(
+                api_key=api_key,
+                base_url=base_url
+            )
+        else:
+            # Create a dummy client - will be replaced when config is updated
+            self.client = OpenAI(
+                api_key="none",  # Placeholder to prevent errors
+                base_url=base_url
+            )
     
     def update_config(self, api_key: Optional[str] = None, base_url: Optional[str] = None, model: Optional[str] = None):
         """Update client configuration."""
         if api_key:
             # Validate API key is not a placeholder
-            if api_key in ["YOUR_API_KEY", ""]:
+            if api_key in ["YOUR_API_KEY", "", "none"]:
                 raise ValueError(
                     "API key is not configured. Please set a valid API key in the configuration."
                 )
@@ -40,6 +45,12 @@ class OpenAIClient:
         Returns:
             List of available model names
         """
+        # Check if API key is configured
+        if not self.api_key or self.api_key in ["YOUR_API_KEY", "", "none"]:
+            raise ValueError(
+                "API key is not configured. Please set a valid API key in the configuration."
+            )
+        
         try:
             models_response = self.client.models.list()
             return [model.id for model in models_response.data]
@@ -76,7 +87,7 @@ class OpenAIClient:
             Generated text response
         """
         # Check if API key is configured
-        if not self.api_key or self.api_key in ["YOUR_API_KEY", ""]:
+        if not self.api_key or self.api_key in ["YOUR_API_KEY", "", "none"]:
             raise ValueError(
                 "API key is not configured. Please set a valid API key in the configuration. "
                 "You can configure it via the web interface at http://localhost:5000 or by editing config.json"

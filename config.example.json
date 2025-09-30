@@ -1,7 +1,7 @@
 {
   "discord_token": "YOUR_DISCORD_BOT_TOKEN",
   "openai_config": {
-    "api_key": "YOUR_API_KEY",
+    "api_key": "none",
     "base_url": "https://api.openai.com/v1",
     "model": "gpt-3.5-turbo"
   },

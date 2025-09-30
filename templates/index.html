@@ -251,6 +251,7 @@
             <button class="tab" onclick="switchTab('presets')">Presets</button>
             <button class="tab" onclick="switchTab('characters')">Characters</button>
             <button class="tab" onclick="switchTab('user_characters')">User Characters</button>
+            <button class="tab" onclick="switchTab('lorebook')">Lorebook</button>
         </div>
         
         <!-- Configuration Tab -->
@@ -483,6 +484,59 @@
             <h3 style="margin-top: 30px;">Saved User Characters</h3>
             <div id="user-characters-list"></div>
         </div>
+        
+        <!-- Lorebook Tab -->
+        <div id="lorebook" class="tab-content">
+            <div id="lorebook-message" class="message"></div>
+            <h2>Lorebook - World Information</h2>
+            <p style="margin-bottom: 20px; color: #666;">Add world-building and lore information that the AI can use for context. Entries can be triggered by keywords or set to always be active.</p>
+            
+            <div class="form-group">
+                <label>Entry Key (Unique identifier)</label>
+                <input type="text" id="lorebook-key" placeholder="e.g., Kingdom of Aldoria, Magic System, Character Background">
+            </div>
+            
+            <div class="form-group">
+                <label>Content (Lore information)</label>
+                <textarea id="lorebook-content" placeholder="Describe the lore, world details, or information..." rows="6"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label>Keywords (comma-separated, optional)</label>
+                <input type="text" id="lorebook-keywords" placeholder="e.g., kingdom, aldoria, magic">
+                <small style="color: #666; display: block; margin-top: 5px;">Entry will appear when any keyword is mentioned in conversation</small>
+            </div>
+            
+            <div class="form-group">
+                <label style="display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" id="lorebook-always-active" style="width: auto; margin: 0;">
+                    <span>Always Active (Include in all conversations)</span>
+                </label>
+            </div>
+            
+            <button class="btn btn-primary" onclick="saveLorebookEntry()">Save Entry</button>
+            <button class="btn btn-secondary" onclick="clearLorebookForm()">Clear Form</button>
+            <button class="btn btn-success" onclick="exportLorebook()">Export All</button>
+            <button class="btn btn-secondary" onclick="showImportLorebook()">Import</button>
+            
+            <div id="import-lorebook-section" style="display: none; margin-top: 20px;">
+                <div class="form-group">
+                    <label>Import Lorebook (JSON)</label>
+                    <textarea id="import-lorebook-json" placeholder='{"Entry Key": {"key": "...", "content": "...", "keywords": [], "always_active": false}, ...}'></textarea>
+                </div>
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="lorebook-merge" checked style="width: auto; margin: 0;">
+                        <span>Merge with existing entries (uncheck to replace all)</span>
+                    </label>
+                </div>
+                <button class="btn btn-success" onclick="importLorebook()">Import</button>
+                <button class="btn btn-secondary" onclick="cancelImportLorebook()">Cancel</button>
+            </div>
+            
+            <h3 style="margin-top: 30px;">Lorebook Entries</h3>
+            <div id="lorebook-list"></div>
+        </div>
     </div>
     
     <script>
@@ -503,6 +557,8 @@
                 loadCharactersList();
             } else if (tabName === 'user_characters') {
                 loadUserCharactersList();
+            } else if (tabName === 'lorebook') {
+                loadLorebookList();
             }
         }
         
@@ -1125,6 +1181,181 @@
                 loadUserCharactersList();
             } catch (error) {
                 showMessage('user-characters-message', 'Error importing user characters: ' + error.message, 'error');
+            }
+        }
+        
+        // Lorebook Management
+        async function loadLorebookList() {
+            try {
+                const response = await fetch('/api/lorebook');
+                const data = await response.json();
+                const entries = data.entries || {};
+                
+                const listDiv = document.getElementById('lorebook-list');
+                listDiv.innerHTML = '';
+                
+                if (Object.keys(entries).length === 0) {
+                    listDiv.innerHTML = '<p style="color: #666;">No lorebook entries saved yet.</p>';
+                    return;
+                }
+                
+                for (const [key, entry] of Object.entries(entries)) {
+                    const entryDiv = document.createElement('div');
+                    entryDiv.className = 'item';
+                    
+                    let statusText = '';
+                    if (entry.always_active) {
+                        statusText += '<span style="color: #28a745; font-weight: bold;">● Always Active</span>';
+                    }
+                    if (entry.keywords && entry.keywords.length > 0) {
+                        statusText += (statusText ? ' | ' : '') + `Keywords: ${entry.keywords.join(', ')}`;
+                    }
+                    
+                    entryDiv.innerHTML = `
+                        <div>
+                            <strong>${key}</strong>
+                            ${statusText ? `<div style="font-size: 0.9em; color: #666; margin-top: 4px;">${statusText}</div>` : ''}
+                            <div style="margin-top: 8px; color: #333;">${entry.content.substring(0, 150)}${entry.content.length > 150 ? '...' : ''}</div>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-sm btn-secondary" onclick="editLorebookEntry('${key}')">Edit</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteLorebookEntry('${key}')">Delete</button>
+                        </div>
+                    `;
+                    listDiv.appendChild(entryDiv);
+                }
+            } catch (error) {
+                showMessage('lorebook-message', 'Error loading lorebook: ' + error.message, 'error');
+            }
+        }
+        
+        async function saveLorebookEntry() {
+            const key = document.getElementById('lorebook-key').value.trim();
+            const content = document.getElementById('lorebook-content').value.trim();
+            const keywordsStr = document.getElementById('lorebook-keywords').value.trim();
+            const alwaysActive = document.getElementById('lorebook-always-active').checked;
+            
+            if (!key || !content) {
+                showMessage('lorebook-message', 'Please enter both key and content', 'error');
+                return;
+            }
+            
+            const keywords = keywordsStr ? keywordsStr.split(',').map(k => k.trim()).filter(k => k) : [];
+            
+            try {
+                const response = await fetch(`/api/lorebook/${encodeURIComponent(key)}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        content: content,
+                        keywords: keywords,
+                        always_active: alwaysActive
+                    })
+                });
+                
+                const result = await response.json();
+                showMessage('lorebook-message', result.message, result.status === 'success' ? 'success' : 'error');
+                clearLorebookForm();
+                loadLorebookList();
+            } catch (error) {
+                showMessage('lorebook-message', 'Error saving entry: ' + error.message, 'error');
+            }
+        }
+        
+        async function editLorebookEntry(key) {
+            try {
+                const response = await fetch(`/api/lorebook/${encodeURIComponent(key)}`);
+                const entry = await response.json();
+                
+                document.getElementById('lorebook-key').value = entry.key;
+                document.getElementById('lorebook-content').value = entry.content;
+                document.getElementById('lorebook-keywords').value = (entry.keywords || []).join(', ');
+                document.getElementById('lorebook-always-active').checked = entry.always_active || false;
+                
+                // Scroll to top
+                document.getElementById('lorebook').scrollTop = 0;
+            } catch (error) {
+                showMessage('lorebook-message', 'Error loading entry: ' + error.message, 'error');
+            }
+        }
+        
+        async function deleteLorebookEntry(key) {
+            if (!confirm(`Delete lorebook entry "${key}"?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/lorebook/${encodeURIComponent(key)}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                showMessage('lorebook-message', result.message, result.status === 'success' ? 'success' : 'error');
+                loadLorebookList();
+            } catch (error) {
+                showMessage('lorebook-message', 'Error deleting entry: ' + error.message, 'error');
+            }
+        }
+        
+        function clearLorebookForm() {
+            document.getElementById('lorebook-key').value = '';
+            document.getElementById('lorebook-content').value = '';
+            document.getElementById('lorebook-keywords').value = '';
+            document.getElementById('lorebook-always-active').checked = false;
+        }
+        
+        async function exportLorebook() {
+            try {
+                const response = await fetch('/api/lorebook/export');
+                const data = await response.json();
+                
+                const blob = new Blob([data.lorebook], {type: 'application/json'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'lorebook.json';
+                a.click();
+                
+                showMessage('lorebook-message', 'Lorebook exported successfully', 'success');
+            } catch (error) {
+                showMessage('lorebook-message', 'Error exporting lorebook: ' + error.message, 'error');
+            }
+        }
+        
+        function showImportLorebook() {
+            document.getElementById('import-lorebook-section').style.display = 'block';
+        }
+        
+        function cancelImportLorebook() {
+            document.getElementById('import-lorebook-section').style.display = 'none';
+            document.getElementById('import-lorebook-json').value = '';
+        }
+        
+        async function importLorebook() {
+            const lorebookJson = document.getElementById('import-lorebook-json').value;
+            const merge = document.getElementById('lorebook-merge').checked;
+            
+            if (!lorebookJson) {
+                showMessage('lorebook-message', 'Please enter JSON data', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/lorebook/import', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        lorebook: lorebookJson,
+                        merge: merge
+                    })
+                });
+                
+                const result = await response.json();
+                showMessage('lorebook-message', result.message, result.status === 'success' ? 'success' : 'error');
+                cancelImportLorebook();
+                loadLorebookList();
+            } catch (error) {
+                showMessage('lorebook-message', 'Error importing lorebook: ' + error.message, 'error');
             }
         }
         
