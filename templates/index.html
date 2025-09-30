@@ -250,6 +250,7 @@
             <button class="tab active" onclick="switchTab('config')">Configuration</button>
             <button class="tab" onclick="switchTab('presets')">Presets</button>
             <button class="tab" onclick="switchTab('characters')">Characters</button>
+            <button class="tab" onclick="switchTab('user_characters')">User Characters</button>
         </div>
         
         <!-- Configuration Tab -->
@@ -448,6 +449,40 @@
             <h3 style="margin-top: 30px;">Available Characters</h3>
             <div id="characters-list"></div>
         </div>
+        
+        <!-- User Characters Tab -->
+        <div id="user_characters" class="tab-content">
+            <div id="user-characters-message" class="message"></div>
+            <h2>Saved Character Information</h2>
+            <p style="margin-bottom: 20px; color: #666;">Save descriptions for user characters that will be used in roleplay. The AI will use these descriptions for context when those character names are mentioned.</p>
+            
+            <div class="form-group">
+                <label>Character Name</label>
+                <input type="text" id="user-character-name" placeholder="Enter character name (e.g., Alice, Bob)">
+            </div>
+            
+            <div class="form-group">
+                <label>Description (Physical appearance and traits)</label>
+                <textarea id="user-character-description" placeholder="A brave warrior with long red hair, green eyes, wearing silver armor. Known for her courage and compassion..." rows="5"></textarea>
+            </div>
+            
+            <button class="btn btn-primary" onclick="saveUserCharacter()">Save User Character</button>
+            <button class="btn btn-secondary" onclick="loadUserCharacter()">Load User Character</button>
+            <button class="btn btn-success" onclick="exportUserCharacters()">Export All</button>
+            <button class="btn btn-secondary" onclick="showImportUserCharacters()">Import</button>
+            
+            <div id="import-user-characters-section" style="display: none; margin-top: 20px;">
+                <div class="form-group">
+                    <label>Import User Characters (JSON)</label>
+                    <textarea id="import-user-characters-json" placeholder='{"Alice": {"name": "Alice", "description": "..."}, ...}'></textarea>
+                </div>
+                <button class="btn btn-success" onclick="importUserCharacters()">Import</button>
+                <button class="btn btn-secondary" onclick="cancelImportUserCharacters()">Cancel</button>
+            </div>
+            
+            <h3 style="margin-top: 30px;">Saved User Characters</h3>
+            <div id="user-characters-list"></div>
+        </div>
     </div>
     
     <script>
@@ -466,6 +501,8 @@
                 loadPresetsList();
             } else if (tabName === 'characters') {
                 loadCharactersList();
+            } else if (tabName === 'user_characters') {
+                loadUserCharactersList();
             }
         }
         
@@ -907,6 +944,187 @@
                 loadCharactersList();
             } catch (error) {
                 showMessage('characters-message', 'Error importing character: ' + error.message, 'error');
+            }
+        }
+        
+        // User Characters Management
+        async function loadUserCharactersList() {
+            try {
+                const response = await fetch('/api/user_characters');
+                const data = await response.json();
+                const characters = data.characters;
+                
+                const listEl = document.getElementById('user-characters-list');
+                listEl.innerHTML = '';
+                
+                const characterNames = Object.keys(characters);
+                if (characterNames.length === 0) {
+                    listEl.innerHTML = '<p style="color: #999;">No user characters saved yet.</p>';
+                    return;
+                }
+                
+                characterNames.forEach(name => {
+                    const charData = characters[name];
+                    const item = document.createElement('div');
+                    item.style.cssText = 'background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #667eea;';
+                    
+                    const description = charData.description.length > 150 ? 
+                        charData.description.substring(0, 150) + '...' : 
+                        charData.description;
+                    
+                    item.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div style="flex: 1;">
+                                <strong style="font-size: 1.1em; color: #2c3e50;">${name}</strong>
+                                <p style="margin: 5px 0 0 0; color: #666;">${description}</p>
+                            </div>
+                            <div style="display: flex; gap: 5px;">
+                                <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 0.9em;" onclick="editUserCharacter('${name}')">Edit</button>
+                                <button class="btn btn-danger" style="padding: 5px 10px; font-size: 0.9em;" onclick="deleteUserCharacter('${name}')">Delete</button>
+                            </div>
+                        </div>
+                    `;
+                    listEl.appendChild(item);
+                });
+            } catch (error) {
+                showMessage('user-characters-message', 'Error loading user characters: ' + error.message, 'error');
+            }
+        }
+        
+        async function saveUserCharacter() {
+            const name = document.getElementById('user-character-name').value;
+            const description = document.getElementById('user-character-description').value;
+            
+            if (!name || !description) {
+                showMessage('user-characters-message', 'Please enter both name and description', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/user_characters/${name}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({description})
+                });
+                
+                const result = await response.json();
+                showMessage('user-characters-message', result.message, result.status === 'success' ? 'success' : 'error');
+                loadUserCharactersList();
+                
+                // Clear form
+                document.getElementById('user-character-name').value = '';
+                document.getElementById('user-character-description').value = '';
+            } catch (error) {
+                showMessage('user-characters-message', 'Error saving user character: ' + error.message, 'error');
+            }
+        }
+        
+        async function loadUserCharacter() {
+            const name = document.getElementById('user-character-name').value;
+            
+            if (!name) {
+                showMessage('user-characters-message', 'Please enter a character name', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/user_characters/${name}`);
+                if (!response.ok) {
+                    showMessage('user-characters-message', 'User character not found', 'error');
+                    return;
+                }
+                
+                const charData = await response.json();
+                document.getElementById('user-character-name').value = charData.name;
+                document.getElementById('user-character-description').value = charData.description;
+                showMessage('user-characters-message', 'User character loaded', 'success');
+            } catch (error) {
+                showMessage('user-characters-message', 'Error loading user character: ' + error.message, 'error');
+            }
+        }
+        
+        async function editUserCharacter(name) {
+            try {
+                const response = await fetch(`/api/user_characters/${name}`);
+                const charData = await response.json();
+                
+                document.getElementById('user-character-name').value = charData.name;
+                document.getElementById('user-character-description').value = charData.description;
+                
+                // Scroll to form
+                document.getElementById('user-character-name').scrollIntoView({ behavior: 'smooth' });
+                showMessage('user-characters-message', 'Editing user character: ' + name, 'success');
+            } catch (error) {
+                showMessage('user-characters-message', 'Error loading user character: ' + error.message, 'error');
+            }
+        }
+        
+        async function deleteUserCharacter(name) {
+            if (!confirm(`Delete user character "${name}"?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/user_characters/${name}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                showMessage('user-characters-message', result.message, result.status === 'success' ? 'success' : 'error');
+                loadUserCharactersList();
+            } catch (error) {
+                showMessage('user-characters-message', 'Error deleting user character: ' + error.message, 'error');
+            }
+        }
+        
+        async function exportUserCharacters() {
+            try {
+                const response = await fetch('/api/user_characters/export');
+                const data = await response.json();
+                
+                const blob = new Blob([data.characters], {type: 'application/json'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'user_characters.json';
+                a.click();
+                
+                showMessage('user-characters-message', 'User characters exported', 'success');
+            } catch (error) {
+                showMessage('user-characters-message', 'Error exporting user characters: ' + error.message, 'error');
+            }
+        }
+        
+        function showImportUserCharacters() {
+            document.getElementById('import-user-characters-section').style.display = 'block';
+        }
+        
+        function cancelImportUserCharacters() {
+            document.getElementById('import-user-characters-section').style.display = 'none';
+            document.getElementById('import-user-characters-json').value = '';
+        }
+        
+        async function importUserCharacters() {
+            const charactersJson = document.getElementById('import-user-characters-json').value;
+            
+            if (!charactersJson) {
+                showMessage('user-characters-message', 'Please enter JSON data', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/user_characters/import', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({characters: charactersJson})
+                });
+                
+                const result = await response.json();
+                showMessage('user-characters-message', result.message, result.status === 'success' ? 'success' : 'error');
+                cancelImportUserCharacters();
+                loadUserCharactersList();
+            } catch (error) {
+                showMessage('user-characters-message', 'Error importing user characters: ' + error.message, 'error');
             }
         }
         
