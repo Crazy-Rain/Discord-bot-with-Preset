@@ -87,7 +87,7 @@ This bot works with any OpenAI-compatible API endpoint:
 ## 🎮 Discord Commands
 
 - `!chat <message>` - Chat with the AI using current preset and character
-- `!clear` - Clear conversation history for the current channel
+- `!clear` - Clear conversation history and character names for the current channel
 - `!preset <name>` - Load a specific preset
 - `!presets` - List all available presets
 - `!character <name>` - Load a specific character card
@@ -96,6 +96,24 @@ This bot works with any OpenAI-compatible API endpoint:
 - `!swipe_left` - Navigate to the previous alternative response
 - `!swipe_right` - Navigate to the next alternative response
 - `!help_bot` - Show help information
+
+### 👥 Character Name Tracking
+
+Users can identify themselves as characters by using the format `CharacterName: message`. This helps the AI understand who is speaking in roleplay scenarios:
+
+```
+!chat Alice: Hello, how are you today?
+!chat Bob: *waves* Hi everyone!
+!chat Charlie: I'm doing great, thanks for asking!
+```
+
+The bot will:
+- Track all character names used in the conversation
+- Include character context in the AI's system prompt
+- Ensure the AI doesn't pretend to be these characters
+- Maintain character names until `!clear` is used
+
+You can also use `*action*` to describe actions within the message.
 
 ## 🎨 Preset System
 
@@ -223,6 +241,13 @@ Discord-bot-with-Preset/
 - Verify your API key and base URL are correct
 - Check if the API endpoint is accessible
 - Ensure the model name is valid for your endpoint
+
+### Web interface not accessible / 404 errors
+- The web server takes a few seconds to start - wait for the "✅ Web interface should now be accessible" message
+- Check if port 5000 is available or change the port in `config.json`
+- Try accessing via `http://127.0.0.1:5000` instead of `localhost`
+- Verify firewall isn't blocking the port
+- If you see Flask startup messages, the server is running - just wait 2-3 seconds after startup
 
 ### Web interface not accessible
 - Check if port 5000 is available

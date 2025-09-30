@@ -1,7 +1,8 @@
 """Discord bot with OpenAI integration and preset support."""
 import discord
 from discord.ext import commands
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
+import re
 from config_manager import ConfigManager
 from preset_manager import PresetManager
 from character_manager import CharacterManager
@@ -37,8 +38,26 @@ class DiscordBot(commands.Bot):
         self.response_alternatives: Dict[int, List[List[str]]] = {}
         self.current_alternative_index: Dict[int, int] = {}
         
+        # Track character names per channel for context
+        self.character_names: Dict[int, List[str]] = {}
+        
         # Add commands
         self.add_bot_commands()
+    
+    def parse_character_message(self, message: str) -> Tuple[Optional[str], str]:
+        """Parse a message for character name format: 'CharacterName:message'.
+        
+        Returns:
+            Tuple of (character_name, actual_message). If no character name is found,
+            character_name will be None.
+        """
+        # Match pattern: CharacterName:message (with optional spaces around colon)
+        match = re.match(r'^([^:]+?)\s*:\s*(.+)$', message.strip(), re.DOTALL)
+        if match:
+            character_name = match.group(1).strip()
+            actual_message = match.group(2).strip()
+            return character_name, actual_message
+        return None, message
     
     def add_bot_commands(self):
         """Add bot commands."""
@@ -51,20 +70,41 @@ class DiscordBot(commands.Bot):
             # Initialize conversation history if needed
             if channel_id not in self.conversations:
                 self.conversations[channel_id] = []
+            if channel_id not in self.character_names:
+                self.character_names[channel_id] = []
+            
+            # Parse character name from message
+            character_name, actual_message = self.parse_character_message(message)
+            
+            # Track character name if provided
+            if character_name:
+                if character_name not in self.character_names[channel_id]:
+                    self.character_names[channel_id].append(character_name)
             
             # Get system prompt
             system_prompt = self.get_system_prompt()
             
+            # Build enhanced system prompt with character context
+            enhanced_system_prompt = system_prompt
+            if self.character_names[channel_id]:
+                character_list = ", ".join(self.character_names[channel_id])
+                enhanced_system_prompt = f"{system_prompt}\n\nIMPORTANT: In this conversation, users will identify themselves as characters by prefixing their messages with 'CharacterName:'. The following character names are being used by users: {character_list}. You should NEVER pretend to be these characters or respond as if you are them. You are a separate entity having a conversation with these characters."
+            
             # Build messages
             messages = []
-            if system_prompt:
-                messages.append({"role": "system", "content": system_prompt})
+            if enhanced_system_prompt:
+                messages.append({"role": "system", "content": enhanced_system_prompt})
             
             # Add conversation history
             messages.extend(self.conversations[channel_id])
             
-            # Add user message
-            messages.append({"role": "user", "content": message})
+            # Add user message (use the actual message content for conversation)
+            # If character name was provided, format it to show who is speaking
+            if character_name:
+                formatted_message = f"{character_name}: {actual_message}"
+                messages.append({"role": "user", "content": formatted_message})
+            else:
+                messages.append({"role": "user", "content": actual_message})
             
             # Get preset parameters
             preset = self.preset_manager.get_current_preset()
@@ -81,8 +121,11 @@ class DiscordBot(commands.Bot):
                         presence_penalty=preset.get("presence_penalty", 0.0)
                     )
                 
-                # Update conversation history
-                self.conversations[channel_id].append({"role": "user", "content": message})
+                # Update conversation history with formatted message
+                if character_name:
+                    self.conversations[channel_id].append({"role": "user", "content": f"{character_name}: {actual_message}"})
+                else:
+                    self.conversations[channel_id].append({"role": "user", "content": actual_message})
                 self.conversations[channel_id].append({"role": "assistant", "content": response})
                 
                 # Store response for swipe functionality (initialize with current response)
@@ -118,7 +161,9 @@ class DiscordBot(commands.Bot):
                 self.response_alternatives[channel_id] = []
             if channel_id in self.current_alternative_index:
                 del self.current_alternative_index[channel_id]
-            await ctx.send("Conversation history cleared!")
+            if channel_id in self.character_names:
+                self.character_names[channel_id] = []
+            await ctx.send("Conversation history and character names cleared!")
         
         @self.command(name="preset", help="Load a preset")
         async def preset(ctx, preset_name: str):
@@ -166,7 +211,7 @@ class DiscordBot(commands.Bot):
             help_text = """
 **Discord Bot Commands:**
 `!chat <message>` - Chat with the AI
-`!clear` - Clear conversation history
+`!clear` - Clear conversation history and character names
 `!preset <name>` - Load a preset
 `!presets` - List available presets
 `!character <name>` - Load a character card
@@ -175,6 +220,15 @@ class DiscordBot(commands.Bot):
 `!swipe_left` - Show previous alternative response
 `!swipe_right` - Show next alternative response
 `!help_bot` - Show this help message
+
+**Character Name Feature:**
+You can identify yourself as a character by using the format:
+`!chat CharacterName: message`
+Example: `!chat Alice: Hello, how are you today?`
+You can also use `*action*` to describe actions:
+`!chat Bob: *waves* Hello everyone!`
+
+The bot will track character names and understand who is speaking.
 
 **Configuration:**
 Visit http://localhost:5000 to configure the bot via web interface.
