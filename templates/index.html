@@ -276,7 +276,12 @@
                 
                 <div class="form-group">
                     <label>Model</label>
-                    <input type="text" id="model" placeholder="gpt-3.5-turbo">
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="model" list="model-list" placeholder="gpt-3.5-turbo" style="flex: 1;">
+                        <datalist id="model-list"></datalist>
+                        <button onclick="pullModels()" class="btn-secondary" style="white-space: nowrap;">Pull Models</button>
+                    </div>
+                    <div id="models-message" class="message" style="margin-top: 5px; display: none;"></div>
                 </div>
             </div>
             
@@ -543,6 +548,48 @@
                 showMessage('config-message', result.message, result.status === 'success' ? 'success' : 'error');
             } catch (error) {
                 showMessage('config-message', 'Error saving configuration: ' + error.message, 'error');
+            }
+        }
+        
+        async function pullModels() {
+            try {
+                const apiKey = document.getElementById('api-key').value;
+                const baseUrl = document.getElementById('base-url').value;
+                
+                if (!apiKey || !baseUrl) {
+                    showMessage('models-message', 'Please enter API key and Base URL first', 'error');
+                    return;
+                }
+                
+                showMessage('models-message', 'Fetching models...', 'success');
+                
+                const response = await fetch('/api/models', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        api_key: apiKey,
+                        base_url: baseUrl
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    const modelList = document.getElementById('model-list');
+                    modelList.innerHTML = '';
+                    
+                    result.models.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model;
+                        modelList.appendChild(option);
+                    });
+                    
+                    showMessage('models-message', `Found ${result.models.length} models`, 'success');
+                } else {
+                    showMessage('models-message', result.message, 'error');
+                }
+            } catch (error) {
+                showMessage('models-message', 'Error fetching models: ' + error.message, 'error');
             }
         }
         

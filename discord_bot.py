@@ -88,7 +88,14 @@ class DiscordBot(commands.Bot):
             enhanced_system_prompt = system_prompt
             if self.character_names[channel_id]:
                 character_list = ", ".join(self.character_names[channel_id])
-                enhanced_system_prompt = f"{system_prompt}\n\nIMPORTANT: In this conversation, users will identify themselves as characters by prefixing their messages with 'CharacterName:'. The following character names are being used by users: {character_list}. You should NEVER pretend to be these characters or respond as if you are them. You are a separate entity having a conversation with these characters."
+                enhanced_system_prompt = f"""{system_prompt}
+
+IMPORTANT: In this conversation, users will identify themselves as characters by prefixing their messages with 'CharacterName:'. The following character names are being used by users: {character_list}. You should NEVER pretend to be these characters or respond as if you are them. You are a separate entity having a conversation with these characters.
+
+FORMAT GUIDELINES:
+- Text in "quotes" represents spoken dialogue by the character
+- Text in *asterisks* represents actions performed by the character
+- Text without quotes or asterisks is descriptive text or additional context"""
             
             # Build messages
             messages = []
@@ -224,9 +231,17 @@ class DiscordBot(commands.Bot):
 **Character Name Feature:**
 You can identify yourself as a character by using the format:
 `!chat CharacterName: message`
-Example: `!chat Alice: Hello, how are you today?`
-You can also use `*action*` to describe actions:
-`!chat Bob: *waves* Hello everyone!`
+
+**Formatting Guidelines:**
+- Use `"quotes"` for spoken dialogue: `!chat Alice: "Hello, how are you?"`
+- Use `*asterisks*` for actions: `!chat Bob: *waves* "Hi everyone!"`
+- Text without quotes or asterisks is descriptive or contextual
+
+**Examples:**
+`!chat Alice: "Hello!" *waves enthusiastically*`
+`!chat Bob: *enters the room* "Good morning everyone!"`
+`!chat Charlie: Looks around curiously "Where is everyone?"`
+
 
 The bot will track character names and understand who is speaking.
 

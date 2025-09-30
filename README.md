@@ -99,12 +99,28 @@ This bot works with any OpenAI-compatible API endpoint:
 
 ### 👥 Character Name Tracking
 
-Users can identify themselves as characters by using the format `CharacterName: message`. This helps the AI understand who is speaking in roleplay scenarios:
+Users can identify themselves as characters by using the format `CharacterName: message`. This helps the AI understand who is speaking in roleplay scenarios.
 
+**Formatting Guidelines:**
+
+1. **Spoken Dialogue** - Use `"quotes"` for words spoken by characters:
+   ```
+   !chat Alice: "Hello, how are you today?"
+   ```
+
+2. **Actions** - Use `*asterisks*` for actions performed by characters:
+   ```
+   !chat Bob: *waves* "Hi everyone!"
+   ```
+
+3. **Descriptive Text** - Text without quotes or asterisks is descriptive or contextual:
+   ```
+   !chat Charlie: Looks around thoughtfully "I'm doing great, thanks!"
+   ```
+
+**Combined Example:**
 ```
-!chat Alice: Hello, how are you today?
-!chat Bob: *waves* Hi everyone!
-!chat Charlie: I'm doing great, thanks for asking!
+!chat Sarah: *enters the room* "Good morning!" She smiles warmly at everyone
 ```
 
 The bot will:
@@ -112,8 +128,7 @@ The bot will:
 - Include character context in the AI's system prompt
 - Ensure the AI doesn't pretend to be these characters
 - Maintain character names until `!clear` is used
-
-You can also use `*action*` to describe actions within the message.
+- Understand the difference between dialogue, actions, and descriptions
 
 ## 🎨 Preset System
 

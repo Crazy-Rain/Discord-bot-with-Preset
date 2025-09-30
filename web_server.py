@@ -51,6 +51,28 @@ class WebServer:
             except Exception as e:
                 return jsonify({"status": "error", "message": str(e)}), 400
         
+        @self.app.route('/api/models', methods=['POST'])
+        def fetch_models():
+            """Fetch available models from the configured API endpoint."""
+            try:
+                data = request.json
+                api_key = data.get('api_key')
+                base_url = data.get('base_url')
+                
+                if not api_key or not base_url:
+                    return jsonify({"status": "error", "message": "API key and base URL are required"}), 400
+                
+                # Create a temporary client to fetch models
+                from openai_client import OpenAIClient
+                temp_client = OpenAIClient(api_key=api_key, base_url=base_url)
+                models = temp_client.list_models()
+                
+                return jsonify({"status": "success", "models": models})
+            except ValueError as e:
+                return jsonify({"status": "error", "message": str(e)}), 400
+            except Exception as e:
+                return jsonify({"status": "error", "message": f"Failed to fetch models: {str(e)}"}), 400
+        
         @self.app.route('/api/presets', methods=['GET'])
         def list_presets():
             """List all presets."""

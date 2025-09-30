@@ -91,8 +91,48 @@ What precisely is the nature of this mystery?
 
 Response:
 ```
-Conversation history cleared!
+Conversation history and character names cleared!
 ```
+
+#### Character Name Tracking (Roleplay)
+
+You can roleplay by identifying yourself as a character using the format `CharacterName: message`.
+
+**Formatting Guidelines:**
+- Use `"quotes"` for spoken dialogue
+- Use `*asterisks*` for actions
+- Plain text for descriptions
+
+Example conversation:
+```
+!chat Alice: "Hello! Is anyone here?"
+```
+
+Response:
+```
+Hello Alice! Yes, I'm here. How can I help you today?
+```
+
+```
+!chat Bob: *walks in* "Hey Alice! I just arrived."
+```
+
+Response:
+```
+Welcome, Bob! I see you've just joined Alice. How are you both doing?
+```
+
+```
+!chat Alice: *turns to Bob* "We're planning an adventure." She pulls out a map
+```
+
+Response:
+```
+Oh, an adventure! That sounds exciting! What kind of adventure are you two planning? 
+I can see you have a map there - where are you headed?
+```
+
+The bot will track character names (Alice, Bob) and ensure it doesn't pretend to be them.
 
 #### Generate Alternative Responses (Swipe)
 ```

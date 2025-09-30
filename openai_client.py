@@ -4,20 +4,53 @@ from typing import Dict, Any, List, Optional
 
 class OpenAIClient:
     def __init__(self, api_key: str, base_url: str, model: str = "gpt-3.5-turbo"):
+        # Validate API key is not a placeholder
+        if not api_key or api_key in ["YOUR_API_KEY", ""]:
+            raise ValueError(
+                "API key is not configured. Please set a valid API key in the configuration. "
+                "You can configure it via the web interface at http://localhost:5000 or by editing config.json"
+            )
+        
         self.client = OpenAI(
             api_key=api_key,
             base_url=base_url
         )
         self.model = model
+        self.api_key = api_key
     
     def update_config(self, api_key: Optional[str] = None, base_url: Optional[str] = None, model: Optional[str] = None):
         """Update client configuration."""
         if api_key:
+            # Validate API key is not a placeholder
+            if api_key in ["YOUR_API_KEY", ""]:
+                raise ValueError(
+                    "API key is not configured. Please set a valid API key in the configuration."
+                )
             self.client.api_key = api_key
+            self.api_key = api_key
         if base_url:
             self.client.base_url = base_url
         if model:
             self.model = model
+    
+    def list_models(self) -> List[str]:
+        """
+        Fetch available models from the OpenAI-compatible API.
+        
+        Returns:
+            List of available model names
+        """
+        try:
+            models_response = self.client.models.list()
+            return [model.id for model in models_response.data]
+        except Exception as e:
+            error_msg = str(e)
+            if "401" in error_msg or "invalid_api_key" in error_msg:
+                raise Exception(
+                    f"API authentication failed. Please verify your API key is correct. "
+                    f"Original error: {error_msg}"
+                )
+            raise Exception(f"Error fetching models from API: {error_msg}")
     
     async def chat_completion(
         self, 
@@ -42,6 +75,13 @@ class OpenAIClient:
         Returns:
             Generated text response
         """
+        # Check if API key is configured
+        if not self.api_key or self.api_key in ["YOUR_API_KEY", ""]:
+            raise ValueError(
+                "API key is not configured. Please set a valid API key in the configuration. "
+                "You can configure it via the web interface at http://localhost:5000 or by editing config.json"
+            )
+        
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -55,4 +95,12 @@ class OpenAIClient:
             
             return response.choices[0].message.content
         except Exception as e:
-            raise Exception(f"Error calling OpenAI API: {str(e)}")
+            # Provide more helpful error message for API key issues
+            error_msg = str(e)
+            if "401" in error_msg or "invalid_api_key" in error_msg or "Incorrect API key" in error_msg:
+                raise Exception(
+                    f"API authentication failed. Please verify your API key is correct. "
+                    f"You can update it via the web interface at http://localhost:5000. "
+                    f"Original error: {error_msg}"
+                )
+            raise Exception(f"Error calling OpenAI-compatible API: {error_msg}")
