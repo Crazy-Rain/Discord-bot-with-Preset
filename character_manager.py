@@ -70,7 +70,8 @@ class CharacterManager:
             return ""
         
         # Support multiple character card formats
-        if "system_prompt" in self.current_character:
+        # Check if custom system_prompt is provided and not empty
+        if "system_prompt" in self.current_character and self.current_character["system_prompt"]:
             return self.current_character["system_prompt"]
         elif "description" in self.current_character:
             name = self.current_character.get("name", "Assistant")
