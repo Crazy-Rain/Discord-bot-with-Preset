@@ -1,0 +1,31 @@
+{
+  "TestEntry": {
+    "key": "TestEntry",
+    "content": "This is a test lorebook entry",
+    "keywords": [
+      "test",
+      "example"
+    ],
+    "always_active": false
+  },
+  "Magic System": {
+    "key": "Magic System",
+    "content": "Magic requires mana crystals and can only be used by those with the Gift.",
+    "keywords": [
+      "magic",
+      "spell",
+      "mana"
+    ],
+    "always_active": true
+  },
+  "Kingdom of Aldoria": {
+    "key": "Kingdom of Aldoria",
+    "content": "A vast kingdom ruled by King Aldric with a crystal tower at its center.",
+    "keywords": [
+      "kingdom",
+      "aldoria",
+      "king"
+    ],
+    "always_active": false
+  }
+}

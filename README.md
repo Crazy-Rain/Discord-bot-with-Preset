@@ -9,8 +9,9 @@ A feature-rich Discord bot with OpenAI-compatible API integration, preset manage
 - 🎨 **Preset System** - Create, save, import/export presets with custom parameters (temperature, top_p, etc.)
 - 👤 **Character Cards** - Support for character cards with personality, scenarios, and custom system prompts
 - 👥 **User Character Descriptions** - Save and manage descriptions for user characters in roleplay scenarios
-- 🌐 **Web Configuration Interface** - Beautiful web UI to manage all settings, presets, and characters
-- 💾 **Import/Export** - Full import/export functionality for presets, character cards, and user characters
+- 📚 **Lorebook System** - Add world-building and lore information that's contextually included (like SillyTavern)
+- 🌐 **Web Configuration Interface** - Beautiful web UI to manage all settings, presets, characters, and lorebook
+- 💾 **Import/Export** - Full import/export functionality for presets, character cards, user characters, and lorebook
 - 🔄 **Swipe Functionality** - Generate and navigate through alternative AI responses (like SillyTavern)
 - 📊 **Extended Token Limits** - Support for up to 200,000 context tokens with separate response length control
 
@@ -265,6 +266,7 @@ Discord-bot-with-Preset/
 ├── preset_manager.py            # Preset management
 ├── character_manager.py         # Character card management
 ├── user_characters_manager.py   # User character descriptions management
+├── lorebook_manager.py          # Lorebook management
 ├── web_server.py                # Flask web server
 ├── templates/
 │   └── index.html              # Web UI
@@ -276,13 +278,29 @@ Discord-bot-with-Preset/
 │   └── luna.json
 ├── user_characters/            # User character descriptions storage
 │   └── user_characters.json
+├── lorebook/                   # Lorebook storage
+│   └── lorebook.json
 ├── config.json                 # Configuration (created from example)
 ├── config.example.json         # Example configuration
 ├── requirements.txt            # Python dependencies
+├── LOREBOOK_GUIDE.md           # Lorebook feature guide
+├── USER_CHARACTERS_GUIDE.md    # User characters guide
 └── README.md                  # This file
 ```
 
+## 📚 Documentation
+
+- **[Lorebook Guide](LOREBOOK_GUIDE.md)** - Complete guide to using the lorebook feature
+- **[User Characters Guide](USER_CHARACTERS_GUIDE.md)** - Guide for user character descriptions
+- **[Examples](EXAMPLES.md)** - Usage examples and common scenarios
+- **[Setup Guide](SETUP.md)** - Detailed setup instructions
+
 ## 🔧 Troubleshooting
+
+### API Key Configuration
+- The bot will now start even without a valid API key configured
+- You can configure the API key via the web interface at `http://localhost:5000`
+- The API key is validated only when making actual API calls, not during initialization
 
 ### Bot won't start
 - Ensure `config.json` has valid Discord token
