@@ -33,6 +33,10 @@ class DiscordBot(commands.Bot):
         # Conversation history per channel
         self.conversations: Dict[int, List[Dict[str, str]]] = {}
         
+        # Store alternative responses for swipe functionality
+        self.response_alternatives: Dict[int, List[List[str]]] = {}
+        self.current_alternative_index: Dict[int, int] = {}
+        
         # Add commands
         self.add_bot_commands()
     
@@ -71,7 +75,7 @@ class DiscordBot(commands.Bot):
                     response = await self.openai_client.chat_completion(
                         messages=messages,
                         temperature=preset.get("temperature", 0.7),
-                        max_tokens=preset.get("max_tokens", 2000),
+                        max_tokens=preset.get("max_response_length", preset.get("max_tokens", 2000)),
                         top_p=preset.get("top_p", 1.0),
                         frequency_penalty=preset.get("frequency_penalty", 0.0),
                         presence_penalty=preset.get("presence_penalty", 0.0)
@@ -81,9 +85,18 @@ class DiscordBot(commands.Bot):
                 self.conversations[channel_id].append({"role": "user", "content": message})
                 self.conversations[channel_id].append({"role": "assistant", "content": response})
                 
+                # Store response for swipe functionality (initialize with current response)
+                if channel_id not in self.response_alternatives:
+                    self.response_alternatives[channel_id] = []
+                self.response_alternatives[channel_id].append([response])
+                self.current_alternative_index[channel_id] = 0
+                
                 # Limit conversation history
                 if len(self.conversations[channel_id]) > 20:
                     self.conversations[channel_id] = self.conversations[channel_id][-20:]
+                    # Also limit response alternatives history
+                    if len(self.response_alternatives[channel_id]) > 10:
+                        self.response_alternatives[channel_id] = self.response_alternatives[channel_id][-10:]
                 
                 # Send response (split if too long)
                 if len(response) > 2000:
@@ -101,6 +114,10 @@ class DiscordBot(commands.Bot):
             channel_id = ctx.channel.id
             if channel_id in self.conversations:
                 self.conversations[channel_id] = []
+            if channel_id in self.response_alternatives:
+                self.response_alternatives[channel_id] = []
+            if channel_id in self.current_alternative_index:
+                del self.current_alternative_index[channel_id]
             await ctx.send("Conversation history cleared!")
         
         @self.command(name="preset", help="Load a preset")
@@ -154,12 +171,165 @@ class DiscordBot(commands.Bot):
 `!presets` - List available presets
 `!character <name>` - Load a character card
 `!characters` - List available characters
+`!swipe` - Generate alternative response to last message
+`!swipe_left` - Show previous alternative response
+`!swipe_right` - Show next alternative response
 `!help_bot` - Show this help message
 
 **Configuration:**
 Visit http://localhost:5000 to configure the bot via web interface.
 """
             await ctx.send(help_text)
+        
+        @self.command(name="swipe", help="Generate an alternative response")
+        async def swipe(ctx):
+            """Generate an alternative response to the last user message."""
+            channel_id = ctx.channel.id
+            
+            # Check if there's a conversation
+            if channel_id not in self.conversations or len(self.conversations[channel_id]) < 2:
+                await ctx.send("No previous message to regenerate. Use !chat first.")
+                return
+            
+            # Get the last user message (should be second to last in history)
+            last_user_msg = None
+            for msg in reversed(self.conversations[channel_id]):
+                if msg["role"] == "user":
+                    last_user_msg = msg["content"]
+                    break
+            
+            if not last_user_msg:
+                await ctx.send("No user message found to regenerate.")
+                return
+            
+            # Get system prompt
+            system_prompt = self.get_system_prompt()
+            
+            # Build messages (exclude last assistant response)
+            messages = []
+            if system_prompt:
+                messages.append({"role": "system", "content": system_prompt})
+            
+            # Add conversation history except the last assistant message
+            conv_without_last = self.conversations[channel_id][:-1] if self.conversations[channel_id] else []
+            messages.extend(conv_without_last)
+            
+            # Add the last user message again
+            messages.append({"role": "user", "content": last_user_msg})
+            
+            # Get preset parameters
+            preset = self.preset_manager.get_current_preset()
+            
+            try:
+                async with ctx.typing():
+                    # Generate alternative response
+                    response = await self.openai_client.chat_completion(
+                        messages=messages,
+                        temperature=preset.get("temperature", 0.7),
+                        max_tokens=preset.get("max_response_length", preset.get("max_tokens", 2000)),
+                        top_p=preset.get("top_p", 1.0),
+                        frequency_penalty=preset.get("frequency_penalty", 0.0),
+                        presence_penalty=preset.get("presence_penalty", 0.0)
+                    )
+                
+                # Add to alternatives
+                if channel_id in self.response_alternatives and len(self.response_alternatives[channel_id]) > 0:
+                    self.response_alternatives[channel_id][-1].append(response)
+                    self.current_alternative_index[channel_id] = len(self.response_alternatives[channel_id][-1]) - 1
+                else:
+                    # Initialize if needed
+                    if channel_id not in self.response_alternatives:
+                        self.response_alternatives[channel_id] = []
+                    self.response_alternatives[channel_id].append([response])
+                    self.current_alternative_index[channel_id] = 0
+                
+                # Update the last assistant message in history
+                self.conversations[channel_id][-1] = {"role": "assistant", "content": response}
+                
+                alt_count = len(self.response_alternatives[channel_id][-1])
+                current_idx = self.current_alternative_index[channel_id]
+                
+                # Send response (split if too long)
+                if len(response) > 2000:
+                    for i in range(0, len(response), 2000):
+                        await ctx.send(response[i:i+2000])
+                else:
+                    await ctx.send(response)
+                
+                await ctx.send(f"*Alternative {current_idx + 1}/{alt_count} (use !swipe_left/!swipe_right to navigate)*")
+            
+            except Exception as e:
+                await ctx.send(f"Error generating alternative: {str(e)}")
+        
+        @self.command(name="swipe_left", help="Show previous alternative response")
+        async def swipe_left(ctx):
+            """Navigate to the previous alternative response."""
+            channel_id = ctx.channel.id
+            
+            if channel_id not in self.response_alternatives or not self.response_alternatives[channel_id]:
+                await ctx.send("No alternatives available. Use !swipe to generate alternatives.")
+                return
+            
+            if len(self.response_alternatives[channel_id][-1]) <= 1:
+                await ctx.send("No other alternatives available. Use !swipe to generate more.")
+                return
+            
+            # Move to previous alternative (with wrapping)
+            current_idx = self.current_alternative_index.get(channel_id, 0)
+            current_idx = (current_idx - 1) % len(self.response_alternatives[channel_id][-1])
+            self.current_alternative_index[channel_id] = current_idx
+            
+            # Get the alternative response
+            response = self.response_alternatives[channel_id][-1][current_idx]
+            
+            # Update conversation history
+            self.conversations[channel_id][-1] = {"role": "assistant", "content": response}
+            
+            alt_count = len(self.response_alternatives[channel_id][-1])
+            
+            # Send response
+            if len(response) > 2000:
+                for i in range(0, len(response), 2000):
+                    await ctx.send(response[i:i+2000])
+            else:
+                await ctx.send(response)
+            
+            await ctx.send(f"*Alternative {current_idx + 1}/{alt_count}*")
+        
+        @self.command(name="swipe_right", help="Show next alternative response")
+        async def swipe_right(ctx):
+            """Navigate to the next alternative response."""
+            channel_id = ctx.channel.id
+            
+            if channel_id not in self.response_alternatives or not self.response_alternatives[channel_id]:
+                await ctx.send("No alternatives available. Use !swipe to generate alternatives.")
+                return
+            
+            if len(self.response_alternatives[channel_id][-1]) <= 1:
+                await ctx.send("No other alternatives available. Use !swipe to generate more.")
+                return
+            
+            # Move to next alternative (with wrapping)
+            current_idx = self.current_alternative_index.get(channel_id, 0)
+            current_idx = (current_idx + 1) % len(self.response_alternatives[channel_id][-1])
+            self.current_alternative_index[channel_id] = current_idx
+            
+            # Get the alternative response
+            response = self.response_alternatives[channel_id][-1][current_idx]
+            
+            # Update conversation history
+            self.conversations[channel_id][-1] = {"role": "assistant", "content": response}
+            
+            alt_count = len(self.response_alternatives[channel_id][-1])
+            
+            # Send response
+            if len(response) > 2000:
+                for i in range(0, len(response), 2000):
+                    await ctx.send(response[i:i+2000])
+            else:
+                await ctx.send(response)
+            
+            await ctx.send(f"*Alternative {current_idx + 1}/{alt_count}*")
     
     def get_system_prompt(self) -> str:
         """Get the system prompt from character or preset."""

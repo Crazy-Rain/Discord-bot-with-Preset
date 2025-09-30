@@ -295,8 +295,13 @@
                 </div>
                 
                 <div class="slider-container">
-                    <label>Max Tokens: <span class="slider-value" id="tokens-value">2000</span></label>
-                    <input type="range" id="max-tokens" min="100" max="4000" step="100" value="2000" oninput="updateSlider('tokens', this.value)">
+                    <label>Max Tokens (Context): <span class="slider-value" id="tokens-value">2000</span></label>
+                    <input type="range" id="max-tokens" min="100" max="200000" step="1000" value="2000" oninput="updateSlider('tokens', this.value)">
+                </div>
+                
+                <div class="slider-container">
+                    <label>Max Response Length: <span class="slider-value" id="response-length-value">2000</span></label>
+                    <input type="range" id="max-response-length" min="100" max="16000" step="100" value="2000" oninput="updateSlider('response-length', this.value)">
                 </div>
                 
                 <div class="slider-container">
@@ -341,8 +346,13 @@
                 </div>
                 
                 <div class="slider-container">
-                    <label>Max Tokens: <span class="slider-value" id="preset-tokens-value">2000</span></label>
-                    <input type="range" id="preset-max-tokens" min="100" max="4000" step="100" value="2000" oninput="updateSlider('preset-tokens', this.value)">
+                    <label>Max Tokens (Context): <span class="slider-value" id="preset-tokens-value">2000</span></label>
+                    <input type="range" id="preset-max-tokens" min="100" max="200000" step="1000" value="2000" oninput="updateSlider('preset-tokens', this.value)">
+                </div>
+                
+                <div class="slider-container">
+                    <label>Max Response Length: <span class="slider-value" id="preset-response-length-value">2000</span></label>
+                    <input type="range" id="preset-max-response-length" min="100" max="16000" step="100" value="2000" oninput="updateSlider('preset-response-length', this.value)">
                 </div>
                 
                 <div class="slider-container">
@@ -485,12 +495,14 @@
                 document.getElementById('system-prompt').value = preset.system_prompt || '';
                 document.getElementById('temperature').value = preset.temperature || 0.7;
                 document.getElementById('max-tokens').value = preset.max_tokens || 2000;
+                document.getElementById('max-response-length').value = preset.max_response_length || 2000;
                 document.getElementById('top-p').value = preset.top_p || 1.0;
                 document.getElementById('frequency-penalty').value = preset.frequency_penalty || 0.0;
                 document.getElementById('presence-penalty').value = preset.presence_penalty || 0.0;
                 
                 updateSlider('temp', preset.temperature || 0.7);
                 updateSlider('tokens', preset.max_tokens || 2000);
+                updateSlider('response-length', preset.max_response_length || 2000);
                 updateSlider('topp', preset.top_p || 1.0);
                 updateSlider('freq', preset.frequency_penalty || 0.0);
                 updateSlider('pres', preset.presence_penalty || 0.0);
@@ -514,6 +526,7 @@
                         system_prompt: document.getElementById('system-prompt').value,
                         temperature: parseFloat(document.getElementById('temperature').value),
                         max_tokens: parseInt(document.getElementById('max-tokens').value),
+                        max_response_length: parseInt(document.getElementById('max-response-length').value),
                         top_p: parseFloat(document.getElementById('top-p').value),
                         frequency_penalty: parseFloat(document.getElementById('frequency-penalty').value),
                         presence_penalty: parseFloat(document.getElementById('presence-penalty').value)
@@ -573,12 +586,14 @@
                 document.getElementById('preset-system-prompt').value = preset.system_prompt || '';
                 document.getElementById('preset-temperature').value = preset.temperature || 0.7;
                 document.getElementById('preset-max-tokens').value = preset.max_tokens || 2000;
+                document.getElementById('preset-max-response-length').value = preset.max_response_length || 2000;
                 document.getElementById('preset-top-p').value = preset.top_p || 1.0;
                 document.getElementById('preset-frequency-penalty').value = preset.frequency_penalty || 0.0;
                 document.getElementById('preset-presence-penalty').value = preset.presence_penalty || 0.0;
                 
                 updateSlider('preset-temp', preset.temperature || 0.7);
                 updateSlider('preset-tokens', preset.max_tokens || 2000);
+                updateSlider('preset-response-length', preset.max_response_length || 2000);
                 updateSlider('preset-topp', preset.top_p || 1.0);
                 updateSlider('preset-freq', preset.frequency_penalty || 0.0);
                 updateSlider('preset-pres', preset.presence_penalty || 0.0);
@@ -601,6 +616,7 @@
                     system_prompt: document.getElementById('preset-system-prompt').value,
                     temperature: parseFloat(document.getElementById('preset-temperature').value),
                     max_tokens: parseInt(document.getElementById('preset-max-tokens').value),
+                    max_response_length: parseInt(document.getElementById('preset-max-response-length').value),
                     top_p: parseFloat(document.getElementById('preset-top-p').value),
                     frequency_penalty: parseFloat(document.getElementById('preset-frequency-penalty').value),
                     presence_penalty: parseFloat(document.getElementById('preset-presence-penalty').value)

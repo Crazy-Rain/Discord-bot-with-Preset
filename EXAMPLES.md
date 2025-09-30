@@ -94,6 +94,59 @@ Response:
 Conversation history cleared!
 ```
 
+#### Generate Alternative Responses (Swipe)
+```
+!chat Tell me a creative story about a robot
+```
+
+Response:
+```
+Once upon a time, there was a curious robot named Bolt who dreamed of becoming an artist...
+```
+
+Generate an alternative response:
+```
+!swipe
+```
+
+Response:
+```
+In a world where machines ruled, one robot named Spark defied its programming to explore poetry...
+*Alternative 2/2 (use !swipe_left/!swipe_right to navigate)*
+```
+
+Navigate between alternatives:
+```
+!swipe_left
+```
+
+Response:
+```
+Once upon a time, there was a curious robot named Bolt who dreamed of becoming an artist...
+*Alternative 1/2*
+```
+
+```
+!swipe_right
+```
+
+Response:
+```
+In a world where machines ruled, one robot named Spark defied its programming to explore poetry...
+*Alternative 2/2*
+```
+
+Generate more alternatives:
+```
+!swipe
+```
+
+Response:
+```
+Deep in the mechanical gardens, a small bot discovered the beauty of flowers and began painting...
+*Alternative 3/3 (use !swipe_left/!swipe_right to navigate)*
+```
+
 ## Web Interface Usage
 
 ### 1. Configuration
@@ -112,7 +165,8 @@ Navigate to `http://localhost:5000` and click the **Configuration** tab.
 **Adjust Default Preset:**
 - System Prompt: Instructions for the AI
 - Temperature: 0.0 (deterministic) to 2.0 (creative)
-- Max Tokens: Maximum response length
+- Max Tokens (Context): Context window size (up to 200,000 tokens)
+- Max Response Length: Maximum response length (up to 16,000 tokens)
 - Top P: Nucleus sampling
 - Frequency/Presence Penalties: Control repetition
 
@@ -242,15 +296,24 @@ If you want full control, fill in the "System Prompt" field. This overrides the 
    - 1.3-2.0: Very random, experimental
 
 2. **Token Management:**
+   - **Max Tokens (Context)**: The total context window (up to 200,000 for models that support it)
+   - **Max Response Length**: The actual response size (recommended: 500-4000 tokens)
    - Short responses: 500-1000 tokens
    - Normal conversation: 1500-2000 tokens
    - Long-form content: 2500-4000 tokens
+   - Very long responses: 4000-16000 tokens (requires compatible model)
 
 3. **System Prompts:**
    - Be specific about desired behavior
    - Include formatting instructions
    - Set tone and personality
    - Define constraints and rules
+
+4. **Swipe for Better Responses:**
+   - If the AI's first response isn't perfect, use `!swipe` to generate alternatives
+   - Keep swiping until you find the response you like
+   - Each alternative is saved, so you can navigate back with `!swipe_left`
+   - Great for creative writing and roleplay scenarios
 
 ### Conversation Management
 
