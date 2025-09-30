@@ -8,8 +8,9 @@ A feature-rich Discord bot with OpenAI-compatible API integration, preset manage
 - 🔌 **Custom OpenAI-Compatible API** - Connect to any OpenAI-compatible endpoint (OpenAI, LM Studio, Ollama, Text Generation WebUI, etc.)
 - 🎨 **Preset System** - Create, save, import/export presets with custom parameters (temperature, top_p, etc.)
 - 👤 **Character Cards** - Support for character cards with personality, scenarios, and custom system prompts
+- 👥 **User Character Descriptions** - Save and manage descriptions for user characters in roleplay scenarios
 - 🌐 **Web Configuration Interface** - Beautiful web UI to manage all settings, presets, and characters
-- 💾 **Import/Export** - Full import/export functionality for presets and character cards
+- 💾 **Import/Export** - Full import/export functionality for presets, character cards, and user characters
 - 🔄 **Swipe Functionality** - Generate and navigate through alternative AI responses (like SillyTavern)
 - 📊 **Extended Token Limits** - Support for up to 200,000 context tokens with separate response length control
 
@@ -95,6 +96,10 @@ This bot works with any OpenAI-compatible API endpoint:
 - `!swipe` - Generate an alternative response to the last message
 - `!swipe_left` - Navigate to the previous alternative response
 - `!swipe_right` - Navigate to the next alternative response
+- `!update <Name>: <Description>` - Update user character description
+- `!user_chars` - List saved user characters
+- `!user_char <name>` - View a specific user character
+- `!delete_user_char <name>` - Delete a user character
 - `!help_bot` - Show help information
 
 ### 👥 Character Name Tracking
@@ -129,6 +134,33 @@ The bot will:
 - Ensure the AI doesn't pretend to be these characters
 - Maintain character names until `!clear` is used
 - Understand the difference between dialogue, actions, and descriptions
+
+### 📝 User Character Descriptions
+
+Save and manage descriptions for your user characters to give the AI more context during roleplay scenarios.
+
+**Discord Commands:**
+```
+!update Alice: A brave warrior with long red hair and green eyes, wearing silver armor. Known for her courage and compassion.
+!user_chars                    # List all saved user characters
+!user_char Alice               # View Alice's description
+!delete_user_char Alice        # Delete Alice's character
+```
+
+**Web Interface:**
+- Navigate to the "User Characters" tab at `http://localhost:5000`
+- Add/edit character names and descriptions
+- Import/export character descriptions as JSON
+- Saved between sessions automatically
+
+**How It Works:**
+When you use a character name in chat (e.g., `!chat Alice: "Hello!"`), the bot will:
+1. Check if Alice has a saved description
+2. Include Alice's description in the AI's system prompt
+3. Provide context to the AI about Alice's appearance and traits
+4. Tell the AI NOT to act or write for Alice (only reference)
+
+This allows for richer, more contextualized roleplay conversations!
 
 ## 🎨 Preset System
 
@@ -218,6 +250,7 @@ Access the web interface at `http://localhost:5000` to:
 - Configure Discord bot token and OpenAI API settings
 - Manage presets (create, edit, delete, import/export)
 - Manage character cards (create, edit, delete, import/export)
+- Manage user character descriptions (create, edit, delete, import/export)
 - Adjust all AI parameters with interactive sliders
 - Real-time configuration updates
 
@@ -225,25 +258,28 @@ Access the web interface at `http://localhost:5000` to:
 
 ```
 Discord-bot-with-Preset/
-├── main.py                 # Main entry point
-├── config_manager.py       # Configuration management
-├── discord_bot.py          # Discord bot implementation
-├── openai_client.py        # OpenAI API client wrapper
-├── preset_manager.py       # Preset management
-├── character_manager.py    # Character card management
-├── web_server.py           # Flask web server
+├── main.py                      # Main entry point
+├── config_manager.py            # Configuration management
+├── discord_bot.py               # Discord bot implementation
+├── openai_client.py             # OpenAI API client wrapper
+├── preset_manager.py            # Preset management
+├── character_manager.py         # Character card management
+├── user_characters_manager.py   # User character descriptions management
+├── web_server.py                # Flask web server
 ├── templates/
-│   └── index.html         # Web UI
-├── presets/               # Preset storage
+│   └── index.html              # Web UI
+├── presets/                    # Preset storage
 │   ├── creative.json
 │   └── analytical.json
-├── character_cards/       # Character card storage
+├── character_cards/            # Character card storage
 │   ├── sherlock.json
 │   └── luna.json
-├── config.json            # Configuration (created from example)
-├── config.example.json    # Example configuration
-├── requirements.txt       # Python dependencies
-└── README.md             # This file
+├── user_characters/            # User character descriptions storage
+│   └── user_characters.json
+├── config.json                 # Configuration (created from example)
+├── config.example.json         # Example configuration
+├── requirements.txt            # Python dependencies
+└── README.md                  # This file
 ```
 
 ## 🔧 Troubleshooting
