@@ -33,6 +33,25 @@ class OpenAIClient:
         if model:
             self.model = model
     
+    def list_models(self) -> List[str]:
+        """
+        Fetch available models from the OpenAI-compatible API.
+        
+        Returns:
+            List of available model names
+        """
+        try:
+            models_response = self.client.models.list()
+            return [model.id for model in models_response.data]
+        except Exception as e:
+            error_msg = str(e)
+            if "401" in error_msg or "invalid_api_key" in error_msg:
+                raise Exception(
+                    f"API authentication failed. Please verify your API key is correct. "
+                    f"Original error: {error_msg}"
+                )
+            raise Exception(f"Error fetching models from API: {error_msg}")
+    
     async def chat_completion(
         self, 
         messages: List[Dict[str, str]], 
