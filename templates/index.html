@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discord Bot Configuration</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+        
+        header {
+            background: #2c3e50;
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+        
+        .tabs {
+            display: flex;
+            background: #34495e;
+            overflow-x: auto;
+        }
+        
+        .tab {
+            padding: 15px 30px;
+            color: white;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            font-size: 16px;
+            transition: background 0.3s;
+            white-space: nowrap;
+        }
+        
+        .tab:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .tab.active {
+            background: white;
+            color: #2c3e50;
+        }
+        
+        .tab-content {
+            padding: 30px;
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        input[type="text"],
+        input[type="number"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        input[type="text"]:focus,
+        input[type="number"]:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+            font-family: monospace;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s;
+            margin-right: 10px;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #95a5a6;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #7f8c8d;
+        }
+        
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+        
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #229954;
+        }
+        
+        .list-item {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .list-item:hover {
+            background: #e9ecef;
+        }
+        
+        .message {
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .slider-container {
+            margin-bottom: 15px;
+        }
+        
+        .slider-value {
+            display: inline-block;
+            min-width: 60px;
+            text-align: right;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        input[type="range"] {
+            width: calc(100% - 70px);
+            margin-left: 10px;
+        }
+        
+        .import-export {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .json-display {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 Discord Bot Configuration</h1>
+            <p class="subtitle">Configure your Discord bot with OpenAI-compatible API, Presets, and Character Cards</p>
+        </header>
+        
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('config')">Configuration</button>
+            <button class="tab" onclick="switchTab('presets')">Presets</button>
+            <button class="tab" onclick="switchTab('characters')">Characters</button>
+        </div>
+        
+        <!-- Configuration Tab -->
+        <div id="config" class="tab-content active">
+            <div id="config-message" class="message"></div>
+            <h2>Bot Configuration</h2>
+            
+            <div class="form-group">
+                <label>Discord Bot Token</label>
+                <input type="text" id="discord-token" placeholder="Your Discord bot token">
+            </div>
+            
+            <h3>OpenAI API Configuration</h3>
+            <div class="grid">
+                <div class="form-group">
+                    <label>API Key</label>
+                    <input type="text" id="api-key" placeholder="Your API key">
+                </div>
+                
+                <div class="form-group">
+                    <label>Base URL</label>
+                    <input type="text" id="base-url" placeholder="https://api.openai.com/v1">
+                </div>
+                
+                <div class="form-group">
+                    <label>Model</label>
+                    <input type="text" id="model" placeholder="gpt-3.5-turbo">
+                </div>
+            </div>
+            
+            <h3>Default Preset</h3>
+            <div class="grid">
+                <div class="form-group">
+                    <label>System Prompt</label>
+                    <textarea id="system-prompt" placeholder="You are a helpful AI assistant."></textarea>
+                </div>
+            </div>
+            
+            <div class="grid">
+                <div class="slider-container">
+                    <label>Temperature: <span class="slider-value" id="temp-value">0.7</span></label>
+                    <input type="range" id="temperature" min="0" max="2" step="0.1" value="0.7" oninput="updateSlider('temp', this.value)">
+                </div>
+                
+                <div class="slider-container">
+                    <label>Max Tokens: <span class="slider-value" id="tokens-value">2000</span></label>
+                    <input type="range" id="max-tokens" min="100" max="4000" step="100" value="2000" oninput="updateSlider('tokens', this.value)">
+                </div>
+                
+                <div class="slider-container">
+                    <label>Top P: <span class="slider-value" id="topp-value">1.0</span></label>
+                    <input type="range" id="top-p" min="0" max="1" step="0.05" value="1.0" oninput="updateSlider('topp', this.value)">
+                </div>
+                
+                <div class="slider-container">
+                    <label>Frequency Penalty: <span class="slider-value" id="freq-value">0.0</span></label>
+                    <input type="range" id="frequency-penalty" min="0" max="2" step="0.1" value="0.0" oninput="updateSlider('freq', this.value)">
+                </div>
+                
+                <div class="slider-container">
+                    <label>Presence Penalty: <span class="slider-value" id="pres-value">0.0</span></label>
+                    <input type="range" id="presence-penalty" min="0" max="2" step="0.1" value="0.0" oninput="updateSlider('pres', this.value)">
+                </div>
+            </div>
+            
+            <button class="btn btn-primary" onclick="saveConfig()">Save Configuration</button>
+            <button class="btn btn-secondary" onclick="loadConfig()">Reload</button>
+        </div>
+        
+        <!-- Presets Tab -->
+        <div id="presets" class="tab-content">
+            <div id="presets-message" class="message"></div>
+            <h2>Presets Management</h2>
+            
+            <div class="form-group">
+                <label>Preset Name</label>
+                <input type="text" id="preset-name" placeholder="Enter preset name">
+            </div>
+            
+            <div class="form-group">
+                <label>System Prompt</label>
+                <textarea id="preset-system-prompt" placeholder="You are a helpful AI assistant."></textarea>
+            </div>
+            
+            <div class="grid">
+                <div class="slider-container">
+                    <label>Temperature: <span class="slider-value" id="preset-temp-value">0.7</span></label>
+                    <input type="range" id="preset-temperature" min="0" max="2" step="0.1" value="0.7" oninput="updateSlider('preset-temp', this.value)">
+                </div>
+                
+                <div class="slider-container">
+                    <label>Max Tokens: <span class="slider-value" id="preset-tokens-value">2000</span></label>
+                    <input type="range" id="preset-max-tokens" min="100" max="4000" step="100" value="2000" oninput="updateSlider('preset-tokens', this.value)">
+                </div>
+                
+                <div class="slider-container">
+                    <label>Top P: <span class="slider-value" id="preset-topp-value">1.0</span></label>
+                    <input type="range" id="preset-top-p" min="0" max="1" step="0.05" value="1.0" oninput="updateSlider('preset-topp', this.value)">
+                </div>
+                
+                <div class="slider-container">
+                    <label>Frequency Penalty: <span class="slider-value" id="preset-freq-value">0.0</span></label>
+                    <input type="range" id="preset-frequency-penalty" min="0" max="2" step="0.1" value="0.0" oninput="updateSlider('preset-freq', this.value)">
+                </div>
+                
+                <div class="slider-container">
+                    <label>Presence Penalty: <span class="slider-value" id="preset-pres-value">0.0</span></label>
+                    <input type="range" id="preset-presence-penalty" min="0" max="2" step="0.1" value="0.0" oninput="updateSlider('preset-pres', this.value)">
+                </div>
+            </div>
+            
+            <button class="btn btn-primary" onclick="savePreset()">Save Preset</button>
+            <button class="btn btn-secondary" onclick="loadPreset()">Load Preset</button>
+            <button class="btn btn-success" onclick="exportPreset()">Export</button>
+            <button class="btn btn-secondary" onclick="showImportPreset()">Import</button>
+            
+            <div id="import-preset-section" style="display: none; margin-top: 20px;">
+                <div class="form-group">
+                    <label>Import Preset (JSON)</label>
+                    <textarea id="import-preset-json" placeholder='{"temperature": 0.7, ...}'></textarea>
+                </div>
+                <button class="btn btn-success" onclick="importPreset()">Import</button>
+                <button class="btn btn-secondary" onclick="cancelImportPreset()">Cancel</button>
+            </div>
+            
+            <h3 style="margin-top: 30px;">Available Presets</h3>
+            <div id="presets-list"></div>
+        </div>
+        
+        <!-- Characters Tab -->
+        <div id="characters" class="tab-content">
+            <div id="characters-message" class="message"></div>
+            <h2>Character Cards Management</h2>
+            
+            <div class="form-group">
+                <label>Character Name</label>
+                <input type="text" id="character-name" placeholder="Enter character name">
+            </div>
+            
+            <div class="grid">
+                <div class="form-group">
+                    <label>Display Name</label>
+                    <input type="text" id="character-display-name" placeholder="Character's display name">
+                </div>
+                
+                <div class="form-group">
+                    <label>Personality</label>
+                    <input type="text" id="character-personality" placeholder="Friendly, helpful, creative...">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Description</label>
+                <textarea id="character-description" placeholder="Describe the character..."></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label>Scenario</label>
+                <textarea id="character-scenario" placeholder="The scenario or context for interactions..."></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label>System Prompt (Optional - overrides description-based prompt)</label>
+                <textarea id="character-system-prompt" placeholder="Custom system prompt..."></textarea>
+            </div>
+            
+            <button class="btn btn-primary" onclick="saveCharacter()">Save Character</button>
+            <button class="btn btn-secondary" onclick="loadCharacter()">Load Character</button>
+            <button class="btn btn-success" onclick="exportCharacter()">Export</button>
+            <button class="btn btn-secondary" onclick="showImportCharacter()">Import</button>
+            
+            <div id="import-character-section" style="display: none; margin-top: 20px;">
+                <div class="form-group">
+                    <label>Import Character (JSON)</label>
+                    <textarea id="import-character-json" placeholder='{"name": "...", "description": "..."}'></textarea>
+                </div>
+                <button class="btn btn-success" onclick="importCharacter()">Import</button>
+                <button class="btn btn-secondary" onclick="cancelImportCharacter()">Cancel</button>
+            </div>
+            
+            <h3 style="margin-top: 30px;">Available Characters</h3>
+            <div id="characters-list"></div>
+        </div>
+    </div>
+    
+    <script>
+        // Tab switching
+        function switchTab(tabName) {
+            const tabs = document.querySelectorAll('.tab');
+            const contents = document.querySelectorAll('.tab-content');
+            
+            tabs.forEach(tab => tab.classList.remove('active'));
+            contents.forEach(content => content.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tabName).classList.add('active');
+            
+            if (tabName === 'presets') {
+                loadPresetsList();
+            } else if (tabName === 'characters') {
+                loadCharactersList();
+            }
+        }
+        
+        // Slider updates
+        function updateSlider(name, value) {
+            document.getElementById(name + '-value').textContent = value;
+        }
+        
+        // Show messages
+        function showMessage(elementId, message, type) {
+            const msgEl = document.getElementById(elementId);
+            msgEl.textContent = message;
+            msgEl.className = 'message ' + type;
+            msgEl.style.display = 'block';
+            setTimeout(() => {
+                msgEl.style.display = 'none';
+            }, 5000);
+        }
+        
+        // Configuration functions
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/config');
+                const config = await response.json();
+                
+                document.getElementById('discord-token').value = config.discord_token || '';
+                document.getElementById('api-key').value = config.openai_config?.api_key || '';
+                document.getElementById('base-url').value = config.openai_config?.base_url || '';
+                document.getElementById('model').value = config.openai_config?.model || '';
+                
+                const preset = config.default_preset || {};
+                document.getElementById('system-prompt').value = preset.system_prompt || '';
+                document.getElementById('temperature').value = preset.temperature || 0.7;
+                document.getElementById('max-tokens').value = preset.max_tokens || 2000;
+                document.getElementById('top-p').value = preset.top_p || 1.0;
+                document.getElementById('frequency-penalty').value = preset.frequency_penalty || 0.0;
+                document.getElementById('presence-penalty').value = preset.presence_penalty || 0.0;
+                
+                updateSlider('temp', preset.temperature || 0.7);
+                updateSlider('tokens', preset.max_tokens || 2000);
+                updateSlider('topp', preset.top_p || 1.0);
+                updateSlider('freq', preset.frequency_penalty || 0.0);
+                updateSlider('pres', preset.presence_penalty || 0.0);
+                
+                showMessage('config-message', 'Configuration loaded', 'success');
+            } catch (error) {
+                showMessage('config-message', 'Error loading configuration: ' + error.message, 'error');
+            }
+        }
+        
+        async function saveConfig() {
+            try {
+                const config = {
+                    discord_token: document.getElementById('discord-token').value,
+                    openai_config: {
+                        api_key: document.getElementById('api-key').value,
+                        base_url: document.getElementById('base-url').value,
+                        model: document.getElementById('model').value
+                    },
+                    default_preset: {
+                        system_prompt: document.getElementById('system-prompt').value,
+                        temperature: parseFloat(document.getElementById('temperature').value),
+                        max_tokens: parseInt(document.getElementById('max-tokens').value),
+                        top_p: parseFloat(document.getElementById('top-p').value),
+                        frequency_penalty: parseFloat(document.getElementById('frequency-penalty').value),
+                        presence_penalty: parseFloat(document.getElementById('presence-penalty').value)
+                    }
+                };
+                
+                const response = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(config)
+                });
+                
+                const result = await response.json();
+                showMessage('config-message', result.message, result.status === 'success' ? 'success' : 'error');
+            } catch (error) {
+                showMessage('config-message', 'Error saving configuration: ' + error.message, 'error');
+            }
+        }
+        
+        // Preset functions
+        async function loadPresetsList() {
+            try {
+                const response = await fetch('/api/presets');
+                const data = await response.json();
+                
+                const listEl = document.getElementById('presets-list');
+                listEl.innerHTML = '';
+                
+                if (data.presets.length === 0) {
+                    listEl.innerHTML = '<p>No presets available</p>';
+                    return;
+                }
+                
+                data.presets.forEach(preset => {
+                    const item = document.createElement('div');
+                    item.className = 'list-item';
+                    item.innerHTML = `
+                        <span>${preset}</span>
+                        <div>
+                            <button class="btn btn-secondary" onclick="selectPreset('${preset}')">Load</button>
+                            <button class="btn btn-danger" onclick="deletePreset('${preset}')">Delete</button>
+                        </div>
+                    `;
+                    listEl.appendChild(item);
+                });
+            } catch (error) {
+                console.error('Error loading presets:', error);
+            }
+        }
+        
+        async function selectPreset(name) {
+            try {
+                const response = await fetch(`/api/presets/${name}`);
+                const preset = await response.json();
+                
+                document.getElementById('preset-name').value = name;
+                document.getElementById('preset-system-prompt').value = preset.system_prompt || '';
+                document.getElementById('preset-temperature').value = preset.temperature || 0.7;
+                document.getElementById('preset-max-tokens').value = preset.max_tokens || 2000;
+                document.getElementById('preset-top-p').value = preset.top_p || 1.0;
+                document.getElementById('preset-frequency-penalty').value = preset.frequency_penalty || 0.0;
+                document.getElementById('preset-presence-penalty').value = preset.presence_penalty || 0.0;
+                
+                updateSlider('preset-temp', preset.temperature || 0.7);
+                updateSlider('preset-tokens', preset.max_tokens || 2000);
+                updateSlider('preset-topp', preset.top_p || 1.0);
+                updateSlider('preset-freq', preset.frequency_penalty || 0.0);
+                updateSlider('preset-pres', preset.presence_penalty || 0.0);
+                
+                showMessage('presets-message', `Loaded preset: ${name}`, 'success');
+            } catch (error) {
+                showMessage('presets-message', 'Error loading preset: ' + error.message, 'error');
+            }
+        }
+        
+        async function savePreset() {
+            const name = document.getElementById('preset-name').value;
+            if (!name) {
+                showMessage('presets-message', 'Please enter a preset name', 'error');
+                return;
+            }
+            
+            try {
+                const preset = {
+                    system_prompt: document.getElementById('preset-system-prompt').value,
+                    temperature: parseFloat(document.getElementById('preset-temperature').value),
+                    max_tokens: parseInt(document.getElementById('preset-max-tokens').value),
+                    top_p: parseFloat(document.getElementById('preset-top-p').value),
+                    frequency_penalty: parseFloat(document.getElementById('preset-frequency-penalty').value),
+                    presence_penalty: parseFloat(document.getElementById('preset-presence-penalty').value)
+                };
+                
+                const response = await fetch(`/api/presets/${name}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(preset)
+                });
+                
+                const result = await response.json();
+                showMessage('presets-message', result.message, result.status === 'success' ? 'success' : 'error');
+                loadPresetsList();
+            } catch (error) {
+                showMessage('presets-message', 'Error saving preset: ' + error.message, 'error');
+            }
+        }
+        
+        async function deletePreset(name) {
+            if (!confirm(`Delete preset "${name}"?`)) return;
+            
+            try {
+                const response = await fetch(`/api/presets/${name}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                showMessage('presets-message', result.message, result.status === 'success' ? 'success' : 'error');
+                loadPresetsList();
+            } catch (error) {
+                showMessage('presets-message', 'Error deleting preset: ' + error.message, 'error');
+            }
+        }
+        
+        async function exportPreset() {
+            const name = document.getElementById('preset-name').value;
+            if (!name) {
+                showMessage('presets-message', 'Please select a preset to export', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/presets/${name}/export`);
+                const data = await response.json();
+                
+                const blob = new Blob([data.preset], {type: 'application/json'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${name}.json`;
+                a.click();
+                
+                showMessage('presets-message', 'Preset exported', 'success');
+            } catch (error) {
+                showMessage('presets-message', 'Error exporting preset: ' + error.message, 'error');
+            }
+        }
+        
+        function showImportPreset() {
+            document.getElementById('import-preset-section').style.display = 'block';
+        }
+        
+        function cancelImportPreset() {
+            document.getElementById('import-preset-section').style.display = 'none';
+            document.getElementById('import-preset-json').value = '';
+        }
+        
+        async function importPreset() {
+            const name = document.getElementById('preset-name').value;
+            const presetJson = document.getElementById('import-preset-json').value;
+            
+            if (!name || !presetJson) {
+                showMessage('presets-message', 'Please enter preset name and JSON', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/presets/import', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name, preset: presetJson})
+                });
+                
+                const result = await response.json();
+                showMessage('presets-message', result.message, result.status === 'success' ? 'success' : 'error');
+                cancelImportPreset();
+                loadPresetsList();
+            } catch (error) {
+                showMessage('presets-message', 'Error importing preset: ' + error.message, 'error');
+            }
+        }
+        
+        // Character functions
+        async function loadCharactersList() {
+            try {
+                const response = await fetch('/api/characters');
+                const data = await response.json();
+                
+                const listEl = document.getElementById('characters-list');
+                listEl.innerHTML = '';
+                
+                if (data.characters.length === 0) {
+                    listEl.innerHTML = '<p>No characters available</p>';
+                    return;
+                }
+                
+                data.characters.forEach(character => {
+                    const item = document.createElement('div');
+                    item.className = 'list-item';
+                    item.innerHTML = `
+                        <span>${character}</span>
+                        <div>
+                            <button class="btn btn-secondary" onclick="selectCharacter('${character}')">Load</button>
+                            <button class="btn btn-danger" onclick="deleteCharacter('${character}')">Delete</button>
+                        </div>
+                    `;
+                    listEl.appendChild(item);
+                });
+            } catch (error) {
+                console.error('Error loading characters:', error);
+            }
+        }
+        
+        async function selectCharacter(name) {
+            try {
+                const response = await fetch(`/api/characters/${name}`);
+                const character = await response.json();
+                
+                document.getElementById('character-name').value = name;
+                document.getElementById('character-display-name').value = character.name || '';
+                document.getElementById('character-personality').value = character.personality || '';
+                document.getElementById('character-description').value = character.description || '';
+                document.getElementById('character-scenario').value = character.scenario || '';
+                document.getElementById('character-system-prompt').value = character.system_prompt || '';
+                
+                showMessage('characters-message', `Loaded character: ${name}`, 'success');
+            } catch (error) {
+                showMessage('characters-message', 'Error loading character: ' + error.message, 'error');
+            }
+        }
+        
+        async function saveCharacter() {
+            const name = document.getElementById('character-name').value;
+            if (!name) {
+                showMessage('characters-message', 'Please enter a character name', 'error');
+                return;
+            }
+            
+            try {
+                const character = {
+                    name: document.getElementById('character-display-name').value,
+                    personality: document.getElementById('character-personality').value,
+                    description: document.getElementById('character-description').value,
+                    scenario: document.getElementById('character-scenario').value,
+                    system_prompt: document.getElementById('character-system-prompt').value
+                };
+                
+                const response = await fetch(`/api/characters/${name}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(character)
+                });
+                
+                const result = await response.json();
+                showMessage('characters-message', result.message, result.status === 'success' ? 'success' : 'error');
+                loadCharactersList();
+            } catch (error) {
+                showMessage('characters-message', 'Error saving character: ' + error.message, 'error');
+            }
+        }
+        
+        async function deleteCharacter(name) {
+            if (!confirm(`Delete character "${name}"?`)) return;
+            
+            try {
+                const response = await fetch(`/api/characters/${name}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                showMessage('characters-message', result.message, result.status === 'success' ? 'success' : 'error');
+                loadCharactersList();
+            } catch (error) {
+                showMessage('characters-message', 'Error deleting character: ' + error.message, 'error');
+            }
+        }
+        
+        async function exportCharacter() {
+            const name = document.getElementById('character-name').value;
+            if (!name) {
+                showMessage('characters-message', 'Please select a character to export', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/characters/${name}/export`);
+                const data = await response.json();
+                
+                const blob = new Blob([data.character], {type: 'application/json'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${name}.json`;
+                a.click();
+                
+                showMessage('characters-message', 'Character exported', 'success');
+            } catch (error) {
+                showMessage('characters-message', 'Error exporting character: ' + error.message, 'error');
+            }
+        }
+        
+        function showImportCharacter() {
+            document.getElementById('import-character-section').style.display = 'block';
+        }
+        
+        function cancelImportCharacter() {
+            document.getElementById('import-character-section').style.display = 'none';
+            document.getElementById('import-character-json').value = '';
+        }
+        
+        async function importCharacter() {
+            const name = document.getElementById('character-name').value;
+            const characterJson = document.getElementById('import-character-json').value;
+            
+            if (!name || !characterJson) {
+                showMessage('characters-message', 'Please enter character name and JSON', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/characters/import', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name, character: characterJson})
+                });
+                
+                const result = await response.json();
+                showMessage('characters-message', result.message, result.status === 'success' ? 'success' : 'error');
+                cancelImportCharacter();
+                loadCharactersList();
+            } catch (error) {
+                showMessage('characters-message', 'Error importing character: ' + error.message, 'error');
+            }
+        }
+        
+        // Load config on page load
+        window.onload = function() {
+            loadConfig();
+        };
+    </script>
+</body>
+</html>
