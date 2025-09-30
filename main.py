@@ -1,6 +1,7 @@
 """Main entry point for Discord bot with web server."""
 import asyncio
 import threading
+import time
 from config_manager import ConfigManager
 from discord_bot import DiscordBot
 from web_server import WebServer
@@ -52,6 +53,11 @@ def main():
     port = web_config.get("port", 5000)
     print(f"\n🌐 Web configuration interface starting at http://localhost:{port}")
     print("   Configure your bot settings, presets, and character cards through the web UI")
+    print("   Please wait a moment for the web server to fully initialize...")
+    
+    # Give web server time to start
+    time.sleep(2)
+    print(f"   ✅ Web interface should now be accessible at http://localhost:{port}")
     
     # Run Discord bot
     print("\n🤖 Starting Discord bot...")
