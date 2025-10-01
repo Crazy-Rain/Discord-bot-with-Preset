@@ -12,8 +12,21 @@ The Lorebook feature allows you to add world-building and lore information that 
 - **Entry Key**: A unique identifier for each lorebook entry (e.g., "Kingdom of Aldoria", "Magic System")
 - **Content**: The actual lore or information about the entry
 - **Keywords**: Optional list of words that trigger this entry to be included when mentioned
-- **Always Active**: If enabled, the entry is always included in the AI's context
+- **Activation Type**: How the entry is triggered (see below)
 - **Enabled/Disabled**: Each lorebook can be toggled on or off to control which lore is active
+
+### Activation Types
+
+Lorebook entries now support three activation types:
+
+1. **Normal (Keyword-triggered)**: Entry appears when any of its keywords are mentioned in the conversation
+2. **Constant (Always Active)**: Entry is always included in the AI's context, regardless of keywords
+3. **Vectorized (Semantic search)**: *Planned feature* - Will use semantic similarity to determine relevance. Currently works like Normal.
+
+Choose the activation type based on how you want the entry to be used:
+- Use **Constant** for fundamental world rules, magic systems, or core setting information
+- Use **Normal** for locations, characters, or events that should only appear when relevant
+- Use **Vectorized** for future semantic search capabilities (currently behaves like Normal)
 
 ## Managing Multiple Lorebooks
 
@@ -83,8 +96,10 @@ Use the **Active Lorebook** dropdown to select which lorebook you want to work w
    - **Entry Key**: Unique identifier
    - **Content**: The lore information
    - **Keywords**: Comma-separated keywords (optional)
-   - **Always Active**: Check if this should always be included
+   - **Activation Type**: Choose from Normal, Constant, or Vectorized
 5. Click **Save Entry**
+
+**Note**: The old "Always Active" checkbox has been replaced with the Activation Type dropdown. Existing entries with `always_active: true` will be automatically migrated to `activation_type: "constant"`.
 
 ### Import/Export
 
@@ -105,7 +120,7 @@ Use the **Active Lorebook** dropdown to select which lorebook you want to work w
       "key": "Entry Key",
       "content": "...",
       "keywords": ["keyword1", "keyword2"],
-      "always_active": false
+      "activation_type": "normal"
     }
   }
 }
@@ -113,6 +128,19 @@ Use the **Active Lorebook** dropdown to select which lorebook you want to work w
 
 **Legacy Format** (Still Supported):
 ```json
+{
+  "Entry Key": {
+    "key": "Entry Key",
+    "content": "...",
+    "keywords": ["keyword1", "keyword2"],
+    "always_active": false
+  }
+}
+```
+
+**Note**: When importing lorebooks with the old `always_active` field, it will be automatically converted:
+- `always_active: true` → `activation_type: "constant"`
+- `always_active: false` → `activation_type: "normal"`
 {
   "Entry Key": {
     "key": "Entry Key",
@@ -141,23 +169,27 @@ When you send a message, the lorebook system checks if any keywords are mentione
 
 If you have entries with keywords `magic` or `kingdom`, they will be included in the AI's context.
 
-### Always Active Entries
+### Constant (Always Active) Entries
 
-Entries marked as "always active" are included in every conversation, regardless of keywords. This is useful for:
+Entries with activation type "Constant" are included in every conversation, regardless of keywords. This is useful for:
 - Core world rules (magic systems, physics)
 - Important background information
 - Setting tone and atmosphere
+
+### Vectorized Entries
+
+The "Vectorized" activation type is planned for future semantic search capabilities. Currently, it behaves the same as "Normal" (keyword-triggered).
 
 ## Examples
 
 ### Example 1: Fantasy World Lorebook
 
 You can import the included `lorebook/fantasy_aldoria.json` file which contains:
-- Magic System (always active)
-- Kingdom of Aldoria
-- The Dark Forest
-- Mage Knights
-- The Great War
+- Magic System (constant activation)
+- Kingdom of Aldoria (normal activation)
+- The Dark Forest (normal activation)
+- Mage Knights (normal activation)
+- The Great War (normal activation)
 
 ### Example 2: Sci-Fi Setting
 
@@ -167,15 +199,17 @@ Create a "Sci-Fi Universe" lorebook:
 Entry: "FTL Travel"
 Content: Faster-than-light travel uses jump gates between systems. Each gate requires massive energy and can only connect to paired gates.
 Keywords: ftl, travel, jump, gate
-Always Active: Yes
+Activation Type: Constant
 
 Entry: "Earth Alliance"
 Content: Federation of human colonies with headquarters on Mars. Founded after the First Contact War.
 Keywords: alliance, earth, federation, colonies
+Activation Type: Normal
 
 Entry: "Xenon Empire"
 Content: Advanced alien civilization known for biotechnology and crystal-based computing.
 Keywords: xenon, alien, empire, biotechnology
+Activation Type: Normal
 ```
 
 ### Example 3: Murder Drones Setting
@@ -199,7 +233,7 @@ You can enable multiple lorebooks at once:
 1. **Organize by Setting**: Create separate lorebooks for different worlds or campaigns
 2. **Use Descriptive Names**: Name lorebooks clearly (e.g., "Cyberpunk 2077 World" vs "Lorebook 1")
 3. **One Setting at a Time**: For focused roleplay, enable only the relevant lorebook(s)
-4. **Always Active Sparingly**: Only mark essential world rules as always active
+4. **Use Constant Activation Sparingly**: Only use "Constant" activation for essential world rules and core setting information
 5. **Disable When Not Needed**: Disable lorebooks you're not currently using to reduce context clutter
 6. **Export for Backup**: Regularly export your lorebooks as JSON files for backup
 7. **Share Lorebooks**: Share your exported lorebook JSON files with others

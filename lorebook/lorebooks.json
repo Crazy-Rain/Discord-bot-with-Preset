@@ -1,0 +1,154 @@
+{
+  "Fantasy World - Aldoria": {
+    "name": "Fantasy World - Aldoria",
+    "description": "A high-fantasy medieval setting with magic and kingdoms",
+    "enabled": true,
+    "entries": {
+      "Magic System": {
+        "key": "Magic System",
+        "content": "Magic in this world requires mana crystals, which are rare and valuable. Only those born with the Gift can channel magic through these crystals. Different crystal colors produce different types of magic: blue for water/ice, red for fire, green for nature, white for healing, and black for forbidden shadow magic.",
+        "keywords": [
+          "magic",
+          "spell",
+          "mana",
+          "crystal",
+          "gift"
+        ],
+        "always_active": true,
+        "activation_type": "constant"
+      },
+      "Kingdom of Aldoria": {
+        "key": "Kingdom of Aldoria",
+        "content": "The largest and most prosperous kingdom in the realm, ruled by King Aldric the Wise. The capital city features a massive crystal tower that serves as both palace and magical academy. The kingdom is known for its fair laws and powerful mage knights.",
+        "keywords": [
+          "aldoria",
+          "kingdom",
+          "king",
+          "capital",
+          "aldric"
+        ],
+        "always_active": false,
+        "activation_type": "normal"
+      },
+      "The Dark Forest": {
+        "key": "The Dark Forest",
+        "content": "A dangerous forest on the northern border where few dare to venture. Home to monsters, corrupted beasts, and rumored to be the source of shadow magic. The trees are twisted and ancient, and the forest seems to have a will of its own.",
+        "keywords": [
+          "forest",
+          "dark",
+          "north",
+          "monsters",
+          "shadow"
+        ],
+        "always_active": false,
+        "activation_type": "normal"
+      },
+      "Mage Knights": {
+        "key": "Mage Knights",
+        "content": "Elite warriors who combine martial prowess with magical abilities. They serve the kingdom directly and are trained at the Crystal Tower Academy. Each mage knight bonds with a mana crystal and wears enchanted armor.",
+        "keywords": [
+          "mage knight",
+          "warrior",
+          "academy",
+          "elite"
+        ],
+        "always_active": false,
+        "activation_type": "normal"
+      },
+      "The Great War": {
+        "key": "The Great War",
+        "content": "A devastating conflict that occurred 50 years ago between the kingdoms of the realm. It ended with the Treaty of the Five Crowns, which established current borders and banned the use of shadow magic. Many mana crystal mines were destroyed during this war.",
+        "keywords": [
+          "war",
+          "great war",
+          "treaty",
+          "history",
+          "conflict"
+        ],
+        "always_active": false,
+        "activation_type": "normal"
+      },
+      "Test Vectorized Entry": {
+        "key": "Test Vectorized Entry",
+        "content": "This is a test entry using vectorized activation type for semantic search.",
+        "keywords": [
+          "test",
+          "vectorized",
+          "semantic"
+        ],
+        "activation_type": "vectorized"
+      }
+    }
+  },
+  "Default": {
+    "name": "Default",
+    "description": "Default lorebook (migrated from legacy format)",
+    "enabled": true,
+    "entries": {
+      "Magic System": {
+        "key": "Magic System",
+        "content": "Magic in this world requires mana crystals, which are rare and valuable. Only those born with the Gift can channel magic through these crystals. Different crystal colors produce different types of magic: blue for water/ice, red for fire, green for nature, white for healing, and black for forbidden shadow magic.",
+        "keywords": [
+          "magic",
+          "spell",
+          "mana",
+          "crystal",
+          "gift"
+        ],
+        "always_active": true,
+        "activation_type": "constant"
+      },
+      "Kingdom of Aldoria": {
+        "key": "Kingdom of Aldoria",
+        "content": "The largest and most prosperous kingdom in the realm, ruled by King Aldric the Wise. The capital city features a massive crystal tower that serves as both palace and magical academy. The kingdom is known for its fair laws and powerful mage knights.",
+        "keywords": [
+          "aldoria",
+          "kingdom",
+          "king",
+          "capital",
+          "aldric"
+        ],
+        "always_active": false,
+        "activation_type": "normal"
+      },
+      "The Dark Forest": {
+        "key": "The Dark Forest",
+        "content": "A dangerous forest on the northern border where few dare to venture. Home to monsters, corrupted beasts, and rumored to be the source of shadow magic. The trees are twisted and ancient, and the forest seems to have a will of its own.",
+        "keywords": [
+          "forest",
+          "dark",
+          "north",
+          "monsters",
+          "shadow"
+        ],
+        "always_active": false,
+        "activation_type": "normal"
+      },
+      "Mage Knights": {
+        "key": "Mage Knights",
+        "content": "Elite warriors who combine martial prowess with magical abilities. They serve the kingdom directly and are trained at the Crystal Tower Academy. Each mage knight bonds with a mana crystal and wears enchanted armor.",
+        "keywords": [
+          "mage knight",
+          "warrior",
+          "academy",
+          "elite"
+        ],
+        "always_active": false,
+        "activation_type": "normal"
+      },
+      "The Great War": {
+        "key": "The Great War",
+        "content": "A devastating conflict that occurred 50 years ago between the kingdoms of the realm. It ended with the Treaty of the Five Crowns, which established current borders and banned the use of shadow magic. Many mana crystal mines were destroyed during this war.",
+        "keywords": [
+          "war",
+          "great war",
+          "treaty",
+          "history",
+          "conflict"
+        ],
+        "always_active": false,
+        "activation_type": "normal"
+      }
+    }
+  }
+}
