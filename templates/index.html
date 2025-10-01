@@ -577,10 +577,17 @@
             </div>
             
             <div class="form-group">
-                <label style="display: flex; align-items: center; gap: 8px;">
-                    <input type="checkbox" id="lorebook-always-active" style="width: auto; margin: 0;">
-                    <span>Always Active (Include in all conversations)</span>
-                </label>
+                <label>Activation Type</label>
+                <select id="lorebook-activation-type" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px;">
+                    <option value="normal">Normal (Keyword-triggered)</option>
+                    <option value="constant">Constant (Always active)</option>
+                    <option value="vectorized">Vectorized (Semantic search - future)</option>
+                </select>
+                <small style="color: #666; display: block; margin-top: 5px;">
+                    <strong>Normal:</strong> Entry appears when keywords are mentioned<br>
+                    <strong>Constant:</strong> Entry is always included in conversations<br>
+                    <strong>Vectorized:</strong> Entry uses semantic search (planned feature, currently works like Normal)
+                </small>
             </div>
             
             <button class="btn btn-primary" onclick="saveLorebookEntry()">Save Entry</button>
@@ -591,7 +598,7 @@
             <div id="import-lorebook-section" style="display: none; margin-top: 20px;">
                 <div class="form-group">
                     <label>Import Lorebook (JSON)</label>
-                    <textarea id="import-lorebook-json" placeholder='{"Entry Key": {"key": "...", "content": "...", "keywords": [], "always_active": false}, ...}'></textarea>
+                    <textarea id="import-lorebook-json" placeholder='{"Entry Key": {"key": "...", "content": "...", "keywords": [], "activation_type": "normal"}, ...}'></textarea>
                 </div>
                 <div class="form-group">
                     <label style="display: flex; align-items: center; gap: 8px;">
@@ -1268,7 +1275,7 @@
             const key = document.getElementById('lorebook-key').value.trim();
             const content = document.getElementById('lorebook-content').value.trim();
             const keywordsStr = document.getElementById('lorebook-keywords').value.trim();
-            const alwaysActive = document.getElementById('lorebook-always-active').checked;
+            const activationType = document.getElementById('lorebook-activation-type').value;
             
             if (!key || !content) {
                 showMessage('lorebook-message', 'Please enter both key and content', 'error');
@@ -1290,7 +1297,7 @@
                     body: JSON.stringify({
                         content: content,
                         keywords: keywords,
-                        always_active: alwaysActive,
+                        activation_type: activationType,
                         lorebook_name: currentLorebookName
                     })
                 });
@@ -1321,7 +1328,14 @@
                 document.getElementById('lorebook-key').value = entry.key;
                 document.getElementById('lorebook-content').value = entry.content;
                 document.getElementById('lorebook-keywords').value = (entry.keywords || []).join(', ');
-                document.getElementById('lorebook-always-active').checked = entry.always_active || false;
+                
+                // Handle activation_type with backward compatibility
+                let activationType = entry.activation_type;
+                if (!activationType) {
+                    // Fall back to always_active for old entries
+                    activationType = entry.always_active ? 'constant' : 'normal';
+                }
+                document.getElementById('lorebook-activation-type').value = activationType;
                 
                 // Scroll to top
                 document.getElementById('lorebook').scrollTop = 0;
@@ -1355,7 +1369,7 @@
             document.getElementById('lorebook-key').value = '';
             document.getElementById('lorebook-content').value = '';
             document.getElementById('lorebook-keywords').value = '';
-            document.getElementById('lorebook-always-active').checked = false;
+            document.getElementById('lorebook-activation-type').value = 'normal';
         }
         
         async function exportLorebook() {
@@ -1520,10 +1534,22 @@
                     const entryDiv = document.createElement('div');
                     entryDiv.className = 'item';
                     
-                    let statusText = '';
-                    if (entry.always_active) {
-                        statusText += '<span style="color: #28a745; font-weight: bold;">● Always Active</span>';
+                    // Get activation type with backward compatibility
+                    let activationType = entry.activation_type;
+                    if (!activationType) {
+                        activationType = entry.always_active ? 'constant' : 'normal';
                     }
+                    
+                    let statusText = '';
+                    // Display activation type with color coding
+                    if (activationType === 'constant') {
+                        statusText += '<span style="color: #28a745; font-weight: bold;">● Constant (Always Active)</span>';
+                    } else if (activationType === 'vectorized') {
+                        statusText += '<span style="color: #007bff; font-weight: bold;">● Vectorized (Semantic)</span>';
+                    } else {
+                        statusText += '<span style="color: #6c757d; font-weight: bold;">● Normal (Keyword)</span>';
+                    }
+                    
                     if (entry.keywords && entry.keywords.length > 0) {
                         statusText += (statusText ? ' | ' : '') + `Keywords: ${entry.keywords.join(', ')}`;
                     }

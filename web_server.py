@@ -276,10 +276,17 @@ class WebServer:
                 data = request.json
                 content = data.get('content', '')
                 keywords = data.get('keywords', [])
+                # Support both old always_active and new activation_type
+                activation_type = data.get('activation_type')
                 always_active = data.get('always_active', False)
                 lorebook_name = data.get('lorebook_name', 'Default')
                 
-                self.lorebook_manager.add_or_update_entry(key, content, keywords, always_active, lorebook_name)
+                self.lorebook_manager.add_or_update_entry(
+                    key, content, keywords, 
+                    always_active=always_active,
+                    activation_type=activation_type,
+                    lorebook_name=lorebook_name
+                )
                 return jsonify({"status": "success", "message": f"Lorebook entry '{key}' saved"})
             except Exception as e:
                 return jsonify({"status": "error", "message": str(e)}), 400
