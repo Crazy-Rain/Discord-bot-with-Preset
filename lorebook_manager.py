@@ -7,31 +7,70 @@ class LorebookManager:
     def __init__(self, lorebook_dir: str = "lorebook"):
         self.lorebook_dir = lorebook_dir
         self.ensure_lorebook_dir()
-        self.entries: Dict[str, Dict[str, Any]] = {}
-        self.load_all_entries()
+        self.lorebooks: Dict[str, Dict[str, Any]] = {}
+        self.entries: Dict[str, Dict[str, Any]] = {}  # Legacy flat entries for backward compatibility
+        self.load_all_lorebooks()
     
     def ensure_lorebook_dir(self) -> None:
         """Ensure lorebook directory exists."""
         if not os.path.exists(self.lorebook_dir):
             os.makedirs(self.lorebook_dir)
     
-    def load_all_entries(self) -> None:
-        """Load all lorebook entries from storage."""
-        storage_path = os.path.join(self.lorebook_dir, "lorebook.json")
-        if os.path.exists(storage_path):
-            with open(storage_path, "r") as f:
+    def load_all_lorebooks(self) -> None:
+        """Load all lorebooks from storage."""
+        # Load new multi-lorebook format
+        lorebooks_path = os.path.join(self.lorebook_dir, "lorebooks.json")
+        if os.path.exists(lorebooks_path):
+            with open(lorebooks_path, "r") as f:
+                self.lorebooks = json.load(f)
+        else:
+            self.lorebooks = {}
+        
+        # Load legacy single lorebook for backward compatibility
+        legacy_path = os.path.join(self.lorebook_dir, "lorebook.json")
+        if os.path.exists(legacy_path):
+            with open(legacy_path, "r") as f:
                 self.entries = json.load(f)
+                
+            # If we have legacy entries but no "Default" lorebook, migrate them
+            if self.entries and "Default" not in self.lorebooks:
+                self.lorebooks["Default"] = {
+                    "name": "Default",
+                    "description": "Default lorebook (migrated from legacy format)",
+                    "enabled": True,
+                    "entries": self.entries
+                }
+                self.save_all_lorebooks()
         else:
             self.entries = {}
     
-    def save_all_entries(self) -> None:
-        """Save all lorebook entries to storage."""
-        storage_path = os.path.join(self.lorebook_dir, "lorebook.json")
-        with open(storage_path, "w") as f:
+    def load_all_entries(self) -> None:
+        """Load all lorebook entries from storage (legacy method for backward compatibility)."""
+        self.load_all_lorebooks()
+    
+    def save_all_lorebooks(self) -> None:
+        """Save all lorebooks to storage."""
+        lorebooks_path = os.path.join(self.lorebook_dir, "lorebooks.json")
+        with open(lorebooks_path, "w") as f:
+            json.dump(self.lorebooks, f, indent=2)
+        
+        # Also update legacy format for backward compatibility
+        # Merge all enabled lorebooks into flat entries
+        self.entries = {}
+        for lorebook_name, lorebook in self.lorebooks.items():
+            if lorebook.get("enabled", True):
+                self.entries.update(lorebook.get("entries", {}))
+        
+        legacy_path = os.path.join(self.lorebook_dir, "lorebook.json")
+        with open(legacy_path, "w") as f:
             json.dump(self.entries, f, indent=2)
     
+    def save_all_entries(self) -> None:
+        """Save all lorebook entries to storage (legacy method for backward compatibility)."""
+        self.save_all_lorebooks()
+    
     def add_or_update_entry(self, key: str, content: str, keywords: Optional[List[str]] = None, 
-                           always_active: bool = False) -> None:
+                           always_active: bool = False, lorebook_name: str = "Default") -> None:
         """Add or update a lorebook entry.
         
         Args:
@@ -39,29 +78,85 @@ class LorebookManager:
             content: The lore/information content
             keywords: List of keywords that trigger this entry (optional)
             always_active: If True, this entry is always included in context
+            lorebook_name: Name of the lorebook to add the entry to (default: "Default")
         """
         if keywords is None:
             keywords = []
         
-        self.entries[key] = {
+        # Ensure the lorebook exists
+        if lorebook_name not in self.lorebooks:
+            self.lorebooks[lorebook_name] = {
+                "name": lorebook_name,
+                "description": "",
+                "enabled": True,
+                "entries": {}
+            }
+        
+        # Add/update the entry
+        entry = {
             "key": key,
             "content": content,
             "keywords": keywords,
             "always_active": always_active
         }
-        self.save_all_entries()
+        self.lorebooks[lorebook_name]["entries"][key] = entry
+        
+        # Update flat entries for backward compatibility
+        if self.lorebooks[lorebook_name].get("enabled", True):
+            self.entries[key] = entry
+        
+        self.save_all_lorebooks()
     
-    def get_entry(self, key: str) -> Optional[Dict[str, Any]]:
-        """Get a lorebook entry by key."""
-        return self.entries.get(key)
+    def get_entry(self, key: str, lorebook_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Get a lorebook entry by key.
+        
+        Args:
+            key: Entry key to retrieve
+            lorebook_name: Optional lorebook name to search in. If None, searches all enabled lorebooks.
+        
+        Returns:
+            Entry dict if found, None otherwise
+        """
+        if lorebook_name:
+            # Search in specific lorebook
+            if lorebook_name in self.lorebooks:
+                return self.lorebooks[lorebook_name].get("entries", {}).get(key)
+            return None
+        else:
+            # Search in flat entries (all enabled lorebooks)
+            return self.entries.get(key)
     
-    def delete_entry(self, key: str) -> bool:
-        """Delete a lorebook entry."""
-        if key in self.entries:
-            del self.entries[key]
-            self.save_all_entries()
-            return True
-        return False
+    def delete_entry(self, key: str, lorebook_name: Optional[str] = None) -> bool:
+        """Delete a lorebook entry.
+        
+        Args:
+            key: Entry key to delete
+            lorebook_name: Optional lorebook name. If None, deletes from all lorebooks containing this key.
+        
+        Returns:
+            True if entry was deleted, False otherwise
+        """
+        deleted = False
+        
+        if lorebook_name:
+            # Delete from specific lorebook
+            if lorebook_name in self.lorebooks:
+                entries = self.lorebooks[lorebook_name].get("entries", {})
+                if key in entries:
+                    del entries[key]
+                    deleted = True
+        else:
+            # Delete from all lorebooks
+            for lorebook in self.lorebooks.values():
+                entries = lorebook.get("entries", {})
+                if key in entries:
+                    del entries[key]
+                    deleted = True
+        
+        if deleted:
+            self.save_all_lorebooks()
+        
+        return deleted
     
     def list_entries(self) -> List[str]:
         """List all lorebook entry keys."""
@@ -146,3 +241,159 @@ class LorebookManager:
         sections.append("[/Lorebook]")
         
         return "\n".join(sections)
+    
+    # Multiple Lorebook Management Methods
+    
+    def create_lorebook(self, name: str, description: str = "", enabled: bool = True) -> None:
+        """Create a new lorebook.
+        
+        Args:
+            name: Unique name for the lorebook
+            description: Optional description
+            enabled: Whether the lorebook is enabled by default
+        """
+        if name in self.lorebooks:
+            raise ValueError(f"Lorebook '{name}' already exists")
+        
+        self.lorebooks[name] = {
+            "name": name,
+            "description": description,
+            "enabled": enabled,
+            "entries": {}
+        }
+        self.save_all_lorebooks()
+    
+    def delete_lorebook(self, name: str) -> bool:
+        """Delete a lorebook.
+        
+        Args:
+            name: Name of the lorebook to delete
+        
+        Returns:
+            True if deleted, False if not found
+        """
+        if name in self.lorebooks:
+            del self.lorebooks[name]
+            self.save_all_lorebooks()
+            return True
+        return False
+    
+    def list_lorebooks(self) -> List[Dict[str, Any]]:
+        """List all lorebooks with their metadata.
+        
+        Returns:
+            List of lorebook info dicts
+        """
+        result = []
+        for name, lorebook in self.lorebooks.items():
+            result.append({
+                "name": name,
+                "description": lorebook.get("description", ""),
+                "enabled": lorebook.get("enabled", True),
+                "entry_count": len(lorebook.get("entries", {}))
+            })
+        return result
+    
+    def get_lorebook(self, name: str) -> Optional[Dict[str, Any]]:
+        """Get a specific lorebook.
+        
+        Args:
+            name: Name of the lorebook
+        
+        Returns:
+            Lorebook dict if found, None otherwise
+        """
+        return self.lorebooks.get(name)
+    
+    def update_lorebook_metadata(self, name: str, description: Optional[str] = None, 
+                                 enabled: Optional[bool] = None) -> bool:
+        """Update lorebook metadata.
+        
+        Args:
+            name: Name of the lorebook
+            description: Optional new description
+            enabled: Optional new enabled status
+        
+        Returns:
+            True if updated, False if lorebook not found
+        """
+        if name not in self.lorebooks:
+            return False
+        
+        if description is not None:
+            self.lorebooks[name]["description"] = description
+        
+        if enabled is not None:
+            self.lorebooks[name]["enabled"] = enabled
+        
+        self.save_all_lorebooks()
+        return True
+    
+    def enable_lorebook(self, name: str) -> bool:
+        """Enable a lorebook.
+        
+        Args:
+            name: Name of the lorebook to enable
+        
+        Returns:
+            True if enabled, False if not found
+        """
+        return self.update_lorebook_metadata(name, enabled=True)
+    
+    def disable_lorebook(self, name: str) -> bool:
+        """Disable a lorebook.
+        
+        Args:
+            name: Name of the lorebook to disable
+        
+        Returns:
+            True if disabled, False if not found
+        """
+        return self.update_lorebook_metadata(name, enabled=False)
+    
+    def import_lorebook_file(self, lorebook_data: Dict[str, Any], merge: bool = True) -> str:
+        """Import a lorebook from a structured lorebook file.
+        
+        Args:
+            lorebook_data: Dict containing lorebook structure with name, description, entries
+            merge: If True, merge with existing; if False, replace
+        
+        Returns:
+            Name of the imported lorebook
+        """
+        name = lorebook_data.get("name", "Imported Lorebook")
+        description = lorebook_data.get("description", "")
+        enabled = lorebook_data.get("enabled", True)
+        entries = lorebook_data.get("entries", {})
+        
+        if merge and name in self.lorebooks:
+            # Merge entries into existing lorebook
+            self.lorebooks[name]["entries"].update(entries)
+            if description:
+                self.lorebooks[name]["description"] = description
+        else:
+            # Create new or replace existing lorebook
+            self.lorebooks[name] = {
+                "name": name,
+                "description": description,
+                "enabled": enabled,
+                "entries": entries
+            }
+        
+        self.save_all_lorebooks()
+        return name
+    
+    def export_lorebook_file(self, name: str) -> str:
+        """Export a specific lorebook as JSON string.
+        
+        Args:
+            name: Name of the lorebook to export
+        
+        Returns:
+            JSON string of the lorebook
+        """
+        if name not in self.lorebooks:
+            raise ValueError(f"Lorebook '{name}' not found")
+        
+        return json.dumps(self.lorebooks[name], indent=2)
+
