@@ -1457,6 +1457,9 @@
                     currentLorebookName = lorebooks[0].name;
                     selector.value = currentLorebookName;
                     await onLorebookSelected();
+                } else if (currentLorebookName) {
+                    // If a lorebook is already selected, maintain the selection in the dropdown
+                    selector.value = currentLorebookName;
                 }
                 
                 // Update lorebooks list
