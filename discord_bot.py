@@ -63,6 +63,74 @@ class DiscordBot(commands.Bot):
             return character_name, actual_message
         return None, message
     
+    async def load_channel_history(self, channel, limit: int = 50) -> List[Dict[str, str]]:
+        """Load recent !chat messages from channel history to build context.
+        
+        Args:
+            channel: Discord channel object
+            limit: Maximum number of messages to fetch from history
+            
+        Returns:
+            List of conversation messages in chronological order (oldest first)
+        """
+        conversation = []
+        character_names_found = []
+        
+        try:
+            # Fetch recent messages from the channel (newest first by default)
+            messages = []
+            async for message in channel.history(limit=limit):
+                messages.append(message)
+            
+            # Reverse to get chronological order (oldest first)
+            messages.reverse()
+            
+            # Parse messages to extract !chat commands and responses
+            for message in messages:
+                # Skip messages from other bots or empty messages
+                if message.author.bot and message.author.id != self.user.id:
+                    continue
+                
+                # Check if it's a user message with !chat command
+                if message.content.startswith("!chat "):
+                    # Extract the message after !chat
+                    chat_message = message.content[6:].strip()  # Remove "!chat "
+                    
+                    # Parse character name if present
+                    character_name, actual_message = self.parse_character_message(chat_message)
+                    
+                    # Track character name
+                    if character_name and character_name not in character_names_found:
+                        character_names_found.append(character_name)
+                    
+                    # Add to conversation as user message
+                    if character_name:
+                        conversation.append({
+                            "role": "user", 
+                            "content": f"{character_name}: {actual_message}"
+                        })
+                    else:
+                        conversation.append({
+                            "role": "user",
+                            "content": actual_message
+                        })
+                
+                # Check if it's a bot response (message from this bot, not starting with !)
+                elif message.author.id == self.user.id and not message.content.startswith("!"):
+                    # Skip meta messages (like "Alternative X/Y")
+                    if message.content.startswith("*Alternative "):
+                        continue
+                    # This is likely a bot response, add it to conversation
+                    conversation.append({
+                        "role": "assistant",
+                        "content": message.content
+                    })
+            
+        except Exception as e:
+            print(f"Error loading channel history: {e}")
+        
+        return conversation, character_names_found
+    
     def add_bot_commands(self):
         """Add bot commands."""
         
@@ -76,6 +144,19 @@ class DiscordBot(commands.Bot):
                 self.conversations[channel_id] = []
             if channel_id not in self.character_names:
                 self.character_names[channel_id] = []
+            
+            # Load channel history if conversation is empty (e.g., after bot restart)
+            # This allows the bot to pick up context from previous !chat messages
+            if not self.conversations[channel_id]:
+                history_messages, history_character_names = await self.load_channel_history(
+                    ctx.channel, 
+                    limit=50  # Fetch up to 50 recent messages
+                )
+                self.conversations[channel_id] = history_messages
+                # Merge character names found in history
+                for char_name in history_character_names:
+                    if char_name not in self.character_names[channel_id]:
+                        self.character_names[channel_id].append(char_name)
             
             # Parse character name from message
             character_name, actual_message = self.parse_character_message(message)
@@ -188,6 +269,53 @@ FORMAT GUIDELINES:
             if channel_id in self.character_names:
                 self.character_names[channel_id] = []
             await ctx.send("Conversation history and character names cleared!")
+        
+        @self.command(name="reload_history", help="Reload conversation from channel history")
+        async def reload_history(ctx, limit: int = 50):
+            """Reload conversation history from channel messages.
+            
+            This command fetches recent !chat messages from the channel and rebuilds
+            the conversation context. Useful after bot restart or to refresh context.
+            
+            Args:
+                limit: Number of recent messages to fetch (default: 50, max: 100)
+            """
+            channel_id = ctx.channel.id
+            
+            # Limit the maximum to prevent excessive API calls
+            limit = min(limit, 100)
+            
+            async with ctx.typing():
+                # Clear current conversation
+                self.conversations[channel_id] = []
+                self.character_names[channel_id] = []
+                
+                # Load history
+                history_messages, history_character_names = await self.load_channel_history(
+                    ctx.channel, 
+                    limit=limit
+                )
+                
+                self.conversations[channel_id] = history_messages
+                self.character_names[channel_id] = history_character_names
+                
+                # Clear response alternatives as they're no longer valid
+                if channel_id in self.response_alternatives:
+                    self.response_alternatives[channel_id] = []
+                if channel_id in self.current_alternative_index:
+                    del self.current_alternative_index[channel_id]
+                
+                msg_count = len(history_messages)
+                char_count = len(history_character_names)
+                
+                response = f"Reloaded conversation history!\n"
+                response += f"- Loaded {msg_count} messages\n"
+                if char_count > 0:
+                    response += f"- Found {char_count} character(s): {', '.join(history_character_names)}"
+                else:
+                    response += f"- No character names found"
+                
+                await ctx.send(response)
         
         @self.command(name="preset", help="Load a preset")
         async def preset(ctx, preset_name: str):
@@ -347,6 +475,7 @@ FORMAT GUIDELINES:
 **Discord Bot Commands:**
 `!chat <message>` - Chat with the AI
 `!clear` - Clear conversation history and character names
+`!reload_history [limit]` - Reload conversation from channel history (default: 50 messages)
 `!preset <name>` - Load a preset
 `!presets` - List available presets
 `!character <name>` - Load a character card
@@ -363,6 +492,9 @@ FORMAT GUIDELINES:
 `!lorebook_view <key>` - View a lorebook entry
 `!lorebook_delete <key>` - Delete a lorebook entry
 `!help_bot` - Show this help message
+
+**Context & History:**
+The bot automatically loads recent !chat messages from the channel when starting a new conversation. This means past conversations persist even after bot restart. Use `!reload_history` to manually refresh the context from channel history.
 
 **Character Name Feature:**
 You can identify yourself as a character by using the format:
@@ -402,8 +534,25 @@ Visit http://localhost:5000 to configure the bot via web interface.
             """Generate an alternative response to the last user message."""
             channel_id = ctx.channel.id
             
+            # Initialize if needed
+            if channel_id not in self.conversations:
+                self.conversations[channel_id] = []
+            if channel_id not in self.character_names:
+                self.character_names[channel_id] = []
+            
+            # Load channel history if conversation is empty
+            if not self.conversations[channel_id]:
+                history_messages, history_character_names = await self.load_channel_history(
+                    ctx.channel, 
+                    limit=50
+                )
+                self.conversations[channel_id] = history_messages
+                for char_name in history_character_names:
+                    if char_name not in self.character_names[channel_id]:
+                        self.character_names[channel_id].append(char_name)
+            
             # Check if there's a conversation
-            if channel_id not in self.conversations or len(self.conversations[channel_id]) < 2:
+            if len(self.conversations[channel_id]) < 2:
                 await ctx.send("No previous message to regenerate. Use !chat first.")
                 return
             
@@ -421,10 +570,35 @@ Visit http://localhost:5000 to configure the bot via web interface.
             # Get system prompt
             system_prompt = self.get_system_prompt()
             
+            # Build enhanced system prompt with character context
+            enhanced_system_prompt = system_prompt
+            if self.character_names[channel_id]:
+                character_list = ", ".join(self.character_names[channel_id])
+                enhanced_system_prompt = f"""{system_prompt}
+
+IMPORTANT: In this conversation, users will identify themselves as characters by prefixing their messages with 'CharacterName:'. The following character names are being used by users: {character_list}. You should NEVER pretend to be these characters or respond as if you are them. You are a separate entity having a conversation with these characters.
+
+FORMAT GUIDELINES:
+- Text in "quotes" represents spoken dialogue by the character
+- Text in *asterisks* represents actions performed by the character
+- Text without quotes or asterisks is descriptive text or additional context"""
+                
+                # Add user character descriptions
+                user_char_section = self.user_characters_manager.get_system_prompt_section(
+                    self.character_names[channel_id]
+                )
+                if user_char_section:
+                    enhanced_system_prompt += user_char_section
+            
+            # Add lorebook entries based on the last user message
+            lorebook_section = self.lorebook_manager.get_system_prompt_section(last_user_msg)
+            if lorebook_section:
+                enhanced_system_prompt += "\n\n" + lorebook_section
+            
             # Build messages (exclude last assistant response)
             messages = []
-            if system_prompt:
-                messages.append({"role": "system", "content": system_prompt})
+            if enhanced_system_prompt:
+                messages.append({"role": "system", "content": enhanced_system_prompt})
             
             # Add conversation history except the last assistant message
             conv_without_last = self.conversations[channel_id][:-1] if self.conversations[channel_id] else []
