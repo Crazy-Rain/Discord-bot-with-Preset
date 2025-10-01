@@ -237,6 +237,25 @@
             max-height: 400px;
             overflow-y: auto;
         }
+        
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 14px;
+        }
+        
+        .item {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        
+        .item:hover {
+            background: #e9ecef;
+        }
     </style>
 </head>
 <body>
@@ -491,6 +510,56 @@
             <h2>Lorebook - World Information</h2>
             <p style="margin-bottom: 20px; color: #666;">Add world-building and lore information that the AI can use for context. Entries can be triggered by keywords or set to always be active.</p>
             
+            <!-- Lorebook Management Section -->
+            <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                <h3 style="margin-top: 0;">Manage Lorebooks</h3>
+                <div style="display: flex; gap: 10px; margin-bottom: 15px; align-items: center;">
+                    <div class="form-group" style="flex: 1; margin: 0;">
+                        <label>Active Lorebook</label>
+                        <select id="lorebook-selector" onchange="onLorebookSelected()">
+                            <option value="">Loading...</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" onclick="showCreateLorebookDialog()" style="margin-top: 24px;">New Lorebook</button>
+                </div>
+                
+                <div id="lorebook-info" style="display: none; margin-bottom: 15px;">
+                    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+                        <span style="font-weight: bold;" id="current-lorebook-name"></span>
+                        <span style="color: #666;" id="current-lorebook-description"></span>
+                        <label style="margin-left: auto; display: flex; align-items: center; gap: 5px;">
+                            <input type="checkbox" id="lorebook-enabled" onchange="toggleCurrentLorebook()" style="width: auto; margin: 0;">
+                            <span>Enabled</span>
+                        </label>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn btn-secondary btn-sm" onclick="exportCurrentLorebook()">Export This Lorebook</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteCurrentLorebook()">Delete This Lorebook</button>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 15px;">
+                    <h4 style="margin: 10px 0;">All Lorebooks</h4>
+                    <div id="lorebooks-list" style="max-height: 200px; overflow-y: auto;"></div>
+                </div>
+            </div>
+            
+            <!-- Create Lorebook Dialog -->
+            <div id="create-lorebook-dialog" style="display: none; background: #fff; padding: 20px; border-radius: 8px; border: 2px solid #007bff; margin-bottom: 20px;">
+                <h3>Create New Lorebook</h3>
+                <div class="form-group">
+                    <label>Lorebook Name</label>
+                    <input type="text" id="new-lorebook-name" placeholder="e.g., Fantasy World, Sci-Fi Setting">
+                </div>
+                <div class="form-group">
+                    <label>Description (optional)</label>
+                    <input type="text" id="new-lorebook-description" placeholder="Brief description of this lorebook">
+                </div>
+                <button class="btn btn-primary" onclick="createLorebook()">Create</button>
+                <button class="btn btn-secondary" onclick="cancelCreateLorebook()">Cancel</button>
+            </div>
+            
+            <h3>Add/Edit Entry</h3>
             <div class="form-group">
                 <label>Entry Key (Unique identifier)</label>
                 <input type="text" id="lorebook-key" placeholder="e.g., Kingdom of Aldoria, Magic System, Character Background">
@@ -1186,46 +1255,12 @@
         
         // Lorebook Management
         async function loadLorebookList() {
-            try {
-                const response = await fetch('/api/lorebook');
-                const data = await response.json();
-                const entries = data.entries || {};
-                
-                const listDiv = document.getElementById('lorebook-list');
-                listDiv.innerHTML = '';
-                
-                if (Object.keys(entries).length === 0) {
-                    listDiv.innerHTML = '<p style="color: #666;">No lorebook entries saved yet.</p>';
-                    return;
-                }
-                
-                for (const [key, entry] of Object.entries(entries)) {
-                    const entryDiv = document.createElement('div');
-                    entryDiv.className = 'item';
-                    
-                    let statusText = '';
-                    if (entry.always_active) {
-                        statusText += '<span style="color: #28a745; font-weight: bold;">● Always Active</span>';
-                    }
-                    if (entry.keywords && entry.keywords.length > 0) {
-                        statusText += (statusText ? ' | ' : '') + `Keywords: ${entry.keywords.join(', ')}`;
-                    }
-                    
-                    entryDiv.innerHTML = `
-                        <div>
-                            <strong>${key}</strong>
-                            ${statusText ? `<div style="font-size: 0.9em; color: #666; margin-top: 4px;">${statusText}</div>` : ''}
-                            <div style="margin-top: 8px; color: #333;">${entry.content.substring(0, 150)}${entry.content.length > 150 ? '...' : ''}</div>
-                        </div>
-                        <div style="display: flex; gap: 8px;">
-                            <button class="btn btn-sm btn-secondary" onclick="editLorebookEntry('${key}')">Edit</button>
-                            <button class="btn btn-sm btn-danger" onclick="deleteLorebookEntry('${key}')">Delete</button>
-                        </div>
-                    `;
-                    listDiv.appendChild(entryDiv);
-                }
-            } catch (error) {
-                showMessage('lorebook-message', 'Error loading lorebook: ' + error.message, 'error');
+            // Load the lorebooks list first
+            await loadLorebooksList();
+            
+            // Then load entries if a lorebook is selected
+            if (currentLorebookName) {
+                await loadLorebookEntriesForCurrent();
             }
         }
         
@@ -1240,6 +1275,12 @@
                 return;
             }
             
+            // Ensure we have a lorebook selected
+            if (!currentLorebookName) {
+                showMessage('lorebook-message', 'Please select or create a lorebook first', 'error');
+                return;
+            }
+            
             const keywords = keywordsStr ? keywordsStr.split(',').map(k => k.trim()).filter(k => k) : [];
             
             try {
@@ -1249,23 +1290,33 @@
                     body: JSON.stringify({
                         content: content,
                         keywords: keywords,
-                        always_active: alwaysActive
+                        always_active: alwaysActive,
+                        lorebook_name: currentLorebookName
                     })
                 });
                 
                 const result = await response.json();
                 showMessage('lorebook-message', result.message, result.status === 'success' ? 'success' : 'error');
                 clearLorebookForm();
-                loadLorebookList();
+                loadLorebookEntriesForCurrent();
+                loadLorebooksList(); // Refresh to update entry count
             } catch (error) {
                 showMessage('lorebook-message', 'Error saving entry: ' + error.message, 'error');
             }
         }
         
         async function editLorebookEntry(key) {
+            if (!currentLorebookName) return;
+            
             try {
-                const response = await fetch(`/api/lorebook/${encodeURIComponent(key)}`);
-                const entry = await response.json();
+                const response = await fetch(`/api/lorebooks/${encodeURIComponent(currentLorebookName)}`);
+                const lorebook = await response.json();
+                const entry = lorebook.entries[key];
+                
+                if (!entry) {
+                    showMessage('lorebook-message', 'Entry not found', 'error');
+                    return;
+                }
                 
                 document.getElementById('lorebook-key').value = entry.key;
                 document.getElementById('lorebook-content').value = entry.content;
@@ -1280,6 +1331,8 @@
         }
         
         async function deleteLorebookEntry(key) {
+            if (!currentLorebookName) return;
+            
             if (!confirm(`Delete lorebook entry "${key}"?`)) {
                 return;
             }
@@ -1291,7 +1344,8 @@
                 
                 const result = await response.json();
                 showMessage('lorebook-message', result.message, result.status === 'success' ? 'success' : 'error');
-                loadLorebookList();
+                loadLorebookEntriesForCurrent();
+                loadLorebooksList(); // Refresh to update entry count
             } catch (error) {
                 showMessage('lorebook-message', 'Error deleting entry: ' + error.message, 'error');
             }
@@ -1353,9 +1407,254 @@
                 const result = await response.json();
                 showMessage('lorebook-message', result.message, result.status === 'success' ? 'success' : 'error');
                 cancelImportLorebook();
+                loadLorebooksList();
                 loadLorebookList();
             } catch (error) {
                 showMessage('lorebook-message', 'Error importing lorebook: ' + error.message, 'error');
+            }
+        }
+        
+        // Multiple Lorebooks Management
+        let currentLorebookName = null;
+        
+        async function loadLorebooksList() {
+            try {
+                const response = await fetch('/api/lorebooks');
+                const data = await response.json();
+                const lorebooks = data.lorebooks || [];
+                
+                // Update selector
+                const selector = document.getElementById('lorebook-selector');
+                selector.innerHTML = '<option value="">-- Select a Lorebook --</option>';
+                
+                lorebooks.forEach(lb => {
+                    const option = document.createElement('option');
+                    option.value = lb.name;
+                    option.textContent = `${lb.name} (${lb.entry_count} entries)${lb.enabled ? '' : ' [Disabled]'}`;
+                    selector.appendChild(option);
+                });
+                
+                // Select first lorebook if available and none selected
+                if (!currentLorebookName && lorebooks.length > 0) {
+                    currentLorebookName = lorebooks[0].name;
+                    selector.value = currentLorebookName;
+                    await onLorebookSelected();
+                }
+                
+                // Update lorebooks list
+                const listDiv = document.getElementById('lorebooks-list');
+                listDiv.innerHTML = '';
+                
+                if (lorebooks.length === 0) {
+                    listDiv.innerHTML = '<p style="color: #666;">No lorebooks created yet.</p>';
+                    return;
+                }
+                
+                lorebooks.forEach(lb => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.style.cssText = 'padding: 8px; margin: 4px 0; background: white; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;';
+                    
+                    const statusColor = lb.enabled ? '#28a745' : '#dc3545';
+                    const statusText = lb.enabled ? 'Enabled' : 'Disabled';
+                    
+                    itemDiv.innerHTML = `
+                        <div>
+                            <strong>${lb.name}</strong>
+                            <span style="color: ${statusColor}; margin-left: 10px; font-size: 0.9em;">● ${statusText}</span>
+                            <div style="color: #666; font-size: 0.9em;">${lb.description || 'No description'} - ${lb.entry_count} entries</div>
+                        </div>
+                        <button class="btn btn-sm btn-secondary" onclick="selectLorebook('${lb.name}')">Select</button>
+                    `;
+                    listDiv.appendChild(itemDiv);
+                });
+            } catch (error) {
+                showMessage('lorebook-message', 'Error loading lorebooks: ' + error.message, 'error');
+            }
+        }
+        
+        async function onLorebookSelected() {
+            const selector = document.getElementById('lorebook-selector');
+            const name = selector.value;
+            
+            if (!name) {
+                document.getElementById('lorebook-info').style.display = 'none';
+                currentLorebookName = null;
+                return;
+            }
+            
+            currentLorebookName = name;
+            
+            try {
+                const response = await fetch(`/api/lorebooks/${encodeURIComponent(name)}`);
+                const lorebook = await response.json();
+                
+                document.getElementById('current-lorebook-name').textContent = lorebook.name;
+                document.getElementById('current-lorebook-description').textContent = lorebook.description || '';
+                document.getElementById('lorebook-enabled').checked = lorebook.enabled || false;
+                document.getElementById('lorebook-info').style.display = 'block';
+                
+                // Load entries for this lorebook
+                loadLorebookEntriesForCurrent();
+            } catch (error) {
+                showMessage('lorebook-message', 'Error loading lorebook: ' + error.message, 'error');
+            }
+        }
+        
+        async function loadLorebookEntriesForCurrent() {
+            if (!currentLorebookName) return;
+            
+            try {
+                const response = await fetch(`/api/lorebooks/${encodeURIComponent(currentLorebookName)}`);
+                const lorebook = await response.json();
+                const entries = lorebook.entries || {};
+                
+                const listDiv = document.getElementById('lorebook-list');
+                listDiv.innerHTML = '';
+                
+                if (Object.keys(entries).length === 0) {
+                    listDiv.innerHTML = '<p style="color: #666;">No entries in this lorebook yet.</p>';
+                    return;
+                }
+                
+                for (const [key, entry] of Object.entries(entries)) {
+                    const entryDiv = document.createElement('div');
+                    entryDiv.className = 'item';
+                    
+                    let statusText = '';
+                    if (entry.always_active) {
+                        statusText += '<span style="color: #28a745; font-weight: bold;">● Always Active</span>';
+                    }
+                    if (entry.keywords && entry.keywords.length > 0) {
+                        statusText += (statusText ? ' | ' : '') + `Keywords: ${entry.keywords.join(', ')}`;
+                    }
+                    
+                    entryDiv.innerHTML = `
+                        <div>
+                            <strong>${key}</strong>
+                            ${statusText ? `<div style="font-size: 0.9em; color: #666; margin-top: 4px;">${statusText}</div>` : ''}
+                            <div style="margin-top: 8px; color: #333;">${entry.content.substring(0, 150)}${entry.content.length > 150 ? '...' : ''}</div>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-sm btn-secondary" onclick="editLorebookEntry('${key}')">Edit</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteLorebookEntry('${key}')">Delete</button>
+                        </div>
+                    `;
+                    listDiv.appendChild(entryDiv);
+                }
+            } catch (error) {
+                showMessage('lorebook-message', 'Error loading entries: ' + error.message, 'error');
+            }
+        }
+        
+        function selectLorebook(name) {
+            document.getElementById('lorebook-selector').value = name;
+            onLorebookSelected();
+        }
+        
+        async function toggleCurrentLorebook() {
+            if (!currentLorebookName) return;
+            
+            try {
+                const response = await fetch(`/api/lorebooks/${encodeURIComponent(currentLorebookName)}/toggle`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                showMessage('lorebook-message', result.message, result.status === 'success' ? 'success' : 'error');
+                loadLorebooksList();
+            } catch (error) {
+                showMessage('lorebook-message', 'Error toggling lorebook: ' + error.message, 'error');
+            }
+        }
+        
+        function showCreateLorebookDialog() {
+            document.getElementById('create-lorebook-dialog').style.display = 'block';
+            document.getElementById('new-lorebook-name').value = '';
+            document.getElementById('new-lorebook-description').value = '';
+        }
+        
+        function cancelCreateLorebook() {
+            document.getElementById('create-lorebook-dialog').style.display = 'none';
+        }
+        
+        async function createLorebook() {
+            const name = document.getElementById('new-lorebook-name').value.trim();
+            const description = document.getElementById('new-lorebook-description').value.trim();
+            
+            if (!name) {
+                showMessage('lorebook-message', 'Please enter a lorebook name', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/lorebooks', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        name: name,
+                        description: description,
+                        enabled: true
+                    })
+                });
+                
+                const result = await response.json();
+                showMessage('lorebook-message', result.message, result.status === 'success' ? 'success' : 'error');
+                cancelCreateLorebook();
+                loadLorebooksList();
+                
+                // Select the newly created lorebook
+                if (result.status === 'success') {
+                    currentLorebookName = name;
+                    document.getElementById('lorebook-selector').value = name;
+                    await onLorebookSelected();
+                }
+            } catch (error) {
+                showMessage('lorebook-message', 'Error creating lorebook: ' + error.message, 'error');
+            }
+        }
+        
+        async function exportCurrentLorebook() {
+            if (!currentLorebookName) return;
+            
+            try {
+                const response = await fetch(`/api/lorebooks/${encodeURIComponent(currentLorebookName)}/export`);
+                const data = await response.json();
+                
+                const blob = new Blob([data.lorebook], {type: 'application/json'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${currentLorebookName}.json`;
+                a.click();
+                
+                showMessage('lorebook-message', 'Lorebook exported successfully', 'success');
+            } catch (error) {
+                showMessage('lorebook-message', 'Error exporting lorebook: ' + error.message, 'error');
+            }
+        }
+        
+        async function deleteCurrentLorebook() {
+            if (!currentLorebookName) return;
+            
+            if (!confirm(`Delete lorebook "${currentLorebookName}" and all its entries?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/lorebooks/${encodeURIComponent(currentLorebookName)}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                showMessage('lorebook-message', result.message, result.status === 'success' ? 'success' : 'error');
+                
+                currentLorebookName = null;
+                document.getElementById('lorebook-selector').value = '';
+                document.getElementById('lorebook-info').style.display = 'none';
+                loadLorebooksList();
+                loadLorebookList();
+            } catch (error) {
+                showMessage('lorebook-message', 'Error deleting lorebook: ' + error.message, 'error');
             }
         }
         

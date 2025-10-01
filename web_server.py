@@ -277,8 +277,9 @@ class WebServer:
                 content = data.get('content', '')
                 keywords = data.get('keywords', [])
                 always_active = data.get('always_active', False)
+                lorebook_name = data.get('lorebook_name', 'Default')
                 
-                self.lorebook_manager.add_or_update_entry(key, content, keywords, always_active)
+                self.lorebook_manager.add_or_update_entry(key, content, keywords, always_active, lorebook_name)
                 return jsonify({"status": "success", "message": f"Lorebook entry '{key}' saved"})
             except Exception as e:
                 return jsonify({"status": "error", "message": str(e)}), 400
@@ -313,8 +314,118 @@ class WebServer:
                 if not lorebook_json:
                     return jsonify({"status": "error", "message": "Missing lorebook data"}), 400
                 
-                self.lorebook_manager.import_lorebook(lorebook_json, merge)
-                return jsonify({"status": "success", "message": "Lorebook imported"})
+                # Try to parse as new structured format first
+                try:
+                    lorebook_data = json.loads(lorebook_json) if isinstance(lorebook_json, str) else lorebook_json
+                    
+                    # Check if it's a structured lorebook (has name and entries)
+                    if isinstance(lorebook_data, dict) and "name" in lorebook_data and "entries" in lorebook_data:
+                        # New format: import as a complete lorebook
+                        name = self.lorebook_manager.import_lorebook_file(lorebook_data, merge)
+                        return jsonify({"status": "success", "message": f"Lorebook '{name}' imported"})
+                    else:
+                        # Legacy format: flat entries dict - import to Default lorebook
+                        self.lorebook_manager.import_lorebook(lorebook_json, merge)
+                        return jsonify({"status": "success", "message": "Lorebook imported to Default"})
+                except json.JSONDecodeError:
+                    self.lorebook_manager.import_lorebook(lorebook_json, merge)
+                    return jsonify({"status": "success", "message": "Lorebook imported"})
+            except Exception as e:
+                return jsonify({"status": "error", "message": str(e)}), 400
+        
+        # Multiple Lorebooks API endpoints
+        @self.app.route('/api/lorebooks', methods=['GET'])
+        def list_lorebooks():
+            """List all lorebooks."""
+            try:
+                lorebooks = self.lorebook_manager.list_lorebooks()
+                return jsonify({"lorebooks": lorebooks})
+            except Exception as e:
+                return jsonify({"error": str(e)}), 500
+        
+        @self.app.route('/api/lorebooks/<name>', methods=['GET'])
+        def get_lorebook(name):
+            """Get a specific lorebook."""
+            try:
+                lorebook = self.lorebook_manager.get_lorebook(name)
+                if lorebook:
+                    return jsonify(lorebook)
+                return jsonify({"error": "Lorebook not found"}), 404
+            except Exception as e:
+                return jsonify({"error": str(e)}), 500
+        
+        @self.app.route('/api/lorebooks/<name>', methods=['POST'])
+        def update_lorebook(name):
+            """Update lorebook metadata."""
+            try:
+                data = request.json
+                description = data.get('description')
+                enabled = data.get('enabled')
+                
+                if self.lorebook_manager.update_lorebook_metadata(name, description, enabled):
+                    return jsonify({"status": "success", "message": f"Lorebook '{name}' updated"})
+                return jsonify({"status": "error", "message": "Lorebook not found"}), 404
+            except Exception as e:
+                return jsonify({"status": "error", "message": str(e)}), 400
+        
+        @self.app.route('/api/lorebooks/<name>', methods=['DELETE'])
+        def delete_lorebook(name):
+            """Delete a lorebook."""
+            try:
+                if self.lorebook_manager.delete_lorebook(name):
+                    return jsonify({"status": "success", "message": f"Lorebook '{name}' deleted"})
+                return jsonify({"status": "error", "message": "Lorebook not found"}), 404
+            except Exception as e:
+                return jsonify({"status": "error", "message": str(e)}), 400
+        
+        @self.app.route('/api/lorebooks', methods=['POST'])
+        def create_lorebook():
+            """Create a new lorebook."""
+            try:
+                data = request.json
+                name = data.get('name')
+                description = data.get('description', '')
+                enabled = data.get('enabled', True)
+                
+                if not name:
+                    return jsonify({"status": "error", "message": "Missing lorebook name"}), 400
+                
+                self.lorebook_manager.create_lorebook(name, description, enabled)
+                return jsonify({"status": "success", "message": f"Lorebook '{name}' created"})
+            except ValueError as e:
+                return jsonify({"status": "error", "message": str(e)}), 400
+            except Exception as e:
+                return jsonify({"status": "error", "message": str(e)}), 400
+        
+        @self.app.route('/api/lorebooks/<name>/export', methods=['GET'])
+        def export_lorebook_file(name):
+            """Export a specific lorebook as JSON."""
+            try:
+                lorebook_json = self.lorebook_manager.export_lorebook_file(name)
+                return jsonify({"lorebook": lorebook_json})
+            except ValueError as e:
+                return jsonify({"error": str(e)}), 404
+            except Exception as e:
+                return jsonify({"error": str(e)}), 500
+        
+        @self.app.route('/api/lorebooks/<name>/toggle', methods=['POST'])
+        def toggle_lorebook(name):
+            """Toggle a lorebook's enabled status."""
+            try:
+                lorebook = self.lorebook_manager.get_lorebook(name)
+                if not lorebook:
+                    return jsonify({"status": "error", "message": "Lorebook not found"}), 404
+                
+                current_status = lorebook.get("enabled", True)
+                new_status = not current_status
+                
+                if self.lorebook_manager.update_lorebook_metadata(name, enabled=new_status):
+                    return jsonify({
+                        "status": "success", 
+                        "message": f"Lorebook '{name}' {'enabled' if new_status else 'disabled'}",
+                        "enabled": new_status
+                    })
+                return jsonify({"status": "error", "message": "Failed to toggle lorebook"}), 500
             except Exception as e:
                 return jsonify({"status": "error", "message": str(e)}), 400
     
