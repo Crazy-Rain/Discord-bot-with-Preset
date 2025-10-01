@@ -51,3 +51,10 @@ presets/*
 !character_cards/luna.json
 !presets/creative.json
 !presets/analytical.json
+
+# Lorebook runtime files (auto-generated)
+lorebook/lorebook.json
+lorebook/lorebooks.json
+# But keep example lorebook files
+!lorebook/fantasy_aldoria.json
+!lorebook/murder_drones_lore.json
