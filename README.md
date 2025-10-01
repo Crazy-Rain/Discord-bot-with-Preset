@@ -11,6 +11,7 @@ A feature-rich Discord bot with OpenAI-compatible API integration, preset manage
 - 👥 **User Character Descriptions** - Save and manage descriptions for user characters in roleplay scenarios
 - 📚 **Lorebook System** - Add world-building and lore information that's contextually included (like SillyTavern)
   - **NEW**: Manage multiple lorebooks, enable/disable them individually, and swap between settings!
+- 🔄 **Context Persistence** - Automatically loads channel history to maintain conversation context across bot restarts
 - 🌐 **Web Configuration Interface** - Beautiful web UI to manage all settings, presets, characters, and lorebook
 - 💾 **Import/Export** - Full import/export functionality for presets, character cards, user characters, and lorebook
 - 🔄 **Swipe Functionality** - Generate and navigate through alternative AI responses (like SillyTavern)
@@ -91,6 +92,7 @@ This bot works with any OpenAI-compatible API endpoint:
 
 - `!chat <message>` - Chat with the AI using current preset and character
 - `!clear` - Clear conversation history and character names for the current channel
+- `!reload_history [limit]` - Reload conversation context from channel history (default: 50, max: 100)
 - `!preset <name>` - Load a specific preset
 - `!presets` - List all available presets
 - `!character <name>` - Load a specific character card
@@ -291,6 +293,7 @@ Discord-bot-with-Preset/
 
 ## 📚 Documentation
 
+- **[Context Management Guide](CONTEXT_MANAGEMENT.md)** - How the bot handles conversation history and channel context
 - **[Lorebook Guide](LOREBOOK_GUIDE.md)** - Complete guide to using the lorebook feature
 - **[User Characters Guide](USER_CHARACTERS_GUIDE.md)** - Guide for user character descriptions
 - **[Examples](EXAMPLES.md)** - Usage examples and common scenarios

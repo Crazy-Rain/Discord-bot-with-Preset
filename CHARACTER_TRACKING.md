@@ -52,6 +52,30 @@ You can combine dialogue, actions, and descriptions in a single message:
 2. **Tracking**: All character names are tracked per channel
 3. **Context**: The AI is informed about which characters are in the conversation
 4. **Prevention**: The AI is explicitly instructed NOT to pretend to be these characters
+5. **Persistence**: Character names and conversations persist across bot restarts by reading channel history
+
+### Context Persistence
+
+The bot now automatically loads recent channel history when starting a conversation. This means:
+
+- **Character names are remembered** even after bot restarts
+- **Conversation context persists** across sessions
+- **Past `!chat` messages are included** in the AI's context
+
+For example:
+```
+Session 1:
+!chat Alice: "Hello everyone!"
+!chat Bob: "Hi Alice!"
+
+[Bot restarts]
+
+Session 2:
+!chat Alice: "Bob, remember what we discussed?"
+Bot: [Remembers both Alice and Bob from channel history]
+```
+
+Use `!reload_history` to manually refresh the context from channel messages. See [Context Management Guide](CONTEXT_MANAGEMENT.md) for details.
 
 ### System Prompt Enhancement
 
