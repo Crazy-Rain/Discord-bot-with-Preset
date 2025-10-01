@@ -1353,7 +1353,11 @@
             
             try {
                 const response = await fetch(`/api/lorebook/${encodeURIComponent(key)}`, {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        lorebook_name: currentLorebookName
+                    })
                 });
                 
                 const result = await response.json();
@@ -1453,6 +1457,9 @@
                     currentLorebookName = lorebooks[0].name;
                     selector.value = currentLorebookName;
                     await onLorebookSelected();
+                } else if (currentLorebookName) {
+                    // If a lorebook is already selected, maintain the selection in the dropdown
+                    selector.value = currentLorebookName;
                 }
                 
                 // Update lorebooks list
