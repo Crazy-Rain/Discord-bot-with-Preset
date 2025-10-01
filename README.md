@@ -10,6 +10,7 @@ A feature-rich Discord bot with OpenAI-compatible API integration, preset manage
 - 👤 **Character Cards** - Support for character cards with personality, scenarios, and custom system prompts
 - 👥 **User Character Descriptions** - Save and manage descriptions for user characters in roleplay scenarios
 - 📚 **Lorebook System** - Add world-building and lore information that's contextually included (like SillyTavern)
+  - **NEW**: Manage multiple lorebooks, enable/disable them individually, and swap between settings!
 - 🌐 **Web Configuration Interface** - Beautiful web UI to manage all settings, presets, characters, and lorebook
 - 💾 **Import/Export** - Full import/export functionality for presets, character cards, user characters, and lorebook
 - 🔄 **Swipe Functionality** - Generate and navigate through alternative AI responses (like SillyTavern)
