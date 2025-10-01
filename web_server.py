@@ -295,7 +295,10 @@ class WebServer:
         def delete_lorebook_entry(key):
             """Delete a lorebook entry."""
             try:
-                if self.lorebook_manager.delete_entry(key):
+                data = request.json or {}
+                lorebook_name = data.get('lorebook_name')
+                
+                if self.lorebook_manager.delete_entry(key, lorebook_name):
                     return jsonify({"status": "success", "message": f"Lorebook entry '{key}' deleted"})
                 return jsonify({"status": "error", "message": "Lorebook entry not found"}), 404
             except Exception as e:

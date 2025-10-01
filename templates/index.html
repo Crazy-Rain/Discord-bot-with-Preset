@@ -1353,7 +1353,11 @@
             
             try {
                 const response = await fetch(`/api/lorebook/${encodeURIComponent(key)}`, {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        lorebook_name: currentLorebookName
+                    })
                 });
                 
                 const result = await response.json();
