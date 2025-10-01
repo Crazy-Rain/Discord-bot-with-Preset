@@ -43,6 +43,30 @@ class LorebookManager:
                 self.save_all_lorebooks()
         else:
             self.entries = {}
+        
+        # Migrate always_active to activation_type in all lorebooks
+        self._migrate_always_active_to_activation_type()
+    
+    def _migrate_always_active_to_activation_type(self) -> None:
+        """Migrate old always_active boolean to new activation_type field."""
+        needs_save = False
+        
+        for lorebook_name, lorebook in self.lorebooks.items():
+            entries = lorebook.get("entries", {})
+            for key, entry in entries.items():
+                # If entry has always_active but not activation_type, migrate it
+                if "always_active" in entry and "activation_type" not in entry:
+                    always_active = entry.get("always_active", False)
+                    entry["activation_type"] = "constant" if always_active else "normal"
+                    # Keep always_active for backward compatibility but it's now deprecated
+                    needs_save = True
+                # If entry has neither, default to normal
+                elif "activation_type" not in entry:
+                    entry["activation_type"] = "normal"
+                    needs_save = True
+        
+        if needs_save:
+            self.save_all_lorebooks()
     
     def load_all_entries(self) -> None:
         """Load all lorebook entries from storage (legacy method for backward compatibility)."""
@@ -70,14 +94,16 @@ class LorebookManager:
         self.save_all_lorebooks()
     
     def add_or_update_entry(self, key: str, content: str, keywords: Optional[List[str]] = None, 
-                           always_active: bool = False, lorebook_name: str = "Default") -> None:
+                           always_active: bool = False, activation_type: Optional[str] = None,
+                           lorebook_name: str = "Default") -> None:
         """Add or update a lorebook entry.
         
         Args:
             key: Unique identifier for the entry
             content: The lore/information content
             keywords: List of keywords that trigger this entry (optional)
-            always_active: If True, this entry is always included in context
+            always_active: DEPRECATED - use activation_type instead. If True, sets activation_type to "constant"
+            activation_type: Type of activation - "constant" (always active), "normal" (keyword-based), or "vectorized" (semantic search)
             lorebook_name: Name of the lorebook to add the entry to (default: "Default")
         """
         if keywords is None:
@@ -92,12 +118,17 @@ class LorebookManager:
                 "entries": {}
             }
         
+        # Handle activation_type - convert from always_active if needed
+        if activation_type is None:
+            # Use always_active for backward compatibility
+            activation_type = "constant" if always_active else "normal"
+        
         # Add/update the entry
         entry = {
             "key": key,
             "content": content,
             "keywords": keywords,
-            "always_active": always_active
+            "activation_type": activation_type
         }
         self.lorebooks[lorebook_name]["entries"][key] = entry
         
@@ -189,7 +220,7 @@ class LorebookManager:
         
         Args:
             text: Text to match against keywords
-            include_always_active: Whether to include always-active entries
+            include_always_active: Whether to include always-active/constant entries
             
         Returns:
             List of relevant lorebook entries
@@ -198,15 +229,29 @@ class LorebookManager:
         text_lower = text.lower()
         
         for entry in self.entries.values():
-            # Include if it's always active
-            if include_always_active and entry.get("always_active", False):
+            # Get activation type (with backward compatibility)
+            activation_type = entry.get("activation_type")
+            if activation_type is None:
+                # Fall back to always_active for old entries
+                activation_type = "constant" if entry.get("always_active", False) else "normal"
+            
+            # Include if it's constant (always active)
+            if include_always_active and activation_type == "constant":
                 relevant.append(entry)
                 continue
             
-            # Include if any keyword is found in the text
-            keywords = entry.get("keywords", [])
-            if any(keyword.lower() in text_lower for keyword in keywords):
-                relevant.append(entry)
+            # For normal entries, include if any keyword is found in the text
+            if activation_type == "normal":
+                keywords = entry.get("keywords", [])
+                if any(keyword.lower() in text_lower for keyword in keywords):
+                    relevant.append(entry)
+            
+            # TODO: Implement vectorized/semantic search activation in the future
+            # For now, treat "vectorized" the same as "normal"
+            if activation_type == "vectorized":
+                keywords = entry.get("keywords", [])
+                if any(keyword.lower() in text_lower for keyword in keywords):
+                    relevant.append(entry)
         
         return relevant
     
@@ -219,11 +264,19 @@ class LorebookManager:
         Returns:
             Formatted system prompt section with lorebook entries
         """
-        # Get relevant entries based on text, or all always-active entries if no text
+        # Get relevant entries based on text, or all constant entries if no text
         if relevant_text:
             entries = self.get_relevant_entries(relevant_text)
         else:
-            entries = [e for e in self.entries.values() if e.get("always_active", False)]
+            # Get only constant (always active) entries
+            entries = []
+            for e in self.entries.values():
+                activation_type = e.get("activation_type")
+                if activation_type is None:
+                    # Fall back to always_active for old entries
+                    activation_type = "constant" if e.get("always_active", False) else "normal"
+                if activation_type == "constant":
+                    entries.append(e)
         
         if not entries:
             return ""
@@ -365,6 +418,14 @@ class LorebookManager:
         description = lorebook_data.get("description", "")
         enabled = lorebook_data.get("enabled", True)
         entries = lorebook_data.get("entries", {})
+        
+        # Migrate always_active to activation_type in imported entries
+        for key, entry in entries.items():
+            if "always_active" in entry and "activation_type" not in entry:
+                always_active = entry.get("always_active", False)
+                entry["activation_type"] = "constant" if always_active else "normal"
+            elif "activation_type" not in entry:
+                entry["activation_type"] = "normal"
         
         if merge and name in self.lorebooks:
             # Merge entries into existing lorebook
