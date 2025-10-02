@@ -569,13 +569,19 @@
                         <input type="text" id="edit-lorebook-description" placeholder="Brief description of this lorebook">
                     </div>
                     <div class="form-group">
-                        <label>Link to Character</label>
-                        <select id="edit-lorebook-character">
-                            <option value="">Global (no character link)</option>
-                        </select>
+                        <label>Link to Characters</label>
+                        <div style="display: flex; gap: 10px; align-items: flex-start;">
+                            <select id="edit-lorebook-character-selector" style="flex: 1;">
+                                <option value="">Select a character to add...</option>
+                            </select>
+                            <button class="btn btn-sm btn-primary" onclick="addCharacterToEditLorebook()" style="white-space: nowrap;">+ Add</button>
+                        </div>
+                        <div id="edit-lorebook-linked-characters" style="margin-top: 10px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; min-height: 50px; background: #f9f9f9;">
+                            <div style="color: #666; font-style: italic;">No characters linked (Global lorebook)</div>
+                        </div>
                         <small style="color: #666; display: block; margin-top: 5px;">
-                            If linked to a character, this lorebook will only be active when that character is loaded.
-                            Global lorebooks are always active when enabled.
+                            If linked to characters, this lorebook will only be active when any of those characters are loaded.
+                            Global lorebooks (no characters linked) are always active when enabled.
                         </small>
                     </div>
                     <button class="btn btn-primary" onclick="saveLorebookMetadata()">Save</button>
@@ -600,13 +606,19 @@
                     <input type="text" id="new-lorebook-description" placeholder="Brief description of this lorebook">
                 </div>
                 <div class="form-group">
-                    <label>Link to Character (optional)</label>
-                    <select id="new-lorebook-character">
-                        <option value="">Global (no character link)</option>
-                    </select>
+                    <label>Link to Characters (optional)</label>
+                    <div style="display: flex; gap: 10px; align-items: flex-start;">
+                        <select id="new-lorebook-character-selector" style="flex: 1;">
+                            <option value="">Select a character to add...</option>
+                        </select>
+                        <button class="btn btn-sm btn-primary" onclick="addCharacterToNewLorebook()" style="white-space: nowrap;">+ Add</button>
+                    </div>
+                    <div id="new-lorebook-linked-characters" style="margin-top: 10px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; min-height: 50px; background: #f9f9f9;">
+                        <div style="color: #666; font-style: italic;">No characters linked (Global lorebook)</div>
+                    </div>
                     <small style="color: #666; display: block; margin-top: 5px;">
-                        If linked to a character, this lorebook will only be active when that character is loaded.
-                        Global lorebooks are always active when enabled.
+                        If linked to characters, this lorebook will only be active when any of those characters are loaded.
+                        Global lorebooks (no characters linked) are always active when enabled.
                     </small>
                 </div>
                 <button class="btn btn-primary" onclick="createLorebook()">Create</button>
@@ -1602,7 +1614,15 @@
                     
                     const statusColor = lb.enabled ? '#28a745' : '#dc3545';
                     const statusText = lb.enabled ? 'Enabled' : 'Disabled';
-                    const linkedText = lb.linked_character ? ` - Linked to: ${lb.linked_character}` : ' - Global';
+                    
+                    // Handle both single character (backward compatibility) and multiple characters
+                    let linkedText = ' - Global';
+                    if (lb.linked_characters && lb.linked_characters.length > 0) {
+                        linkedText = ` - Linked to: ${lb.linked_characters.join(', ')}`;
+                    } else if (lb.linked_character) {
+                        // Backward compatibility
+                        linkedText = ` - Linked to: ${lb.linked_character}`;
+                    }
                     
                     itemDiv.innerHTML = `
                         <div>
@@ -1639,9 +1659,13 @@
                 document.getElementById('current-lorebook-description').textContent = lorebook.description || '';
                 document.getElementById('lorebook-enabled').checked = lorebook.enabled || false;
                 
-                // Display linked character info
+                // Display linked character info (support both old and new format)
                 const charSpan = document.getElementById('current-lorebook-character');
-                if (lorebook.linked_character) {
+                if (lorebook.linked_characters && lorebook.linked_characters.length > 0) {
+                    charSpan.textContent = `[Linked to: ${lorebook.linked_characters.join(', ')}]`;
+                    charSpan.style.display = 'inline';
+                } else if (lorebook.linked_character) {
+                    // Backward compatibility
                     charSpan.textContent = `[Linked to: ${lorebook.linked_character}]`;
                     charSpan.style.display = 'inline';
                 } else {
@@ -1742,18 +1766,64 @@
             document.getElementById('new-lorebook-name').value = '';
             document.getElementById('new-lorebook-description').value = '';
             
+            // Reset character selection
+            newLorebookCharacters = [];
+            updateNewLorebookCharactersList();
+            
             // Populate character dropdown
-            await populateCharacterDropdown('new-lorebook-character');
+            await populateCharacterSelector('new-lorebook-character-selector');
         }
         
         function cancelCreateLorebook() {
             document.getElementById('create-lorebook-dialog').style.display = 'none';
         }
         
+        // Track selected characters for new lorebook
+        let newLorebookCharacters = [];
+        
+        function addCharacterToNewLorebook() {
+            const selector = document.getElementById('new-lorebook-character-selector');
+            const characterName = selector.value;
+            
+            if (!characterName) return;
+            
+            // Don't add duplicates
+            if (newLorebookCharacters.includes(characterName)) {
+                return;
+            }
+            
+            newLorebookCharacters.push(characterName);
+            updateNewLorebookCharactersList();
+        }
+        
+        function removeCharacterFromNewLorebook(characterName) {
+            newLorebookCharacters = newLorebookCharacters.filter(c => c !== characterName);
+            updateNewLorebookCharactersList();
+        }
+        
+        function updateNewLorebookCharactersList() {
+            const container = document.getElementById('new-lorebook-linked-characters');
+            
+            if (newLorebookCharacters.length === 0) {
+                container.innerHTML = '<div style="color: #666; font-style: italic;">No characters linked (Global lorebook)</div>';
+                return;
+            }
+            
+            container.innerHTML = '';
+            newLorebookCharacters.forEach(charName => {
+                const charDiv = document.createElement('div');
+                charDiv.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 5px; margin: 2px 0; background: white; border-radius: 3px;';
+                charDiv.innerHTML = `
+                    <span>${charName}</span>
+                    <button class="btn btn-sm" style="background: #dc3545; color: white; padding: 2px 8px;" onclick="removeCharacterFromNewLorebook('${charName}')">−</button>
+                `;
+                container.appendChild(charDiv);
+            });
+        }
+        
         async function createLorebook() {
             const name = document.getElementById('new-lorebook-name').value.trim();
             const description = document.getElementById('new-lorebook-description').value.trim();
-            const linkedCharacter = document.getElementById('new-lorebook-character').value || null;
             
             if (!name) {
                 showMessage('lorebook-message', 'Please enter a lorebook name', 'error');
@@ -1768,7 +1838,7 @@
                         name: name,
                         description: description,
                         enabled: true,
-                        linked_character: linkedCharacter
+                        linked_characters: newLorebookCharacters.length > 0 ? newLorebookCharacters : null
                     })
                 });
                 
@@ -1833,6 +1903,9 @@
             }
         }
         
+        // Track selected characters for edit lorebook
+        let editLorebookCharacters = [];
+        
         async function showEditLorebookDialog() {
             if (!currentLorebookName) return;
             
@@ -1841,7 +1914,18 @@
                 const lorebook = await response.json();
                 
                 document.getElementById('edit-lorebook-description').value = lorebook.description || '';
-                await populateCharacterDropdown('edit-lorebook-character', lorebook.linked_character);
+                
+                // Initialize with current linked characters (support both formats)
+                editLorebookCharacters = [];
+                if (lorebook.linked_characters && lorebook.linked_characters.length > 0) {
+                    editLorebookCharacters = [...lorebook.linked_characters];
+                } else if (lorebook.linked_character) {
+                    // Backward compatibility
+                    editLorebookCharacters = [lorebook.linked_character];
+                }
+                
+                updateEditLorebookCharactersList();
+                await populateCharacterSelector('edit-lorebook-character-selector');
                 document.getElementById('edit-lorebook-dialog').style.display = 'block';
             } catch (error) {
                 showMessage('lorebook-message', 'Error loading lorebook data: ' + error.message, 'error');
@@ -1852,11 +1936,50 @@
             document.getElementById('edit-lorebook-dialog').style.display = 'none';
         }
         
+        function addCharacterToEditLorebook() {
+            const selector = document.getElementById('edit-lorebook-character-selector');
+            const characterName = selector.value;
+            
+            if (!characterName) return;
+            
+            // Don't add duplicates
+            if (editLorebookCharacters.includes(characterName)) {
+                return;
+            }
+            
+            editLorebookCharacters.push(characterName);
+            updateEditLorebookCharactersList();
+        }
+        
+        function removeCharacterFromEditLorebook(characterName) {
+            editLorebookCharacters = editLorebookCharacters.filter(c => c !== characterName);
+            updateEditLorebookCharactersList();
+        }
+        
+        function updateEditLorebookCharactersList() {
+            const container = document.getElementById('edit-lorebook-linked-characters');
+            
+            if (editLorebookCharacters.length === 0) {
+                container.innerHTML = '<div style="color: #666; font-style: italic;">No characters linked (Global lorebook)</div>';
+                return;
+            }
+            
+            container.innerHTML = '';
+            editLorebookCharacters.forEach(charName => {
+                const charDiv = document.createElement('div');
+                charDiv.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 5px; margin: 2px 0; background: white; border-radius: 3px;';
+                charDiv.innerHTML = `
+                    <span>${charName}</span>
+                    <button class="btn btn-sm" style="background: #dc3545; color: white; padding: 2px 8px;" onclick="removeCharacterFromEditLorebook('${charName}')">−</button>
+                `;
+                container.appendChild(charDiv);
+            });
+        }
+        
         async function saveLorebookMetadata() {
             if (!currentLorebookName) return;
             
             const description = document.getElementById('edit-lorebook-description').value.trim();
-            const linkedCharacter = document.getElementById('edit-lorebook-character').value || '';
             
             try {
                 const response = await fetch(`/api/lorebooks/${encodeURIComponent(currentLorebookName)}`, {
@@ -1864,7 +1987,7 @@
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
                         description: description,
-                        linked_character: linkedCharacter
+                        linked_characters: editLorebookCharacters.length > 0 ? editLorebookCharacters : null
                     })
                 });
                 
@@ -1875,6 +1998,26 @@
                 await onLorebookSelected();
             } catch (error) {
                 showMessage('lorebook-message', 'Error updating lorebook: ' + error.message, 'error');
+            }
+        }
+        
+        async function populateCharacterSelector(selectId) {
+            try {
+                const response = await fetch('/api/characters');
+                const data = await response.json();
+                const characters = data.characters || [];
+                
+                const select = document.getElementById(selectId);
+                select.innerHTML = '<option value="">Select a character to add...</option>';
+                
+                characters.forEach(charName => {
+                    const option = document.createElement('option');
+                    option.value = charName;
+                    option.textContent = charName;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading characters:', error);
             }
         }
         

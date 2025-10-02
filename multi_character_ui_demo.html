@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Character Lorebook UI Demo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f0f0;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .demo-section {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #34495e;
+            margin-top: 0;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #2c3e50;
+        }
+        select, input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+        .btn-sm {
+            padding: 4px 12px;
+            font-size: 13px;
+        }
+        .character-list {
+            margin-top: 10px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            min-height: 50px;
+            background: #f9f9f9;
+        }
+        .character-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px;
+            margin: 2px 0;
+            background: white;
+            border-radius: 3px;
+        }
+        .remove-btn {
+            background: #dc3545;
+            color: white;
+            padding: 2px 8px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .empty-state {
+            color: #666;
+            font-style: italic;
+        }
+        small {
+            color: #666;
+            display: block;
+            margin-top: 5px;
+            font-size: 12px;
+        }
+        .selector-row {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+        .selector-row select {
+            flex: 1;
+        }
+        .feature-list {
+            background: #e8f5e9;
+            padding: 15px;
+            border-left: 4px solid #4caf50;
+            margin: 20px 0;
+        }
+        .feature-list h3 {
+            margin-top: 0;
+            color: #2e7d32;
+        }
+        .feature-list ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .feature-list li {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎭 Multi-Character Lorebook Linking - UI Demo</h1>
+    
+    <div class="feature-list">
+        <h3>✨ New Features</h3>
+        <ul>
+            <li><strong>Multiple Character Selection:</strong> Link one lorebook to multiple characters</li>
+            <li><strong>Easy Management:</strong> Add/remove characters with +/− buttons</li>
+            <li><strong>Visual Feedback:</strong> See all linked characters at a glance</li>
+            <li><strong>Backward Compatible:</strong> Works with existing single-character lorebooks</li>
+        </ul>
+    </div>
+
+    <div class="demo-section">
+        <h2>Create New Lorebook</h2>
+        <div class="form-group">
+            <label>Lorebook Name</label>
+            <input type="text" placeholder="e.g., Team Adventure Lore" value="Team Adventure Lore">
+        </div>
+        <div class="form-group">
+            <label>Description</label>
+            <input type="text" placeholder="Brief description..." value="Shared lore for the adventure team">
+        </div>
+        <div class="form-group">
+            <label>Link to Characters (optional)</label>
+            <div class="selector-row">
+                <select>
+                    <option value="">Select a character to add...</option>
+                    <option value="Luna">Luna</option>
+                    <option value="Sherlock">Sherlock</option>
+                    <option value="Alice">Alice</option>
+                    <option value="Bob">Bob</option>
+                </select>
+                <button class="btn btn-primary btn-sm">+ Add</button>
+            </div>
+            <div class="character-list">
+                <div class="character-item">
+                    <span>Luna</span>
+                    <button class="remove-btn">−</button>
+                </div>
+                <div class="character-item">
+                    <span>Sherlock</span>
+                    <button class="remove-btn">−</button>
+                </div>
+                <div class="character-item">
+                    <span>Alice</span>
+                    <button class="remove-btn">−</button>
+                </div>
+            </div>
+            <small>
+                If linked to characters, this lorebook will only be active when any of those characters are loaded.
+                Global lorebooks (no characters linked) are always active when enabled.
+            </small>
+        </div>
+    </div>
+
+    <div class="demo-section">
+        <h2>Edit Lorebook Metadata</h2>
+        <div class="form-group">
+            <label>Description</label>
+            <input type="text" value="Shared adventures and history">
+        </div>
+        <div class="form-group">
+            <label>Link to Characters</label>
+            <div class="selector-row">
+                <select>
+                    <option value="">Select a character to add...</option>
+                    <option value="Luna">Luna</option>
+                    <option value="Sherlock">Sherlock</option>
+                    <option value="Alice">Alice</option>
+                    <option value="Bob">Bob</option>
+                </select>
+                <button class="btn btn-primary btn-sm">+ Add</button>
+            </div>
+            <div class="character-list">
+                <div class="character-item">
+                    <span>Luna</span>
+                    <button class="remove-btn">−</button>
+                </div>
+                <div class="character-item">
+                    <span>Bob</span>
+                    <button class="remove-btn">−</button>
+                </div>
+            </div>
+            <small>
+                If linked to characters, this lorebook will only be active when any of those characters are loaded.
+                Global lorebooks (no characters linked) are always active when enabled.
+            </small>
+        </div>
+    </div>
+
+    <div class="demo-section">
+        <h2>Example: Lorebook List Display</h2>
+        <div style="padding: 8px; margin: 4px 0; background: white; border-radius: 4px; border: 1px solid #ddd;">
+            <div>
+                <strong>Fantasy World</strong>
+                <span style="color: #28a745; margin-left: 10px; font-size: 0.9em;">● Enabled</span>
+                <div style="color: #666; font-size: 0.9em;">World building lore - Global - 15 entries</div>
+            </div>
+        </div>
+        <div style="padding: 8px; margin: 4px 0; background: white; border-radius: 4px; border: 1px solid #ddd;">
+            <div>
+                <strong>Team Adventure Lore</strong>
+                <span style="color: #28a745; margin-left: 10px; font-size: 0.9em;">● Enabled</span>
+                <div style="color: #666; font-size: 0.9em;">Shared team history - Linked to: Luna, Sherlock, Alice - 8 entries</div>
+            </div>
+        </div>
+        <div style="padding: 8px; margin: 4px 0; background: white; border-radius: 4px; border: 1px solid #ddd;">
+            <div>
+                <strong>Luna's Personal Lore</strong>
+                <span style="color: #28a745; margin-left: 10px; font-size: 0.9em;">● Enabled</span>
+                <div style="color: #666; font-size: 0.9em;">Luna's background and powers - Linked to: Luna - 5 entries</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="demo-section" style="background: #fff3cd; border-left: 4px solid #ffc107;">
+        <h2>How It Works</h2>
+        <p><strong>When Luna is active:</strong></p>
+        <ul>
+            <li>✅ Fantasy World (global)</li>
+            <li>✅ Team Adventure Lore (Luna is in the list)</li>
+            <li>✅ Luna's Personal Lore (Luna-only)</li>
+        </ul>
+        <p><strong>When Sherlock is active:</strong></p>
+        <ul>
+            <li>✅ Fantasy World (global)</li>
+            <li>✅ Team Adventure Lore (Sherlock is in the list)</li>
+            <li>❌ Luna's Personal Lore (not linked to Sherlock)</li>
+        </ul>
+        <p><strong>When Bob is active:</strong></p>
+        <ul>
+            <li>✅ Fantasy World (global)</li>
+            <li>❌ Team Adventure Lore (Bob is not in the list)</li>
+            <li>❌ Luna's Personal Lore (not linked to Bob)</li>
+        </ul>
+    </div>
+</body>
+</html>
