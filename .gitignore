@@ -49,8 +49,11 @@ presets/*
 # But keep example files
 !character_cards/sherlock.json
 !character_cards/luna.json
+!character_cards/aria.json
 !presets/creative.json
 !presets/analytical.json
+!presets/sillytavern_style.json
+!presets/uncensored_roleplay.json
 
 # Character avatars (uploaded images)
 character_avatars/
