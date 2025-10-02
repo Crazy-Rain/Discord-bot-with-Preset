@@ -548,6 +548,7 @@
                     <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
                         <span style="font-weight: bold;" id="current-lorebook-name"></span>
                         <span style="color: #666;" id="current-lorebook-description"></span>
+                        <span style="color: #888; font-style: italic;" id="current-lorebook-character"></span>
                         <label style="margin-left: auto; display: flex; align-items: center; gap: 5px;">
                             <input type="checkbox" id="lorebook-enabled" onchange="toggleCurrentLorebook()" style="width: auto; margin: 0;">
                             <span>Enabled</span>
@@ -555,8 +556,30 @@
                     </div>
                     <div style="display: flex; gap: 10px;">
                         <button class="btn btn-secondary btn-sm" onclick="exportCurrentLorebook()">Export This Lorebook</button>
+                        <button class="btn btn-secondary btn-sm" onclick="showEditLorebookDialog()">Edit Metadata</button>
                         <button class="btn btn-danger btn-sm" onclick="deleteCurrentLorebook()">Delete This Lorebook</button>
                     </div>
+                </div>
+                
+                <!-- Edit Lorebook Metadata Dialog -->
+                <div id="edit-lorebook-dialog" style="display: none; background: #fff; padding: 20px; border-radius: 8px; border: 2px solid #007bff; margin-bottom: 20px;">
+                    <h3>Edit Lorebook Metadata</h3>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <input type="text" id="edit-lorebook-description" placeholder="Brief description of this lorebook">
+                    </div>
+                    <div class="form-group">
+                        <label>Link to Character</label>
+                        <select id="edit-lorebook-character">
+                            <option value="">Global (no character link)</option>
+                        </select>
+                        <small style="color: #666; display: block; margin-top: 5px;">
+                            If linked to a character, this lorebook will only be active when that character is loaded.
+                            Global lorebooks are always active when enabled.
+                        </small>
+                    </div>
+                    <button class="btn btn-primary" onclick="saveLorebookMetadata()">Save</button>
+                    <button class="btn btn-secondary" onclick="cancelEditLorebook()">Cancel</button>
                 </div>
                 
                 <div style="margin-top: 15px;">
@@ -575,6 +598,16 @@
                 <div class="form-group">
                     <label>Description (optional)</label>
                     <input type="text" id="new-lorebook-description" placeholder="Brief description of this lorebook">
+                </div>
+                <div class="form-group">
+                    <label>Link to Character (optional)</label>
+                    <select id="new-lorebook-character">
+                        <option value="">Global (no character link)</option>
+                    </select>
+                    <small style="color: #666; display: block; margin-top: 5px;">
+                        If linked to a character, this lorebook will only be active when that character is loaded.
+                        Global lorebooks are always active when enabled.
+                    </small>
                 </div>
                 <button class="btn btn-primary" onclick="createLorebook()">Create</button>
                 <button class="btn btn-secondary" onclick="cancelCreateLorebook()">Cancel</button>
@@ -1569,12 +1602,13 @@
                     
                     const statusColor = lb.enabled ? '#28a745' : '#dc3545';
                     const statusText = lb.enabled ? 'Enabled' : 'Disabled';
+                    const linkedText = lb.linked_character ? ` - Linked to: ${lb.linked_character}` : ' - Global';
                     
                     itemDiv.innerHTML = `
                         <div>
                             <strong>${lb.name}</strong>
                             <span style="color: ${statusColor}; margin-left: 10px; font-size: 0.9em;">● ${statusText}</span>
-                            <div style="color: #666; font-size: 0.9em;">${lb.description || 'No description'} - ${lb.entry_count} entries</div>
+                            <div style="color: #666; font-size: 0.9em;">${lb.description || 'No description'}${linkedText} - ${lb.entry_count} entries</div>
                         </div>
                         <button class="btn btn-sm btn-secondary" onclick="selectLorebook('${lb.name}')">Select</button>
                     `;
@@ -1604,6 +1638,17 @@
                 document.getElementById('current-lorebook-name').textContent = lorebook.name;
                 document.getElementById('current-lorebook-description').textContent = lorebook.description || '';
                 document.getElementById('lorebook-enabled').checked = lorebook.enabled || false;
+                
+                // Display linked character info
+                const charSpan = document.getElementById('current-lorebook-character');
+                if (lorebook.linked_character) {
+                    charSpan.textContent = `[Linked to: ${lorebook.linked_character}]`;
+                    charSpan.style.display = 'inline';
+                } else {
+                    charSpan.textContent = '[Global]';
+                    charSpan.style.display = 'inline';
+                }
+                
                 document.getElementById('lorebook-info').style.display = 'block';
                 
                 // Load entries for this lorebook
@@ -1692,10 +1737,13 @@
             }
         }
         
-        function showCreateLorebookDialog() {
+        async function showCreateLorebookDialog() {
             document.getElementById('create-lorebook-dialog').style.display = 'block';
             document.getElementById('new-lorebook-name').value = '';
             document.getElementById('new-lorebook-description').value = '';
+            
+            // Populate character dropdown
+            await populateCharacterDropdown('new-lorebook-character');
         }
         
         function cancelCreateLorebook() {
@@ -1705,6 +1753,7 @@
         async function createLorebook() {
             const name = document.getElementById('new-lorebook-name').value.trim();
             const description = document.getElementById('new-lorebook-description').value.trim();
+            const linkedCharacter = document.getElementById('new-lorebook-character').value || null;
             
             if (!name) {
                 showMessage('lorebook-message', 'Please enter a lorebook name', 'error');
@@ -1718,7 +1767,8 @@
                     body: JSON.stringify({
                         name: name,
                         description: description,
-                        enabled: true
+                        enabled: true,
+                        linked_character: linkedCharacter
                     })
                 });
                 
@@ -1780,6 +1830,74 @@
                 loadLorebookList();
             } catch (error) {
                 showMessage('lorebook-message', 'Error deleting lorebook: ' + error.message, 'error');
+            }
+        }
+        
+        async function showEditLorebookDialog() {
+            if (!currentLorebookName) return;
+            
+            try {
+                const response = await fetch(`/api/lorebooks/${encodeURIComponent(currentLorebookName)}`);
+                const lorebook = await response.json();
+                
+                document.getElementById('edit-lorebook-description').value = lorebook.description || '';
+                await populateCharacterDropdown('edit-lorebook-character', lorebook.linked_character);
+                document.getElementById('edit-lorebook-dialog').style.display = 'block';
+            } catch (error) {
+                showMessage('lorebook-message', 'Error loading lorebook data: ' + error.message, 'error');
+            }
+        }
+        
+        function cancelEditLorebook() {
+            document.getElementById('edit-lorebook-dialog').style.display = 'none';
+        }
+        
+        async function saveLorebookMetadata() {
+            if (!currentLorebookName) return;
+            
+            const description = document.getElementById('edit-lorebook-description').value.trim();
+            const linkedCharacter = document.getElementById('edit-lorebook-character').value || '';
+            
+            try {
+                const response = await fetch(`/api/lorebooks/${encodeURIComponent(currentLorebookName)}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        description: description,
+                        linked_character: linkedCharacter
+                    })
+                });
+                
+                const result = await response.json();
+                showMessage('lorebook-message', result.message, result.status === 'success' ? 'success' : 'error');
+                cancelEditLorebook();
+                await loadLorebooksList();
+                await onLorebookSelected();
+            } catch (error) {
+                showMessage('lorebook-message', 'Error updating lorebook: ' + error.message, 'error');
+            }
+        }
+        
+        async function populateCharacterDropdown(selectId, selectedCharacter = null) {
+            try {
+                const response = await fetch('/api/characters');
+                const data = await response.json();
+                const characters = data.characters || [];
+                
+                const select = document.getElementById(selectId);
+                select.innerHTML = '<option value="">Global (no character link)</option>';
+                
+                characters.forEach(charName => {
+                    const option = document.createElement('option');
+                    option.value = charName;
+                    option.textContent = charName;
+                    if (selectedCharacter === charName) {
+                        option.selected = true;
+                    }
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading characters:', error);
             }
         }
         

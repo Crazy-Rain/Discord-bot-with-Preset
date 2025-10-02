@@ -1263,7 +1263,9 @@ FORMAT GUIDELINES:
                 enhanced_system_prompt += user_char_section
         
         # Add lorebook entries
-        lorebook_section = self.lorebook_manager.get_system_prompt_section(user_message)
+        # Pass current character name to filter character-linked lorebooks
+        current_character_name = character_data.get("name") if character_data else None
+        lorebook_section = self.lorebook_manager.get_system_prompt_section(user_message, current_character_name)
         if lorebook_section:
             enhanced_system_prompt += "\n\n" + lorebook_section
         
