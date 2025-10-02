@@ -4,6 +4,7 @@ from discord.ext import commands
 from typing import Dict, List, Optional, Tuple
 import re
 import aiohttp
+import os
 from config_manager import ConfigManager
 from preset_manager import PresetManager
 from character_manager import CharacterManager
@@ -575,6 +576,109 @@ class DiscordBot(commands.Bot):
             else:
                 await ctx.send("No characters available.")
         
+        @self.command(name="image", help="Update character avatar from attached image")
+        async def image(ctx, character_name: str):
+            """Update a character's avatar using an attached image.
+            
+            Usage: !image <character_name>
+            Attach an image file to the message (PNG, JPG, or GIF)
+            
+            The image will be:
+            - Validated for size (max 10MB) and format
+            - Converted to base64 data URL
+            - Saved to the character's avatar_url field
+            
+            Example: !image luna (with luna.png attached)
+            """
+            try:
+                # Check if there's an attachment
+                if not ctx.message.attachments:
+                    await ctx.send(
+                        "❌ No image attached! Please attach an image file (PNG, JPG, or GIF) to your message.\n"
+                        "Usage: `!image <character_name>` with an image attached"
+                    )
+                    return
+                
+                # Get the first attachment
+                attachment = ctx.message.attachments[0]
+                
+                # Validate file extension
+                allowed_extensions = {'png', 'jpg', 'jpeg', 'gif'}
+                filename = attachment.filename.lower()
+                file_ext = filename.rsplit('.', 1)[1] if '.' in filename else ''
+                
+                if file_ext not in allowed_extensions:
+                    await ctx.send(
+                        f"❌ Invalid file type: `.{file_ext}`\n"
+                        f"Only PNG, JPG, and GIF files are supported."
+                    )
+                    return
+                
+                # Check file size (Discord's limit is 10MB for most servers)
+                max_size = 10 * 1024 * 1024  # 10MB in bytes
+                if attachment.size > max_size:
+                    size_mb = attachment.size / (1024 * 1024)
+                    await ctx.send(
+                        f"❌ File too large: {size_mb:.2f}MB\n"
+                        f"Maximum file size is 10MB. Please use a smaller image."
+                    )
+                    return
+                
+                # Check if character exists
+                try:
+                    character_data = self.character_manager.load_character(character_name)
+                except FileNotFoundError:
+                    await ctx.send(
+                        f"❌ Character not found: **{character_name}**\n"
+                        f"Use `!characters` to see available characters."
+                    )
+                    return
+                
+                async with ctx.typing():
+                    # Download the image
+                    image_bytes = await attachment.read()
+                    
+                    # Convert to base64 data URL
+                    import base64
+                    base64_data = base64.b64encode(image_bytes).decode('utf-8')
+                    mime_type = f"image/{file_ext if file_ext != 'jpg' else 'jpeg'}"
+                    data_url = f"data:{mime_type};base64,{base64_data}"
+                    
+                    # Update character's avatar_url
+                    character_data['avatar_url'] = data_url
+                    
+                    # Save the updated character
+                    self.character_manager.save_character(character_name, character_data)
+                    
+                    # Also save the image file to character_avatars directory for reference
+                    avatars_dir = 'character_avatars'
+                    if not os.path.exists(avatars_dir):
+                        os.makedirs(avatars_dir)
+                    
+                    filepath = os.path.join(avatars_dir, f"{character_name}.{file_ext}")
+                    with open(filepath, 'wb') as f:
+                        f.write(image_bytes)
+                    
+                    # If this character is loaded in this channel, update the channel's character data
+                    channel_id = ctx.channel.id
+                    if channel_id in self.channel_characters:
+                        if self.channel_characters[channel_id].get('name') == character_data.get('name'):
+                            self.channel_characters[channel_id] = character_data
+                    
+                    size_kb = attachment.size / 1024
+                    await ctx.send(
+                        f"✅ Successfully updated avatar for **{character_data.get('name', character_name)}**!\n"
+                        f"📁 Image: `{attachment.filename}` ({size_kb:.1f} KB)\n"
+                        f"💾 Saved to: `{filepath}`\n"
+                        f"🎨 Avatar converted to base64 data URL and stored in character card.\n\n"
+                        f"The new avatar will be used when this character is loaded with `!character {character_name}`"
+                    )
+                    
+            except Exception as e:
+                await ctx.send(f"❌ Error updating character avatar: {str(e)}")
+                import traceback
+                print(f"Error in !image command: {traceback.format_exc()}")
+        
         @self.command(name="update", help="Update user character description")
         async def update(ctx, *, message: str):
             """Update a user character description.
@@ -700,6 +804,7 @@ class DiscordBot(commands.Bot):
 `!current_character` - Show which character is loaded in this channel
 `!unload_character` - Unload character from this channel
 `!characters` - List available characters
+`!image <character_name>` - Update character avatar from attached image (PNG/JPG/GIF)
 `!swipe` - Generate alternative response to last message
 `!swipe_left` - Show previous alternative response
 `!swipe_right` - Show next alternative response

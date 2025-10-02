@@ -108,6 +108,7 @@ This bot works with any OpenAI-compatible API endpoint:
 - `!current_character` - Show which character is loaded for this channel
 - `!unload_character` - Unload the current character from this channel
 - `!characters` - List all available character cards
+- `!image <character_name>` - Update character avatar from an attached image (PNG/JPG/GIF, max 10MB)
 
 ### Preset Commands
 - `!preset <name>` - Load a specific preset
@@ -393,6 +394,7 @@ Discord-bot-with-Preset/
 - **[Lorebook Guide](LOREBOOK_GUIDE.md)** - Complete guide to using the lorebook feature
 - **[User Characters Guide](USER_CHARACTERS_GUIDE.md)** - Guide for user character descriptions
 - **[Per-Channel Avatars Guide](PER_CHANNEL_AVATARS_GUIDE.md)** - Guide for webhook-based character avatars
+- **[Image Command Guide](IMAGE_COMMAND_GUIDE.md)** - **NEW!** Upload character avatars directly from Discord
 - **[Examples](EXAMPLES.md)** - Usage examples and common scenarios
 - **[Setup Guide](SETUP.md)** - Detailed setup instructions
 
