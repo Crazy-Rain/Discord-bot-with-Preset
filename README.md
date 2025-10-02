@@ -24,6 +24,7 @@ A feature-rich Discord bot with OpenAI-compatible API integration, preset manage
 - 💾 **Import/Export** - Full import/export functionality for presets, character cards, user characters, and lorebook
 - 🔄 **Swipe Functionality** - Generate and navigate through alternative AI responses (like SillyTavern)
 - 📊 **Extended Token Limits** - Support for up to 200,000 context tokens with separate response length control
+- 📝 **Smart Message Handling** - Uses Discord embeds for 2x capacity (4096 vs 2000 chars) with intelligent splitting that preserves markdown formatting
 
 ## 🚀 Quick Start
 
@@ -451,3 +452,4 @@ This project is open source and available under the MIT License.
 - Character cards override preset system prompts
 - Conversation history is per-channel and limited to last 20 messages
 - Use `!clear` to reset context when switching topics
+- Long messages (>4096 chars) are automatically split intelligently to preserve markdown formatting
