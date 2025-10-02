@@ -469,9 +469,13 @@ class WebServer:
                 data = request.json
                 description = data.get('description')
                 enabled = data.get('enabled')
+                # Support both old single character and new multiple characters
                 linked_character = data.get('linked_character') if 'linked_character' in data else None
+                linked_characters = data.get('linked_characters') if 'linked_characters' in data else None
                 
-                if self.lorebook_manager.update_lorebook_metadata(name, description, enabled, linked_character):
+                if self.lorebook_manager.update_lorebook_metadata(
+                    name, description, enabled, linked_character, linked_characters
+                ):
                     return jsonify({"status": "success", "message": f"Lorebook '{name}' updated"})
                 return jsonify({"status": "error", "message": "Lorebook not found"}), 404
             except Exception as e:
@@ -495,12 +499,16 @@ class WebServer:
                 name = data.get('name')
                 description = data.get('description', '')
                 enabled = data.get('enabled', True)
+                # Support both old single character and new multiple characters
                 linked_character = data.get('linked_character')
+                linked_characters = data.get('linked_characters')
                 
                 if not name:
                     return jsonify({"status": "error", "message": "Missing lorebook name"}), 400
                 
-                self.lorebook_manager.create_lorebook(name, description, enabled, linked_character)
+                self.lorebook_manager.create_lorebook(
+                    name, description, enabled, linked_character, linked_characters
+                )
                 return jsonify({"status": "success", "message": f"Lorebook '{name}' created"})
             except ValueError as e:
                 return jsonify({"status": "error", "message": str(e)}), 400
