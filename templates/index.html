@@ -453,9 +453,24 @@
             </div>
             
             <div class="form-group">
-                <label>Avatar URL (Optional - bot's profile picture will change to this image)</label>
-                <input type="text" id="character-avatar-url" placeholder="https://example.com/avatar.png">
-                <small style="display: block; margin-top: 5px; color: #666;">Enter a direct URL to an image (PNG, JPG, GIF). The bot's avatar will update when this character is loaded.</small>
+                <label>Avatar (Optional - bot's profile picture will change to this image)</label>
+                <div style="margin-bottom: 10px;">
+                    <label style="font-weight: normal; display: block; margin-bottom: 5px;">
+                        <input type="radio" name="avatar-method" value="url" checked onchange="toggleAvatarMethod()"> Use Image URL
+                    </label>
+                    <input type="text" id="character-avatar-url" placeholder="https://example.com/avatar.png" style="margin-left: 20px;">
+                </div>
+                <div>
+                    <label style="font-weight: normal; display: block; margin-bottom: 5px;">
+                        <input type="radio" name="avatar-method" value="upload" onchange="toggleAvatarMethod()"> Upload Image File
+                    </label>
+                    <input type="file" id="character-avatar-file" accept="image/png,image/jpeg,image/gif" style="margin-left: 20px; display: none;">
+                    <div id="avatar-preview" style="margin-left: 20px; margin-top: 10px; display: none;">
+                        <img id="avatar-preview-img" style="max-width: 100px; max-height: 100px; border-radius: 5px; border: 2px solid #ddd;">
+                        <button type="button" class="btn btn-secondary" onclick="clearAvatarUpload()" style="margin-left: 10px; padding: 5px 10px; font-size: 12px;">Clear</button>
+                    </div>
+                </div>
+                <small style="display: block; margin-top: 10px; color: #666;">Choose to enter an image URL or upload an image file (PNG, JPG, GIF). The bot's avatar will update when this character is loaded.</small>
             </div>
             
             <button class="btn btn-primary" onclick="saveCharacter()">Save Character</button>
@@ -648,6 +663,49 @@
         function updateSlider(name, value) {
             document.getElementById(name + '-value').textContent = value;
         }
+        
+        // Avatar upload helper functions
+        function toggleAvatarMethod() {
+            const method = document.querySelector('input[name="avatar-method"]:checked').value;
+            const urlInput = document.getElementById('character-avatar-url');
+            const fileInput = document.getElementById('character-avatar-file');
+            const preview = document.getElementById('avatar-preview');
+            
+            if (method === 'url') {
+                urlInput.style.display = 'block';
+                fileInput.style.display = 'none';
+                preview.style.display = 'none';
+            } else {
+                urlInput.style.display = 'none';
+                fileInput.style.display = 'block';
+                preview.style.display = 'none';
+            }
+        }
+        
+        function clearAvatarUpload() {
+            document.getElementById('character-avatar-file').value = '';
+            document.getElementById('avatar-preview').style.display = 'none';
+        }
+        
+        // File input change handler for preview
+        document.addEventListener('DOMContentLoaded', function() {
+            const fileInput = document.getElementById('character-avatar-file');
+            if (fileInput) {
+                fileInput.addEventListener('change', function(e) {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            const preview = document.getElementById('avatar-preview');
+                            const img = document.getElementById('avatar-preview-img');
+                            img.src = e.target.result;
+                            preview.style.display = 'block';
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                });
+            }
+        });
         
         // Show messages
         function showMessage(elementId, message, type) {
@@ -995,9 +1053,35 @@
                     personality: document.getElementById('character-personality').value,
                     description: document.getElementById('character-description').value,
                     scenario: document.getElementById('character-scenario').value,
-                    system_prompt: document.getElementById('character-system-prompt').value,
-                    avatar_url: document.getElementById('character-avatar-url').value
+                    system_prompt: document.getElementById('character-system-prompt').value
                 };
+                
+                // Handle avatar - check if upload or URL
+                const avatarMethod = document.querySelector('input[name="avatar-method"]:checked').value;
+                const fileInput = document.getElementById('character-avatar-file');
+                
+                if (avatarMethod === 'upload' && fileInput.files.length > 0) {
+                    // Upload the image first
+                    const formData = new FormData();
+                    formData.append('avatar', fileInput.files[0]);
+                    formData.append('character_name', name);
+                    
+                    const uploadResponse = await fetch('/api/characters/upload_avatar', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const uploadResult = await uploadResponse.json();
+                    if (uploadResult.status === 'success') {
+                        character.avatar_url = uploadResult.avatar_url;
+                    } else {
+                        showMessage('characters-message', 'Error uploading avatar: ' + uploadResult.message, 'error');
+                        return;
+                    }
+                } else {
+                    // Use URL method
+                    character.avatar_url = document.getElementById('character-avatar-url').value;
+                }
                 
                 const response = await fetch(`/api/characters/${name}`, {
                     method: 'POST',

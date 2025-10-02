@@ -2,6 +2,8 @@
 from flask import Flask, render_template, request, jsonify, send_from_directory
 import json
 import os
+import base64
+from werkzeug.utils import secure_filename
 from config_manager import ConfigManager
 from preset_manager import PresetManager
 from character_manager import CharacterManager
@@ -242,6 +244,54 @@ class WebServer:
                 return jsonify({"status": "success", "message": f"Character '{character_name}' imported"})
             except Exception as e:
                 return jsonify({"status": "error", "message": str(e)}), 400
+        
+        @self.app.route('/api/characters/upload_avatar', methods=['POST'])
+        def upload_avatar():
+            """Upload an avatar image for a character."""
+            try:
+                if 'avatar' not in request.files:
+                    return jsonify({"status": "error", "message": "No file provided"}), 400
+                
+                file = request.files['avatar']
+                character_name = request.form.get('character_name')
+                
+                if not character_name:
+                    return jsonify({"status": "error", "message": "Character name is required"}), 400
+                
+                if file.filename == '':
+                    return jsonify({"status": "error", "message": "No file selected"}), 400
+                
+                # Validate file extension
+                allowed_extensions = {'png', 'jpg', 'jpeg', 'gif'}
+                file_ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+                if file_ext not in allowed_extensions:
+                    return jsonify({"status": "error", "message": "Invalid file type. Only PNG, JPG, and GIF are allowed"}), 400
+                
+                # Create avatars directory if it doesn't exist
+                avatars_dir = 'character_avatars'
+                if not os.path.exists(avatars_dir):
+                    os.makedirs(avatars_dir)
+                
+                # Save file with character name
+                filename = f"{secure_filename(character_name)}.{file_ext}"
+                filepath = os.path.join(avatars_dir, filename)
+                file.save(filepath)
+                
+                # Convert to base64 data URL for storage
+                with open(filepath, 'rb') as f:
+                    image_data = f.read()
+                    base64_data = base64.b64encode(image_data).decode('utf-8')
+                    mime_type = f"image/{file_ext if file_ext != 'jpg' else 'jpeg'}"
+                    data_url = f"data:{mime_type};base64,{base64_data}"
+                
+                return jsonify({
+                    "status": "success", 
+                    "message": "Avatar uploaded successfully",
+                    "avatar_url": data_url,
+                    "filename": filename
+                })
+            except Exception as e:
+                return jsonify({"status": "error", "message": f"Error uploading avatar: {str(e)}"}), 400
         
         @self.app.route('/api/user_characters', methods=['GET'])
         def list_user_characters():

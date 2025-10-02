@@ -50,10 +50,10 @@ class DiscordBot(commands.Bot):
         self.add_bot_commands()
     
     async def update_bot_avatar(self, avatar_url: str) -> bool:
-        """Update bot's avatar from a URL.
+        """Update bot's avatar from a URL or base64 data URL.
         
         Args:
-            avatar_url: URL to the avatar image
+            avatar_url: URL to the avatar image or base64 data URL
             
         Returns:
             True if avatar was updated successfully, False otherwise
@@ -62,18 +62,30 @@ class DiscordBot(commands.Bot):
             return False
             
         try:
-            # Download the image
-            async with aiohttp.ClientSession() as session:
-                async with session.get(avatar_url) as response:
-                    if response.status == 200:
-                        avatar_bytes = await response.read()
-                        # Update bot's avatar
-                        await self.user.edit(avatar=avatar_bytes)
-                        print(f"Updated bot avatar from: {avatar_url}")
-                        return True
-                    else:
-                        print(f"Failed to download avatar: HTTP {response.status}")
-                        return False
+            # Check if it's a base64 data URL
+            if avatar_url.startswith('data:image'):
+                import base64
+                # Extract base64 data from data URL
+                # Format: data:image/png;base64,iVBORw0KGgoAAAANS...
+                header, encoded = avatar_url.split(',', 1)
+                avatar_bytes = base64.b64decode(encoded)
+                # Update bot's avatar
+                await self.user.edit(avatar=avatar_bytes)
+                print(f"Updated bot avatar from uploaded image")
+                return True
+            else:
+                # Download the image from URL
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(avatar_url) as response:
+                        if response.status == 200:
+                            avatar_bytes = await response.read()
+                            # Update bot's avatar
+                            await self.user.edit(avatar=avatar_bytes)
+                            print(f"Updated bot avatar from: {avatar_url}")
+                            return True
+                        else:
+                            print(f"Failed to download avatar: HTTP {response.status}")
+                            return False
         except Exception as e:
             print(f"Error updating bot avatar: {e}")
             return False
