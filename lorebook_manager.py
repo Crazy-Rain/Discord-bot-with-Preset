@@ -79,7 +79,7 @@ class LorebookManager:
             json.dump(self.lorebooks, f, indent=2)
         
         # Also update legacy format for backward compatibility
-        # Merge all enabled lorebooks into flat entries
+        # Merge all enabled lorebooks into flat entries (regardless of linked_character for legacy support)
         self.entries = {}
         for lorebook_name, lorebook in self.lorebooks.items():
             if lorebook.get("enabled", True):
@@ -255,28 +255,46 @@ class LorebookManager:
         
         return relevant
     
-    def get_system_prompt_section(self, relevant_text: str = "") -> str:
+    def get_system_prompt_section(self, relevant_text: str = "", character_name: Optional[str] = None) -> str:
         """Generate system prompt section with lorebook entries.
         
         Args:
             relevant_text: Text to match against keywords for relevance
+            character_name: Optional character name to filter character-linked lorebooks
             
         Returns:
             Formatted system prompt section with lorebook entries
         """
-        # Get relevant entries based on text, or all constant entries if no text
-        if relevant_text:
-            entries = self.get_relevant_entries(relevant_text)
-        else:
-            # Get only constant (always active) entries
-            entries = []
-            for e in self.entries.values():
-                activation_type = e.get("activation_type")
-                if activation_type is None:
-                    # Fall back to always_active for old entries
-                    activation_type = "constant" if e.get("always_active", False) else "normal"
-                if activation_type == "constant":
-                    entries.append(e)
+        # Get entries from enabled lorebooks that match the current context
+        # Include global lorebooks (linked_character is None) and character-specific lorebooks
+        entries = []
+        
+        for lorebook_name, lorebook in self.lorebooks.items():
+            # Skip disabled lorebooks
+            if not lorebook.get("enabled", True):
+                continue
+            
+            linked_char = lorebook.get("linked_character")
+            
+            # Include if it's a global lorebook OR if it matches the current character
+            if linked_char is None or (character_name and linked_char == character_name):
+                lorebook_entries = lorebook.get("entries", {})
+                
+                for entry in lorebook_entries.values():
+                    # Get activation type (with backward compatibility)
+                    activation_type = entry.get("activation_type")
+                    if activation_type is None:
+                        # Fall back to always_active for old entries
+                        activation_type = "constant" if entry.get("always_active", False) else "normal"
+                    
+                    # Include if it's constant (always active)
+                    if activation_type == "constant":
+                        entries.append(entry)
+                    # For normal/vectorized entries, include if relevant text contains keywords
+                    elif relevant_text and activation_type in ["normal", "vectorized"]:
+                        keywords = entry.get("keywords", [])
+                        if any(keyword.lower() in relevant_text.lower() for keyword in keywords):
+                            entries.append(entry)
         
         if not entries:
             return ""
@@ -297,13 +315,14 @@ class LorebookManager:
     
     # Multiple Lorebook Management Methods
     
-    def create_lorebook(self, name: str, description: str = "", enabled: bool = True) -> None:
+    def create_lorebook(self, name: str, description: str = "", enabled: bool = True, linked_character: Optional[str] = None) -> None:
         """Create a new lorebook.
         
         Args:
             name: Unique name for the lorebook
             description: Optional description
             enabled: Whether the lorebook is enabled by default
+            linked_character: Optional character name to link this lorebook to (None = global)
         """
         if name in self.lorebooks:
             raise ValueError(f"Lorebook '{name}' already exists")
@@ -312,6 +331,7 @@ class LorebookManager:
             "name": name,
             "description": description,
             "enabled": enabled,
+            "linked_character": linked_character,
             "entries": {}
         }
         self.save_all_lorebooks()
@@ -343,6 +363,7 @@ class LorebookManager:
                 "name": name,
                 "description": lorebook.get("description", ""),
                 "enabled": lorebook.get("enabled", True),
+                "linked_character": lorebook.get("linked_character"),
                 "entry_count": len(lorebook.get("entries", {}))
             })
         return result
@@ -359,13 +380,14 @@ class LorebookManager:
         return self.lorebooks.get(name)
     
     def update_lorebook_metadata(self, name: str, description: Optional[str] = None, 
-                                 enabled: Optional[bool] = None) -> bool:
+                                 enabled: Optional[bool] = None, linked_character: Optional[str] = None) -> bool:
         """Update lorebook metadata.
         
         Args:
             name: Name of the lorebook
             description: Optional new description
             enabled: Optional new enabled status
+            linked_character: Optional character name to link this lorebook to (None = global, empty string to unlink)
         
         Returns:
             True if updated, False if lorebook not found
@@ -378,6 +400,10 @@ class LorebookManager:
         
         if enabled is not None:
             self.lorebooks[name]["enabled"] = enabled
+        
+        if linked_character is not None:
+            # Empty string means unlink (set to None)
+            self.lorebooks[name]["linked_character"] = linked_character if linked_character else None
         
         self.save_all_lorebooks()
         return True
@@ -417,6 +443,7 @@ class LorebookManager:
         name = lorebook_data.get("name", "Imported Lorebook")
         description = lorebook_data.get("description", "")
         enabled = lorebook_data.get("enabled", True)
+        linked_character = lorebook_data.get("linked_character")
         entries = lorebook_data.get("entries", {})
         
         # Migrate always_active to activation_type in imported entries
@@ -432,12 +459,16 @@ class LorebookManager:
             self.lorebooks[name]["entries"].update(entries)
             if description:
                 self.lorebooks[name]["description"] = description
+            # Update linked_character if provided
+            if "linked_character" in lorebook_data:
+                self.lorebooks[name]["linked_character"] = linked_character
         else:
             # Create new or replace existing lorebook
             self.lorebooks[name] = {
                 "name": name,
                 "description": description,
                 "enabled": enabled,
+                "linked_character": linked_character,
                 "entries": entries
             }
         
