@@ -115,7 +115,171 @@ def smart_split_text(text: str, max_length: int = 4096, prefer_length: int = 390
     return chunks
 
 
-async def send_long_message(ctx, content: str):
+class SwipeButtonView(discord.ui.View):
+    """View with swipe navigation buttons."""
+    
+    def __init__(self, bot, channel_id: int):
+        super().__init__(timeout=None)  # No timeout for persistent buttons
+        self.bot = bot
+        self.channel_id = channel_id
+    
+    @discord.ui.button(label="◀ Swipe Left", style=discord.ButtonStyle.secondary, custom_id="swipe_left")
+    async def swipe_left_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Navigate to previous alternative response."""
+        await interaction.response.defer()
+        
+        if self.channel_id not in self.bot.response_alternatives or not self.bot.response_alternatives[self.channel_id]:
+            await interaction.followup.send("No alternatives available.", ephemeral=True)
+            return
+        
+        if len(self.bot.response_alternatives[self.channel_id][-1]) <= 1:
+            await interaction.followup.send("No other alternatives available. Use the Swipe button to generate more.", ephemeral=True)
+            return
+        
+        # Move to previous alternative (with wrapping)
+        current_idx = self.bot.current_alternative_index.get(self.channel_id, 0)
+        current_idx = (current_idx - 1) % len(self.bot.response_alternatives[self.channel_id][-1])
+        self.bot.current_alternative_index[self.channel_id] = current_idx
+        
+        # Get the alternative response
+        response = self.bot.response_alternatives[self.channel_id][-1][current_idx]
+        
+        # Update conversation history
+        self.bot.conversations[self.channel_id][-1] = {"role": "assistant", "content": response}
+        
+        alt_count = len(self.bot.response_alternatives[self.channel_id][-1])
+        
+        # Send response with buttons
+        channel = interaction.channel
+        if self.channel_id in self.bot.channel_characters:
+            character_data = self.bot.channel_characters[self.channel_id]
+            await self.bot.send_as_character(channel, response, character_data, view=self)
+        else:
+            await send_long_message_with_view(channel, response, view=self)
+        
+        await interaction.followup.send(f"*Alternative {current_idx + 1}/{alt_count}*", ephemeral=True)
+    
+    @discord.ui.button(label="🔄 Swipe", style=discord.ButtonStyle.primary, custom_id="swipe")
+    async def swipe_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Generate new alternative response."""
+        await interaction.response.defer()
+        
+        if self.channel_id not in self.bot.conversations or len(self.bot.conversations[self.channel_id]) < 2:
+            await interaction.followup.send("No previous message to regenerate.", ephemeral=True)
+            return
+        
+        # Get the last user message
+        last_user_msg = None
+        last_user_character = None
+        for msg in reversed(self.bot.conversations[self.channel_id]):
+            if msg["role"] == "user":
+                last_user_msg = msg["content"]
+                last_user_character, _ = self.bot.parse_character_message(last_user_msg)
+                break
+        
+        if not last_user_msg:
+            await interaction.followup.send("No user message found to regenerate.", ephemeral=True)
+            return
+        
+        # Remove last assistant message temporarily
+        last_assistant_msg = self.bot.conversations[self.channel_id].pop()
+        
+        # Build messages
+        _, clean_message = self.bot.parse_character_message(last_user_msg)
+        messages = self.bot.build_chat_messages(self.channel_id, clean_message, last_user_character)
+        
+        # Restore the last assistant message
+        self.bot.conversations[self.channel_id].append(last_assistant_msg)
+        
+        # Get preset parameters
+        preset = self.bot.preset_manager.get_current_preset()
+        
+        try:
+            # Generate alternative response
+            response = await self.bot.openai_client.chat_completion(
+                messages=messages,
+                temperature=preset.get("temperature", 0.7),
+                max_tokens=preset.get("max_response_length", preset.get("max_tokens", 2000)),
+                top_p=preset.get("top_p", 1.0),
+                frequency_penalty=preset.get("frequency_penalty", 0.0),
+                presence_penalty=preset.get("presence_penalty", 0.0)
+            )
+            
+            # Add to alternatives
+            if self.channel_id in self.bot.response_alternatives and len(self.bot.response_alternatives[self.channel_id]) > 0:
+                self.bot.response_alternatives[self.channel_id][-1].append(response)
+                self.bot.current_alternative_index[self.channel_id] = len(self.bot.response_alternatives[self.channel_id][-1]) - 1
+            else:
+                if self.channel_id not in self.bot.response_alternatives:
+                    self.bot.response_alternatives[self.channel_id] = []
+                self.bot.response_alternatives[self.channel_id].append([response])
+                self.bot.current_alternative_index[self.channel_id] = 0
+            
+            # Update conversation history
+            self.bot.conversations[self.channel_id][-1] = {"role": "assistant", "content": response}
+            
+            alt_count = len(self.bot.response_alternatives[self.channel_id][-1])
+            current_idx = self.bot.current_alternative_index[self.channel_id]
+            
+            # Send response with buttons
+            channel = interaction.channel
+            if self.channel_id in self.bot.channel_characters:
+                character_data = self.bot.channel_characters[self.channel_id]
+                await self.bot.send_as_character(channel, response, character_data, view=self)
+            else:
+                await send_long_message_with_view(channel, response, view=self)
+            
+            await interaction.followup.send(f"*Alternative {current_idx + 1}/{alt_count}*", ephemeral=True)
+        
+        except Exception as e:
+            await interaction.followup.send(f"Error generating alternative: {str(e)}", ephemeral=True)
+    
+    @discord.ui.button(label="Swipe Right ▶", style=discord.ButtonStyle.secondary, custom_id="swipe_right")
+    async def swipe_right_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Navigate to next alternative response."""
+        await interaction.response.defer()
+        
+        if self.channel_id not in self.bot.response_alternatives or not self.bot.response_alternatives[self.channel_id]:
+            await interaction.followup.send("No alternatives available.", ephemeral=True)
+            return
+        
+        if len(self.bot.response_alternatives[self.channel_id][-1]) <= 1:
+            await interaction.followup.send("No other alternatives available. Use the Swipe button to generate more.", ephemeral=True)
+            return
+        
+        # Move to next alternative (with wrapping)
+        current_idx = self.bot.current_alternative_index.get(self.channel_id, 0)
+        current_idx = (current_idx + 1) % len(self.bot.response_alternatives[self.channel_id][-1])
+        self.bot.current_alternative_index[self.channel_id] = current_idx
+        
+        # Get the alternative response
+        response = self.bot.response_alternatives[self.channel_id][-1][current_idx]
+        
+        # Update conversation history
+        self.bot.conversations[self.channel_id][-1] = {"role": "assistant", "content": response}
+        
+        alt_count = len(self.bot.response_alternatives[self.channel_id][-1])
+        
+        # Send response with buttons
+        channel = interaction.channel
+        if self.channel_id in self.bot.channel_characters:
+            character_data = self.bot.channel_characters[self.channel_id]
+            await self.bot.send_as_character(channel, response, character_data, view=self)
+        else:
+            await send_long_message_with_view(channel, response, view=self)
+        
+        await interaction.followup.send(f"*Alternative {current_idx + 1}/{alt_count}*", ephemeral=True)
+    
+    @discord.ui.button(label="🗑️ Delete", style=discord.ButtonStyle.danger, custom_id="delete")
+    async def delete_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Delete the message."""
+        try:
+            await interaction.message.delete()
+        except:
+            await interaction.response.send_message("Failed to delete message.", ephemeral=True)
+
+
+async def send_long_message(ctx, content: str, view: discord.ui.View = None):
     """Send a long message using embeds with smart splitting.
     
     Helper function for sending messages that may exceed Discord's limits.
@@ -124,6 +288,7 @@ async def send_long_message(ctx, content: str):
     Args:
         ctx: Discord command context
         content: The message content to send
+        view: Optional view with buttons to attach to the last message
     """
     if len(content) > 4096:
         # Use smart splitting to preserve markdown formatting
@@ -133,11 +298,44 @@ async def send_long_message(ctx, content: str):
             # Add page indicator if multiple chunks
             if len(chunks) > 1:
                 embed.set_footer(text=f"Page {i+1}/{len(chunks)}")
-            await ctx.send(embed=embed)
+            # Only add view to the last chunk
+            if i == len(chunks) - 1 and view:
+                await ctx.send(embed=embed, view=view)
+            else:
+                await ctx.send(embed=embed)
     else:
         # Single embed for content under 4096 characters
         embed = discord.Embed(description=content, color=0x2b2d31)
-        await ctx.send(embed=embed)
+        await ctx.send(embed=embed, view=view)
+
+
+async def send_long_message_with_view(channel, content: str, view: discord.ui.View = None):
+    """Send a long message using embeds with smart splitting (for non-ctx calls).
+    
+    Similar to send_long_message but accepts a channel instead of ctx.
+    
+    Args:
+        channel: Discord channel object
+        content: The message content to send
+        view: Optional view with buttons to attach to the last message
+    """
+    if len(content) > 4096:
+        # Use smart splitting to preserve markdown formatting
+        chunks = smart_split_text(content, max_length=4096, prefer_length=3900)
+        for i, chunk in enumerate(chunks):
+            embed = discord.Embed(description=chunk, color=0x2b2d31)
+            # Add page indicator if multiple chunks
+            if len(chunks) > 1:
+                embed.set_footer(text=f"Page {i+1}/{len(chunks)}")
+            # Only add view to the last chunk
+            if i == len(chunks) - 1 and view:
+                await channel.send(embed=embed, view=view)
+            else:
+                await channel.send(embed=embed)
+    else:
+        # Single embed for content under 4096 characters
+        embed = discord.Embed(description=content, color=0x2b2d31)
+        await channel.send(embed=embed, view=view)
 
 
 class DiscordBot(commands.Bot):
@@ -281,7 +479,8 @@ class DiscordBot(commands.Bot):
         self, 
         channel: discord.TextChannel, 
         content: str,
-        character_data: Dict[str, any]
+        character_data: Dict[str, any],
+        view: discord.ui.View = None
     ) -> bool:
         """Send a message as a character using webhooks with embeds.
         
@@ -293,6 +492,7 @@ class DiscordBot(commands.Bot):
             channel: The channel to send the message in
             content: The message content
             character_data: Character data including name and avatar_url
+            view: Optional view with buttons to attach to the last message
             
         Returns:
             True if message was sent successfully, False otherwise
@@ -327,15 +527,24 @@ class DiscordBot(commands.Bot):
                     # Add page indicator if multiple chunks
                     if len(chunks) > 1:
                         embed.set_footer(text=f"Page {i+1}/{len(chunks)}")
-                    await webhook.send(
-                        embed=embed,
-                        **webhook_params
-                    )
+                    # Only add view to the last chunk
+                    if i == len(chunks) - 1 and view:
+                        await webhook.send(
+                            embed=embed,
+                            view=view,
+                            **webhook_params
+                        )
+                    else:
+                        await webhook.send(
+                            embed=embed,
+                            **webhook_params
+                        )
             else:
                 # Single embed for content under 4096 characters
                 embed = discord.Embed(description=content, color=0x2b2d31)
                 await webhook.send(
                     embed=embed,
+                    view=view,
                     **webhook_params
                 )
             return True
@@ -531,23 +740,27 @@ class DiscordBot(commands.Bot):
                         self.response_alternatives[channel_id] = self.response_alternatives[channel_id][-10:]
                 
                 # Send response - use webhook if character is loaded for this channel
+                # Create swipe button view
+                view = SwipeButtonView(self, channel_id)
+                
                 if channel_id in self.channel_characters:
                     # Try to send via webhook with character's avatar
                     character_data = self.channel_characters[channel_id]
                     webhook_sent = await self.send_as_character(
                         ctx.channel, 
                         response, 
-                        character_data
+                        character_data,
+                        view=view
                     )
                     if webhook_sent:
                         # Message sent successfully via webhook
                         pass
                     else:
                         # Fallback to normal message if webhook fails - use embeds
-                        await send_long_message(ctx, response)
+                        await send_long_message(ctx, response, view=view)
                 else:
                     # No character loaded, send normal message - use embeds
-                    await send_long_message(ctx, response)
+                    await send_long_message(ctx, response, view=view)
             
             except Exception as e:
                 await ctx.send(f"Error: {str(e)}")
@@ -1077,22 +1290,26 @@ Visit http://localhost:5000 to configure the bot via web interface.
                 current_idx = self.current_alternative_index[channel_id]
                 
                 # Send response - use webhook if character is loaded for this channel
+                # Create swipe button view
+                view = SwipeButtonView(self, channel_id)
+                
                 if channel_id in self.channel_characters:
                     # Try to send via webhook with character's avatar
                     character_data = self.channel_characters[channel_id]
                     webhook_sent = await self.send_as_character(
                         ctx.channel, 
                         response, 
-                        character_data
+                        character_data,
+                        view=view
                     )
                     if not webhook_sent:
                         # Fallback to normal message if webhook fails - use embeds
-                        await send_long_message(ctx, response)
+                        await send_long_message(ctx, response, view=view)
                 else:
                     # No character loaded, send normal message - use embeds
-                    await send_long_message(ctx, response)
+                    await send_long_message(ctx, response, view=view)
                 
-                await ctx.send(f"*Alternative {current_idx + 1}/{alt_count} (use !swipe_left/!swipe_right to navigate)*")
+                await ctx.send(f"*Alternative {current_idx + 1}/{alt_count}*")
             
             except Exception as e:
                 await ctx.send(f"Error generating alternative: {str(e)}")
@@ -1124,20 +1341,24 @@ Visit http://localhost:5000 to configure the bot via web interface.
             alt_count = len(self.response_alternatives[channel_id][-1])
             
             # Send response - use webhook if character is loaded for this channel
+            # Create swipe button view
+            view = SwipeButtonView(self, channel_id)
+            
             if channel_id in self.channel_characters:
                 # Try to send via webhook with character's avatar
                 character_data = self.channel_characters[channel_id]
                 webhook_sent = await self.send_as_character(
                     ctx.channel, 
                     response, 
-                    character_data
+                    character_data,
+                    view=view
                 )
                 if not webhook_sent:
                     # Fallback to normal message if webhook fails - use embeds
-                    await send_long_message(ctx, response)
+                    await send_long_message(ctx, response, view=view)
             else:
                 # No character loaded, send normal message - use embeds
-                await send_long_message(ctx, response)
+                await send_long_message(ctx, response, view=view)
             
             await ctx.send(f"*Alternative {current_idx + 1}/{alt_count}*")
         
@@ -1168,20 +1389,24 @@ Visit http://localhost:5000 to configure the bot via web interface.
             alt_count = len(self.response_alternatives[channel_id][-1])
             
             # Send response - use webhook if character is loaded for this channel
+            # Create swipe button view
+            view = SwipeButtonView(self, channel_id)
+            
             if channel_id in self.channel_characters:
                 # Try to send via webhook with character's avatar
                 character_data = self.channel_characters[channel_id]
                 webhook_sent = await self.send_as_character(
                     ctx.channel, 
                     response, 
-                    character_data
+                    character_data,
+                    view=view
                 )
                 if not webhook_sent:
                     # Fallback to normal message if webhook fails - use embeds
-                    await send_long_message(ctx, response)
+                    await send_long_message(ctx, response, view=view)
             else:
                 # No character loaded, send normal message - use embeds
-                await send_long_message(ctx, response)
+                await send_long_message(ctx, response, view=view)
             
             await ctx.send(f"*Alternative {current_idx + 1}/{alt_count}*")
     

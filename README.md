@@ -23,6 +23,9 @@ A feature-rich Discord bot with OpenAI-compatible API integration, preset manage
 - 🌐 **Web Configuration Interface** - Beautiful web UI to manage all settings, presets, characters, and lorebook
 - 💾 **Import/Export** - Full import/export functionality for presets, character cards, user characters, and lorebook
 - 🔄 **Swipe Functionality** - Generate and navigate through alternative AI responses (like SillyTavern)
+  - **NEW**: Interactive buttons on every response for easy navigation!
+  - **NEW**: One-click swipe left/right, generate new alternatives, or delete messages!
+  - **NEW**: No need to type commands - just click the buttons!
 - 📊 **Extended Token Limits** - Support for up to 200,000 context tokens with separate response length control
 - 📝 **Smart Message Handling** - Uses Discord embeds for 2x capacity (4096 vs 2000 chars) with intelligent splitting that preserves markdown formatting
 
@@ -116,6 +119,15 @@ This bot works with any OpenAI-compatible API endpoint:
 - `!presets` - List all available presets
 
 ### Alternative Response Commands
+
+**Interactive Buttons (New!):**
+Every bot response includes interactive buttons for easy navigation:
+- **◀ Swipe Left** - Show previous alternative
+- **🔄 Swipe** - Generate new alternative  
+- **Swipe Right ▶** - Show next alternative
+- **🗑️ Delete** - Delete the message
+
+**Text Commands (Still Available):**
 - `!swipe` - Generate an alternative response to the last message
 - `!swipe_left` - Navigate to the previous alternative response
 - `!swipe_right` - Navigate to the next alternative response
@@ -282,14 +294,23 @@ Example preset (`presets/creative.json`):
 
 ### Swipe Functionality
 
-Similar to SillyTavern, you can generate and navigate through alternative AI responses:
+Similar to SillyTavern, you can generate and navigate through alternative AI responses using **interactive buttons** or text commands:
 
+**Using Buttons (Recommended):**
+- Every bot response includes four buttons: **◀ Swipe Left**, **🔄 Swipe**, **Swipe Right ▶**, and **🗑️ Delete**
+- Click **Swipe** to generate a new alternative response
+- Click **Swipe Left/Right** to navigate between existing alternatives
+- Click **Delete** to remove the message
+
+**Using Commands (Traditional):**
 1. Use `!chat` to get an initial response
 2. Use `!swipe` to generate alternative responses to the last message
 3. Use `!swipe_left` and `!swipe_right` to navigate between alternatives
 4. Each alternative is stored and you can switch between them at any time
 
 This allows you to explore different creative directions without losing previous responses!
+
+See [SWIPE_BUTTONS_GUIDE.md](SWIPE_BUTTONS_GUIDE.md) for complete documentation on the button interface.
 
 ### Import/Export Presets
 
