@@ -173,6 +173,17 @@ class DiscordBot(commands.Bot):
             character_name = character_data.get('name', 'Character')
             avatar_url = character_data.get('avatar_url')
             
+            # Build webhook parameters
+            webhook_params = {
+                'username': character_name,
+                'wait': True
+            }
+            
+            # Only include avatar_url if it's a valid non-empty string
+            # Discord webhooks ignore empty strings and fall back to webhook defaults
+            if avatar_url and avatar_url.strip():
+                webhook_params['avatar_url'] = avatar_url
+            
             # Send message via webhook with character's name and avatar
             # Split long messages
             if len(content) > 2000:
@@ -180,16 +191,12 @@ class DiscordBot(commands.Bot):
                     chunk = content[i:i+2000]
                     await webhook.send(
                         content=chunk,
-                        username=character_name,
-                        avatar_url=avatar_url,
-                        wait=True
+                        **webhook_params
                     )
             else:
                 await webhook.send(
                     content=content,
-                    username=character_name,
-                    avatar_url=avatar_url,
-                    wait=True
+                    **webhook_params
                 )
             return True
         except Exception as e:

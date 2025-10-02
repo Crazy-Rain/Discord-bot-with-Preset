@@ -99,8 +99,8 @@ def test_webhook_logic():
             ('if channel_id in self.channel_characters:', 'Character check in chat'),
             ('await self.send_as_character(', 'Webhook message sending'),
             ('await channel.create_webhook(', 'Webhook creation'),
-            ('username=character_name', 'Character name in webhook'),
-            ('avatar_url=avatar_url', 'Avatar URL in webhook'),
+            ("'username': character_name", 'Character name in webhook params'),
+            ("if avatar_url and avatar_url.strip():", 'Conditional avatar URL handling'),
         ]
         
         all_passed = True
