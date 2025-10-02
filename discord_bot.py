@@ -56,11 +56,15 @@ class DiscordBot(commands.Bot):
             base_url: New base URL (proxy) to use
             model: New model name to use
         """
-        # Store the current config values
+        # Store the current config values, use new values if provided
         if api_key is None:
             api_key = self.openai_client.api_key
         if base_url is None:
-            base_url = self.openai_client.client.base_url if hasattr(self.openai_client.client, 'base_url') else None
+            # Try to get base_url from client, or fall back to config
+            try:
+                base_url = str(self.openai_client.client.base_url) if hasattr(self.openai_client.client, 'base_url') else None
+            except:
+                base_url = self.config_manager.get('openai_config.base_url', 'https://api.openai.com/v1')
         if model is None:
             model = self.openai_client.model
         
@@ -72,6 +76,7 @@ class DiscordBot(commands.Bot):
             model=model
         )
         print(f"Updated OpenAI configuration - Model: {model}, Base URL: {base_url}")
+
     
     def parse_character_message(self, message: str) -> Tuple[Optional[str], str]:
         """Parse a message for character name format: 'CharacterName:message'.
