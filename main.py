@@ -6,10 +6,13 @@ from config_manager import ConfigManager
 from discord_bot import DiscordBot
 from web_server import WebServer
 
+# Global bot instance that web server can access
+bot_instance = None
+
 def run_web_server(config_manager: ConfigManager):
     """Run the web server in a separate thread."""
     web_config = config_manager.get("web_server", {})
-    web_server = WebServer(config_manager)
+    web_server = WebServer(config_manager, bot_instance)
     web_server.run(
         host=web_config.get("host", "0.0.0.0"),
         port=web_config.get("port", 5000),
@@ -18,7 +21,8 @@ def run_web_server(config_manager: ConfigManager):
 
 async def run_discord_bot(config_manager: ConfigManager):
     """Run the Discord bot."""
-    bot = DiscordBot(config_manager)
+    global bot_instance
+    bot_instance = DiscordBot(config_manager)
     token = config_manager.get("discord_token")
     
     if not token or token == "YOUR_DISCORD_BOT_TOKEN":
@@ -28,7 +32,7 @@ async def run_discord_bot(config_manager: ConfigManager):
         return
     
     try:
-        await bot.start(token)
+        await bot_instance.start(token)
     except Exception as e:
         print(f"Error starting Discord bot: {e}")
 
@@ -40,6 +44,10 @@ def main():
     
     # Load configuration
     config_manager = ConfigManager()
+    
+    # Initialize bot instance early (before web server starts)
+    global bot_instance
+    bot_instance = DiscordBot(config_manager)
     
     # Start web server in a separate thread
     web_thread = threading.Thread(
@@ -62,8 +70,21 @@ def main():
     # Run Discord bot
     print("\n🤖 Starting Discord bot...")
     
+    token = config_manager.get("discord_token")
+    if not token or token == "YOUR_DISCORD_BOT_TOKEN":
+        print("Error: Discord token not configured!")
+        print("Please update config.json with your Discord bot token.")
+        print("You can also configure the bot at http://localhost:5000")
+        # Keep the web server running even if bot can't start
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("\n\n👋 Shutting down...")
+        return
+    
     try:
-        asyncio.run(run_discord_bot(config_manager))
+        asyncio.run(bot_instance.start(token))
     except KeyboardInterrupt:
         print("\n\n👋 Shutting down...")
 

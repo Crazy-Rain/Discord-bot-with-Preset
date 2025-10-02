@@ -9,9 +9,10 @@ from user_characters_manager import UserCharactersManager
 from lorebook_manager import LorebookManager
 
 class WebServer:
-    def __init__(self, config_manager: ConfigManager):
+    def __init__(self, config_manager: ConfigManager, bot_instance=None):
         self.app = Flask(__name__)
         self.config_manager = config_manager
+        self.bot_instance = bot_instance
         self.preset_manager = PresetManager()
         self.character_manager = CharacterManager()
         self.user_characters_manager = UserCharactersManager()
@@ -43,14 +44,61 @@ class WebServer:
             """Update configuration."""
             try:
                 data = request.json
+                # Track if OpenAI config changed
+                openai_config_changed = False
+                new_api_key = None
+                new_base_url = None
+                new_model = None
+                
                 # Don't update hidden fields
                 if 'discord_token' in data and data['discord_token'] == '***HIDDEN***':
                     del data['discord_token']
                 if 'openai_config' in data and 'api_key' in data['openai_config']:
                     if data['openai_config']['api_key'] == '***HIDDEN***':
                         del data['openai_config']['api_key']
+                    else:
+                        # API key is being updated
+                        openai_config_changed = True
+                        new_api_key = data['openai_config']['api_key']
                 
+                # Check if base_url or model changed
+                if 'openai_config' in data:
+                    if 'base_url' in data['openai_config']:
+                        current_base_url = self.config_manager.get('openai_config.base_url')
+                        if data['openai_config']['base_url'] != current_base_url:
+                            openai_config_changed = True
+                            new_base_url = data['openai_config']['base_url']
+                    
+                    if 'model' in data['openai_config']:
+                        current_model = self.config_manager.get('openai_config.model')
+                        if data['openai_config']['model'] != current_model:
+                            openai_config_changed = True
+                            new_model = data['openai_config']['model']
+                
+                # Update config file
                 self.config_manager.update_config(data)
+                
+                # Apply changes to running bot if available
+                if openai_config_changed and self.bot_instance:
+                    # Get all current values (use new if provided, otherwise get from config)
+                    if new_api_key is None:
+                        new_api_key = self.config_manager.get('openai_config.api_key')
+                    if new_base_url is None:
+                        new_base_url = self.config_manager.get('openai_config.base_url')
+                    if new_model is None:
+                        new_model = self.config_manager.get('openai_config.model')
+                    
+                    # Update the bot's OpenAI client
+                    self.bot_instance.update_openai_config(
+                        api_key=new_api_key,
+                        base_url=new_base_url,
+                        model=new_model
+                    )
+                    return jsonify({
+                        "status": "success", 
+                        "message": "Configuration updated and applied to running bot"
+                    })
+                
                 return jsonify({"status": "success", "message": "Configuration updated"})
             except Exception as e:
                 return jsonify({"status": "error", "message": str(e)}), 400
