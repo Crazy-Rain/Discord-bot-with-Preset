@@ -46,6 +46,9 @@ class LorebookManager:
         
         # Migrate always_active to activation_type in all lorebooks
         self._migrate_always_active_to_activation_type()
+        
+        # Migrate linked_character to linked_characters
+        self._migrate_linked_character_to_list()
     
     def _migrate_always_active_to_activation_type(self) -> None:
         """Migrate old always_active boolean to new activation_type field."""
@@ -64,6 +67,29 @@ class LorebookManager:
                 elif "activation_type" not in entry:
                     entry["activation_type"] = "normal"
                     needs_save = True
+        
+        if needs_save:
+            self.save_all_lorebooks()
+    
+    def _migrate_linked_character_to_list(self) -> None:
+        """Migrate old linked_character (single string) to new linked_characters (list)."""
+        needs_save = False
+        
+        for lorebook_name, lorebook in self.lorebooks.items():
+            # If lorebook has linked_character but not linked_characters, migrate it
+            if "linked_character" in lorebook and "linked_characters" not in lorebook:
+                linked_char = lorebook.get("linked_character")
+                if linked_char:
+                    lorebook["linked_characters"] = [linked_char]
+                else:
+                    lorebook["linked_characters"] = None
+                # Remove old field
+                del lorebook["linked_character"]
+                needs_save = True
+            # If lorebook has neither, set to None (global)
+            elif "linked_characters" not in lorebook:
+                lorebook["linked_characters"] = None
+                needs_save = True
         
         if needs_save:
             self.save_all_lorebooks()
@@ -266,7 +292,7 @@ class LorebookManager:
             Formatted system prompt section with lorebook entries
         """
         # Get entries from enabled lorebooks that match the current context
-        # Include global lorebooks (linked_character is None) and character-specific lorebooks
+        # Include global lorebooks (linked_characters is None) and character-specific lorebooks
         entries = []
         
         for lorebook_name, lorebook in self.lorebooks.items():
@@ -274,10 +300,12 @@ class LorebookManager:
             if not lorebook.get("enabled", True):
                 continue
             
-            linked_char = lorebook.get("linked_character")
+            linked_chars = lorebook.get("linked_characters")
             
             # Include if it's a global lorebook OR if it matches the current character
-            if linked_char is None or (character_name and linked_char == character_name):
+            # Global: linked_chars is None or empty list
+            # Character-specific: character_name is in linked_chars list
+            if not linked_chars or (character_name and character_name in linked_chars):
                 lorebook_entries = lorebook.get("entries", {})
                 
                 for entry in lorebook_entries.values():
@@ -315,23 +343,35 @@ class LorebookManager:
     
     # Multiple Lorebook Management Methods
     
-    def create_lorebook(self, name: str, description: str = "", enabled: bool = True, linked_character: Optional[str] = None) -> None:
+    def create_lorebook(self, name: str, description: str = "", enabled: bool = True, linked_character: Optional[str] = None, linked_characters: Optional[List[str]] = None) -> None:
         """Create a new lorebook.
         
         Args:
             name: Unique name for the lorebook
             description: Optional description
             enabled: Whether the lorebook is enabled by default
-            linked_character: Optional character name to link this lorebook to (None = global)
+            linked_character: DEPRECATED - use linked_characters instead. Optional character name to link this lorebook to (None = global)
+            linked_characters: Optional list of character names to link this lorebook to (None or empty list = global)
         """
         if name in self.lorebooks:
             raise ValueError(f"Lorebook '{name}' already exists")
+        
+        # Handle backward compatibility: if linked_character is provided, convert to list
+        if linked_characters is None:
+            if linked_character:
+                linked_characters = [linked_character]
+            else:
+                linked_characters = None
+        else:
+            # Empty list should be treated as None (global)
+            if not linked_characters:
+                linked_characters = None
         
         self.lorebooks[name] = {
             "name": name,
             "description": description,
             "enabled": enabled,
-            "linked_character": linked_character,
+            "linked_characters": linked_characters,
             "entries": {}
         }
         self.save_all_lorebooks()
@@ -359,13 +399,17 @@ class LorebookManager:
         """
         result = []
         for name, lorebook in self.lorebooks.items():
-            result.append({
+            linked_chars = lorebook.get("linked_characters")
+            info = {
                 "name": name,
                 "description": lorebook.get("description", ""),
                 "enabled": lorebook.get("enabled", True),
-                "linked_character": lorebook.get("linked_character"),
+                "linked_characters": linked_chars,
                 "entry_count": len(lorebook.get("entries", {}))
-            })
+            }
+            # Backward compatibility: also provide linked_character (first in list or None)
+            info["linked_character"] = linked_chars[0] if linked_chars else None
+            result.append(info)
         return result
     
     def get_lorebook(self, name: str) -> Optional[Dict[str, Any]]:
@@ -377,17 +421,27 @@ class LorebookManager:
         Returns:
             Lorebook dict if found, None otherwise
         """
-        return self.lorebooks.get(name)
+        lorebook = self.lorebooks.get(name)
+        if lorebook:
+            # Create a copy to avoid modifying the original
+            result = lorebook.copy()
+            # Backward compatibility: also provide linked_character (first in list or None)
+            linked_chars = result.get("linked_characters")
+            result["linked_character"] = linked_chars[0] if linked_chars else None
+            return result
+        return None
     
     def update_lorebook_metadata(self, name: str, description: Optional[str] = None, 
-                                 enabled: Optional[bool] = None, linked_character: Optional[str] = None) -> bool:
+                                 enabled: Optional[bool] = None, linked_character: Optional[str] = None,
+                                 linked_characters: Optional[List[str]] = None) -> bool:
         """Update lorebook metadata.
         
         Args:
             name: Name of the lorebook
             description: Optional new description
             enabled: Optional new enabled status
-            linked_character: Optional character name to link this lorebook to (None = global, empty string to unlink)
+            linked_character: DEPRECATED - use linked_characters instead. Optional character name to link this lorebook to (None = global, empty string to unlink)
+            linked_characters: Optional list of character names to link this lorebook to (None or empty list = global)
         
         Returns:
             True if updated, False if lorebook not found
@@ -401,9 +455,17 @@ class LorebookManager:
         if enabled is not None:
             self.lorebooks[name]["enabled"] = enabled
         
-        if linked_character is not None:
+        # Handle linked_characters (new preferred method)
+        if linked_characters is not None:
+            # Empty list means unlink (set to None for global)
+            self.lorebooks[name]["linked_characters"] = linked_characters if linked_characters else None
+        # Handle backward compatibility with linked_character (deprecated)
+        elif linked_character is not None:
             # Empty string means unlink (set to None)
-            self.lorebooks[name]["linked_character"] = linked_character if linked_character else None
+            if linked_character:
+                self.lorebooks[name]["linked_characters"] = [linked_character]
+            else:
+                self.lorebooks[name]["linked_characters"] = None
         
         self.save_all_lorebooks()
         return True
@@ -443,7 +505,15 @@ class LorebookManager:
         name = lorebook_data.get("name", "Imported Lorebook")
         description = lorebook_data.get("description", "")
         enabled = lorebook_data.get("enabled", True)
-        linked_character = lorebook_data.get("linked_character")
+        
+        # Handle both old and new format for character linking
+        linked_characters = lorebook_data.get("linked_characters")
+        if linked_characters is None and "linked_character" in lorebook_data:
+            # Migrate old format
+            linked_char = lorebook_data.get("linked_character")
+            if linked_char:
+                linked_characters = [linked_char]
+        
         entries = lorebook_data.get("entries", {})
         
         # Migrate always_active to activation_type in imported entries
@@ -459,16 +529,16 @@ class LorebookManager:
             self.lorebooks[name]["entries"].update(entries)
             if description:
                 self.lorebooks[name]["description"] = description
-            # Update linked_character if provided
-            if "linked_character" in lorebook_data:
-                self.lorebooks[name]["linked_character"] = linked_character
+            # Update linked_characters if provided in import
+            if "linked_characters" in lorebook_data or "linked_character" in lorebook_data:
+                self.lorebooks[name]["linked_characters"] = linked_characters
         else:
             # Create new or replace existing lorebook
             self.lorebooks[name] = {
                 "name": name,
                 "description": description,
                 "enabled": enabled,
-                "linked_character": linked_character,
+                "linked_characters": linked_characters,
                 "entries": entries
             }
         
@@ -487,5 +557,10 @@ class LorebookManager:
         if name not in self.lorebooks:
             raise ValueError(f"Lorebook '{name}' not found")
         
-        return json.dumps(self.lorebooks[name], indent=2)
+        lorebook = self.lorebooks[name].copy()
+        # Backward compatibility: also include linked_character for old systems
+        linked_chars = lorebook.get("linked_characters")
+        lorebook["linked_character"] = linked_chars[0] if linked_chars else None
+        
+        return json.dumps(lorebook, indent=2)
 
