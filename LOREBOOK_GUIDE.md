@@ -14,20 +14,22 @@ The Lorebook feature allows you to add world-building and lore information that 
 - **Keywords**: Optional list of words that trigger this entry to be included when mentioned
 - **Activation Type**: How the entry is triggered (see below)
 - **Enabled/Disabled**: Each lorebook can be toggled on or off to control which lore is active
-- **Linked Character**: Optional character link - lorebook only activates when that specific character is loaded
-- **Global Lorebook**: A lorebook with no character link - always active when enabled
+- **Linked Characters**: Optional character links - lorebook only activates when any of the linked characters are loaded
+- **Global Lorebook**: A lorebook with no character links - always active when enabled
 
 ### Character-Linked vs Global Lorebooks
 
-**NEW FEATURE**: You can now link lorebooks to specific AI characters!
+**UPDATED FEATURE**: You can now link lorebooks to **multiple characters**, not just one!
 
-- **Global Lorebooks**: No character link (default). Active whenever they are enabled, regardless of which character is loaded.
-- **Character-Linked Lorebooks**: Linked to a specific character. Only active when that character is loaded and being used by the AI.
+- **Global Lorebooks**: No character links (default). Active whenever they are enabled, regardless of which character is loaded.
+- **Character-Linked Lorebooks**: Linked to one or more specific characters. Only active when any of those characters are loaded and being used by the AI.
+- **Team/Group Lorebooks**: Link to multiple characters to share lore across a team or group.
 
 **Use Cases:**
 - Create a "Base World Rules" lorebook that's always active (global)
 - Create character-specific lorebooks like "Luna's Backstory" that only activate when Luna is the active character
-- Combine both types: global world lore + character-specific details
+- Create team lorebooks like "Team Adventure" that activate when any team member is active
+- Combine all types: global world lore + team lore + character-specific details
 
 **Example:**
 ```
@@ -35,18 +37,24 @@ Global Lorebook: "Fantasy World Rules"
   - Magic System (always active)
   - Currency System (always active)
 
-Character-Linked: "Luna" → "Luna's Lore"
+Team Lorebook: "Adventure Team" (Linked to: Luna, Sherlock, Alice)
+  - Team's shared history
+  - Team headquarters
+  - Group relationships
+
+Character-Linked: "Luna's Lore" (Linked to: Luna)
   - Luna's secret past
   - Luna's special abilities
   - People only Luna knows
 
-Character-Linked: "Sherlock" → "Sherlock's Lore"
+Character-Linked: "Sherlock's Lore" (Linked to: Sherlock)
   - Sherlock's deductive techniques
   - Victorian London details specific to Sherlock
 ```
 
-When Luna is active: You get Fantasy World Rules + Luna's Lore
-When Sherlock is active: You get Fantasy World Rules + Sherlock's Lore
+When Luna is active: You get Fantasy World Rules + Adventure Team + Luna's Lore
+When Sherlock is active: You get Fantasy World Rules + Adventure Team + Sherlock's Lore
+When Alice is active: You get Fantasy World Rules + Adventure Team (but not Luna's or Sherlock's)
 When no character is loaded: You only get Fantasy World Rules
 
 ### Activation Types
@@ -70,15 +78,17 @@ Choose the activation type based on how you want the entry to be used:
 1. Navigate to `http://localhost:5000`
 2. Click on the **Lorebook** tab
 3. Click **New Lorebook** button
-4. Enter a name (e.g., "Fantasy World", "Sci-Fi Setting", "Luna's Backstory")
+4. Enter a name (e.g., "Fantasy World", "Sci-Fi Setting", "Luna's Backstory", "Team Adventure")
 5. Optionally add a description
-6. **NEW**: Optionally link to a character (or leave as "Global" for always-active)
+6. **UPDATED**: Optionally link to one or more characters using the selector and "+ Add" button
 7. Click **Create**
 
 **Character Linking:**
-- Select "Global (no character link)" to create a lorebook that works with any character
-- Select a specific character name to link the lorebook to that character
-- Character-linked lorebooks only activate when that character is loaded via `!character <name>`
+- Leave empty (no characters added) to create a global lorebook that works with any character
+- Use the dropdown and "+ Add" button to add characters
+- Click the "−" button next to a character to remove it
+- You can link to as many characters as you want
+- Character-linked lorebooks only activate when any of the linked characters are loaded via `!character <name>`
 
 ### Switching Between Lorebooks
 
@@ -170,7 +180,7 @@ This allows you to:
   "name": "My Fantasy World",
   "description": "A complete fantasy setting",
   "enabled": true,
-  "linked_character": null,
+  "linked_characters": null,
   "entries": {
     "Entry Key": {
       "key": "Entry Key",
@@ -182,12 +192,13 @@ This allows you to:
 }
 ```
 
-**For Character-Linked Lorebooks:**
+**For Character-Linked Lorebooks (Single Character):**
 ```json
 {
   "name": "Luna's Lore",
   "description": "Luna-specific backstory and abilities",
   "enabled": true,
+  "linked_characters": ["Luna"],
   "linked_character": "Luna",
   "entries": {
     "Luna's Powers": {
@@ -200,7 +211,31 @@ This allows you to:
 }
 ```
 
-**Legacy Format** (Still Supported):
+**For Multi-Character/Team Lorebooks:**
+```json
+{
+  "name": "Adventure Team Lore",
+  "description": "Shared history and lore for the adventure team",
+  "enabled": true,
+  "linked_characters": ["Luna", "Sherlock", "Alice"],
+  "entries": {
+    "Team History": {
+      "key": "Team History",
+      "content": "Luna, Sherlock, and Alice formed the Adventure Team three years ago...",
+      "keywords": ["team", "adventure", "history"],
+      "activation_type": "constant"
+    },
+    "Team Headquarters": {
+      "key": "Team Headquarters",
+      "content": "The team operates from an abandoned lighthouse...",
+      "keywords": ["headquarters", "base", "lighthouse"],
+      "activation_type": "normal"
+    }
+  }
+}
+```
+
+**Legacy Format** (Still Supported - will be auto-migrated):
 ```json
 {
   "Entry Key": {
