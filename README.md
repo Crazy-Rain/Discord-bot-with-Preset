@@ -6,8 +6,12 @@ A feature-rich Discord bot with OpenAI-compatible API integration, preset manage
 
 - 🤖 **Discord Bot Integration** - Full-featured Discord bot with conversation history
 - 🔌 **Custom OpenAI-Compatible API** - Connect to any OpenAI-compatible endpoint (OpenAI, LM Studio, Ollama, Text Generation WebUI, etc.)
-- 🎨 **Preset System** - Create, save, import/export presets with custom parameters (temperature, top_p, etc.)
-- 👤 **Character Cards** - Support for character cards with personality, scenarios, and custom system prompts
+- 🎨 **Advanced Preset System** - SillyTavern-style presets with proper role separation for optimal AI performance
+  - **NEW**: Separate system, user, and assistant message roles
+  - **NEW**: Character card integration with example dialogues
+  - **NEW**: Flexible prompt formatting options
+  - **NEW**: Support for uncensored character interactions
+- 👤 **Character Cards** - Full SillyTavern-compatible character cards with `first_mes` and `mes_example` support
 - 🖼️ **Per-Channel Character Avatars** - Load different characters with unique avatars in each channel using webhooks
   - **NEW**: Bypass Discord's 2-per-hour rate limit!
   - **NEW**: Display different character avatars per channel simultaneously!
@@ -207,7 +211,9 @@ This allows for richer, more contextualized roleplay conversations!
 
 ## 🎨 Preset System
 
-Presets allow you to customize the AI's behavior with different parameters:
+Presets allow you to customize the AI's behavior with different parameters. The system now supports **SillyTavern-style presets** with advanced message formatting!
+
+### Standard Preset Parameters
 
 - **Temperature** - Controls randomness (0.0 = deterministic, 2.0 = very random)
 - **Max Tokens (Context)** - Maximum context window size (up to 200,000 tokens)
@@ -216,6 +222,41 @@ Presets allow you to customize the AI's behavior with different parameters:
 - **Frequency Penalty** - Reduces repetition of frequent tokens
 - **Presence Penalty** - Reduces repetition of any tokens
 - **System Prompt** - Instructions for the AI's behavior
+
+### 🆕 SillyTavern-Style Advanced Features
+
+The preset system now supports proper message role separation and character card integration, similar to SillyTavern!
+
+**New Preset Fields:**
+- **`prompt_format`** - Style of prompt formatting (`"default"` or `"sillytavern"`)
+- **`character_position`** - Where to inject character info (`"system"`, `"examples"`, or `"both"`)
+- **`include_examples`** - Whether to include example dialogues from character cards
+- **`example_separator`** - Separator used in character card examples (default: `"<START>"`)
+
+**Benefits:**
+- ✅ **Proper Role Separation** - System, user, and assistant messages sent separately
+- ✅ **Example-Based Learning** - AI learns from character example dialogues
+- ✅ **Better Character Consistency** - More control over character behavior
+- ✅ **Uncensored Characters** - Optimal formatting for unfiltered roleplay
+
+**Example SillyTavern-Style Preset:**
+```json
+{
+  "temperature": 0.85,
+  "max_tokens": 4000,
+  "max_response_length": 2000,
+  "top_p": 0.95,
+  "frequency_penalty": 0.1,
+  "presence_penalty": 0.1,
+  "system_prompt": "Write {{char}}'s next reply in a fictional chat. Stay in character and be creative.",
+  "prompt_format": "sillytavern",
+  "character_position": "both",
+  "include_examples": true,
+  "example_separator": "<START>"
+}
+```
+
+See **[SILLYTAVERN_PRESETS_GUIDE.md](SILLYTAVERN_PRESETS_GUIDE.md)** for complete documentation on the new preset system!
 
 ### Creating Presets
 
@@ -255,36 +296,51 @@ This allows you to explore different creative directions without losing previous
 
 ## 👤 Character Cards
 
-Character cards define AI personalities with:
+Character cards define AI personalities with full **SillyTavern compatibility**!
+
+### Standard Character Fields
 
 - **Name** - Character's display name
 - **Personality** - Character traits
 - **Description** - Background and characteristics
 - **Scenario** - Context for interactions
 - **System Prompt** - Optional custom system prompt (overrides auto-generated one)
+- **Avatar URL** - URL to character's avatar image (for webhook displays)
+
+### 🆕 SillyTavern-Compatible Fields
+
+- **`first_mes`** - Character's opening message (becomes first assistant message in examples)
+- **`mes_example`** - Example dialogue exchanges separated by `<START>` tags
+- **Placeholder support** - Use `{{char}}` for character name and `{{user}}` for user
+
+**Example Character with Dialogues:**
+```json
+{
+  "name": "Aria",
+  "personality": "Confident, flirtatious, adventurous",
+  "description": "A charming rogue with a silver tongue and mysterious past.",
+  "scenario": "You've just met Aria at a tavern.",
+  "first_mes": "*glances over with a playful smirk* Well, well. You look interesting. Care for a drink?",
+  "mes_example": "<START>\n{{user}}: What brings you here?\n{{char}}: *leans back* Oh, the usual. Good drinks, better company, maybe some treasure. *grins*\n<START>\n{{user}}: You seem dangerous.\n{{char}}: *laughs* Flattery will get you everywhere, darling.",
+  "system_prompt": "",
+  "avatar_url": ""
+}
+```
+
+When using a SillyTavern-style preset (with `include_examples: true`), these example dialogues are sent as separate user/assistant messages, helping the AI learn the character's voice and behavior patterns.
 
 ### Creating Character Cards
 
 1. **Web Interface**: Navigate to the Characters tab at `http://localhost:5000`
 2. **Manual JSON**: Create a file in the `character_cards/` directory
 
-Example character (`character_cards/sherlock.json`):
-```json
-{
-  "name": "Sherlock",
-  "personality": "Brilliant, observant, logical",
-  "description": "A world-renowned detective with exceptional deductive reasoning skills.",
-  "scenario": "You are helping users solve problems using deductive reasoning.",
-  "system_prompt": ""
-}
-```
-
 ### Character Card Formats
 
-The bot supports two system prompt generation methods:
+The bot supports multiple approaches:
 
 1. **Auto-generated** - Combines name, description, personality, and scenario
 2. **Custom system_prompt** - Use a custom system prompt field (takes precedence)
+3. **SillyTavern-style** - Use `first_mes` and `mes_example` with appropriate presets for example-based character behavior
 
 ## 🌐 Web Configuration Interface
 
@@ -332,9 +388,11 @@ Discord-bot-with-Preset/
 
 ## 📚 Documentation
 
+- **[SillyTavern Presets Guide](SILLYTAVERN_PRESETS_GUIDE.md)** - **NEW!** Complete guide to the advanced preset system
 - **[Context Management Guide](CONTEXT_MANAGEMENT.md)** - How the bot handles conversation history and channel context
 - **[Lorebook Guide](LOREBOOK_GUIDE.md)** - Complete guide to using the lorebook feature
 - **[User Characters Guide](USER_CHARACTERS_GUIDE.md)** - Guide for user character descriptions
+- **[Per-Channel Avatars Guide](PER_CHANNEL_AVATARS_GUIDE.md)** - Guide for webhook-based character avatars
 - **[Examples](EXAMPLES.md)** - Usage examples and common scenarios
 - **[Setup Guide](SETUP.md)** - Detailed setup instructions
 
