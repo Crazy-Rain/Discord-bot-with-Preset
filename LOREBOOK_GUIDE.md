@@ -14,6 +14,40 @@ The Lorebook feature allows you to add world-building and lore information that 
 - **Keywords**: Optional list of words that trigger this entry to be included when mentioned
 - **Activation Type**: How the entry is triggered (see below)
 - **Enabled/Disabled**: Each lorebook can be toggled on or off to control which lore is active
+- **Linked Character**: Optional character link - lorebook only activates when that specific character is loaded
+- **Global Lorebook**: A lorebook with no character link - always active when enabled
+
+### Character-Linked vs Global Lorebooks
+
+**NEW FEATURE**: You can now link lorebooks to specific AI characters!
+
+- **Global Lorebooks**: No character link (default). Active whenever they are enabled, regardless of which character is loaded.
+- **Character-Linked Lorebooks**: Linked to a specific character. Only active when that character is loaded and being used by the AI.
+
+**Use Cases:**
+- Create a "Base World Rules" lorebook that's always active (global)
+- Create character-specific lorebooks like "Luna's Backstory" that only activate when Luna is the active character
+- Combine both types: global world lore + character-specific details
+
+**Example:**
+```
+Global Lorebook: "Fantasy World Rules"
+  - Magic System (always active)
+  - Currency System (always active)
+
+Character-Linked: "Luna" → "Luna's Lore"
+  - Luna's secret past
+  - Luna's special abilities
+  - People only Luna knows
+
+Character-Linked: "Sherlock" → "Sherlock's Lore"
+  - Sherlock's deductive techniques
+  - Victorian London details specific to Sherlock
+```
+
+When Luna is active: You get Fantasy World Rules + Luna's Lore
+When Sherlock is active: You get Fantasy World Rules + Sherlock's Lore
+When no character is loaded: You only get Fantasy World Rules
 
 ### Activation Types
 
@@ -36,9 +70,15 @@ Choose the activation type based on how you want the entry to be used:
 1. Navigate to `http://localhost:5000`
 2. Click on the **Lorebook** tab
 3. Click **New Lorebook** button
-4. Enter a name (e.g., "Fantasy World", "Sci-Fi Setting")
+4. Enter a name (e.g., "Fantasy World", "Sci-Fi Setting", "Luna's Backstory")
 5. Optionally add a description
-6. Click **Create**
+6. **NEW**: Optionally link to a character (or leave as "Global" for always-active)
+7. Click **Create**
+
+**Character Linking:**
+- Select "Global (no character link)" to create a lorebook that works with any character
+- Select a specific character name to link the lorebook to that character
+- Character-linked lorebooks only activate when that character is loaded via `!character <name>`
 
 ### Switching Between Lorebooks
 
@@ -55,6 +95,21 @@ Use the **Active Lorebook** dropdown to select which lorebook you want to work w
 1. Select the lorebook from the dropdown
 2. Click **Delete This Lorebook**
 3. Confirm the deletion (this will remove all entries in that lorebook)
+
+### Editing Lorebook Metadata
+
+**NEW**: You can now edit a lorebook's description and character link!
+
+1. Select the lorebook from the dropdown
+2. Click **Edit Metadata** button
+3. Update the description and/or character link
+4. Click **Save**
+
+This allows you to:
+- Change a global lorebook to be character-linked
+- Change a character-linked lorebook to be global
+- Move a lorebook from one character to another
+- Update the description
 
 ## Using Discord Commands
 
@@ -115,12 +170,31 @@ Use the **Active Lorebook** dropdown to select which lorebook you want to work w
   "name": "My Fantasy World",
   "description": "A complete fantasy setting",
   "enabled": true,
+  "linked_character": null,
   "entries": {
     "Entry Key": {
       "key": "Entry Key",
       "content": "...",
       "keywords": ["keyword1", "keyword2"],
       "activation_type": "normal"
+    }
+  }
+}
+```
+
+**For Character-Linked Lorebooks:**
+```json
+{
+  "name": "Luna's Lore",
+  "description": "Luna-specific backstory and abilities",
+  "enabled": true,
+  "linked_character": "Luna",
+  "entries": {
+    "Luna's Powers": {
+      "key": "Luna's Powers",
+      "content": "Luna can control moonlight and has telepathy",
+      "keywords": ["luna", "power", "ability"],
+      "activation_type": "constant"
     }
   }
 }
@@ -223,10 +297,58 @@ You can import the included `lorebook/murder_drones_lore.json` file which contai
 ### Using Multiple Lorebooks Together
 
 You can enable multiple lorebooks at once:
-1. Create "Base Rules" lorebook with always-active world rules
-2. Create "Current Arc" lorebook with story-specific lore
+1. Create "Base Rules" lorebook with always-active world rules (global)
+2. Create "Current Arc" lorebook with story-specific lore (global)
 3. Enable both to combine their entries
 4. Disable "Current Arc" when moving to a new story
+
+### Using Character-Linked Lorebooks
+
+**NEW**: Link lorebooks to specific characters for character-specific lore!
+
+**Scenario 1: Multiple Characters with Unique Backgrounds**
+
+```
+1. Create global lorebook: "Sci-Fi Universe"
+   - Link: Global
+   - Contains: FTL travel rules, alien species, technology
+
+2. Create character lorebook: "Captain Sarah's History"
+   - Link: Captain Sarah
+   - Contains: Sarah's military service, her ship's crew, personal relationships
+
+3. Create character lorebook: "Dr. Chen's Research"
+   - Link: Dr. Chen  
+   - Contains: Chen's scientific discoveries, lab location, research team
+```
+
+When you load Captain Sarah (`!character "Captain Sarah"`):
+- Sci-Fi Universe lore is active
+- Captain Sarah's History is active
+- Dr. Chen's Research is NOT active
+
+When you load Dr. Chen (`!character "Dr. Chen"`):
+- Sci-Fi Universe lore is active
+- Dr. Chen's Research is active
+- Captain Sarah's History is NOT active
+
+**Scenario 2: Character Evolution**
+
+Create separate lorebooks for different story arcs of the same character:
+
+```
+Global: "Kingdom of Aldoria" (world rules)
+Character-linked to "Luna": "Luna - Early Days" (her childhood, training)
+Character-linked to "Luna": "Luna - Queen Era" (her reign, responsibilities)
+```
+
+Enable "Luna - Early Days" for flashback scenes, switch to "Luna - Queen Era" for present-day.
+
+**Benefits:**
+- Keep character-specific lore organized and separate
+- Avoid lore conflicts between different characters
+- Reduce token usage - only load relevant lore for active character
+- Easily share character lorebooks with character cards
 
 ## Best Practices
 
@@ -237,6 +359,9 @@ You can enable multiple lorebooks at once:
 5. **Disable When Not Needed**: Disable lorebooks you're not currently using to reduce context clutter
 6. **Export for Backup**: Regularly export your lorebooks as JSON files for backup
 7. **Share Lorebooks**: Share your exported lorebook JSON files with others
+8. **Use Character Linking**: Link character-specific lore to characters to keep things organized and automatic
+9. **Combine Global + Character**: Use global lorebooks for world rules, character-linked for personal details
+10. **Character Packages**: When sharing a character card, also share their linked lorebook for the complete experience
 
 ## Integration with Other Features
 
@@ -272,6 +397,14 @@ lorebook/lorebook.json      # Legacy flat format (auto-generated from enabled lo
 ```
 
 The system maintains backward compatibility by automatically syncing enabled lorebook entries to the legacy format.
+
+**Lorebook Structure:**
+Each lorebook in `lorebooks.json` contains:
+- `name`: Lorebook name
+- `description`: Optional description
+- `enabled`: Whether the lorebook is active
+- `linked_character`: Optional character name (null for global lorebooks)
+- `entries`: Dictionary of lorebook entries
 
 **Sample Lorebook Files:**
 - `lorebook/fantasy_aldoria.json` - Fantasy setting example
