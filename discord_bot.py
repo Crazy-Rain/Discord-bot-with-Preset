@@ -3,6 +3,7 @@ import discord
 from discord.ext import commands
 from typing import Dict, List, Optional, Tuple
 import re
+import aiohttp
 from config_manager import ConfigManager
 from preset_manager import PresetManager
 from character_manager import CharacterManager
@@ -47,6 +48,35 @@ class DiscordBot(commands.Bot):
         
         # Add commands
         self.add_bot_commands()
+    
+    async def update_bot_avatar(self, avatar_url: str) -> bool:
+        """Update bot's avatar from a URL.
+        
+        Args:
+            avatar_url: URL to the avatar image
+            
+        Returns:
+            True if avatar was updated successfully, False otherwise
+        """
+        if not avatar_url:
+            return False
+            
+        try:
+            # Download the image
+            async with aiohttp.ClientSession() as session:
+                async with session.get(avatar_url) as response:
+                    if response.status == 200:
+                        avatar_bytes = await response.read()
+                        # Update bot's avatar
+                        await self.user.edit(avatar=avatar_bytes)
+                        print(f"Updated bot avatar from: {avatar_url}")
+                        return True
+                    else:
+                        print(f"Failed to download avatar: HTTP {response.status}")
+                        return False
+        except Exception as e:
+            print(f"Error updating bot avatar: {e}")
+            return False
     
     def update_openai_config(self, api_key: str = None, base_url: str = None, model: str = None):
         """Update OpenAI client configuration dynamically.
@@ -386,6 +416,13 @@ FORMAT GUIDELINES:
                             print(f"Error changing nickname in guild {guild.name}: {e}")
                 except Exception as e:
                     print(f"Error changing bot name: {e}")
+                
+                # Change bot's avatar if avatar_url is provided
+                avatar_url = character_data.get('avatar_url')
+                if avatar_url:
+                    avatar_updated = await self.update_bot_avatar(avatar_url)
+                    if avatar_updated:
+                        await ctx.send(f"✨ Updated bot avatar to match {display_name}")
                 
                 # Clear conversation when switching characters
                 channel_id = ctx.channel.id
@@ -782,7 +819,7 @@ FORMAT GUIDELINES:
         """Called when bot is ready."""
         print(f"Bot is ready! Logged in as {self.user}")
         
-        # Set bot name to character name if a character is loaded
+        # Set bot name and avatar to character if a character is loaded
         current_char = self.character_manager.get_current_character()
         if current_char and current_char.get('name'):
             display_name = current_char['name']
@@ -797,3 +834,10 @@ FORMAT GUIDELINES:
                         print(f"Error changing nickname in guild {guild.name}: {e}")
             except Exception as e:
                 print(f"Error setting bot name on ready: {e}")
+            
+            # Set bot avatar if avatar_url is provided
+            avatar_url = current_char.get('avatar_url')
+            if avatar_url:
+                avatar_updated = await self.update_bot_avatar(avatar_url)
+                if avatar_updated:
+                    print(f"Set bot avatar to match '{display_name}'")

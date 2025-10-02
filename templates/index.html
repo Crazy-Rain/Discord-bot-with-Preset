@@ -452,6 +452,12 @@
                 <textarea id="character-system-prompt" placeholder="Custom system prompt..."></textarea>
             </div>
             
+            <div class="form-group">
+                <label>Avatar URL (Optional - bot's profile picture will change to this image)</label>
+                <input type="text" id="character-avatar-url" placeholder="https://example.com/avatar.png">
+                <small style="display: block; margin-top: 5px; color: #666;">Enter a direct URL to an image (PNG, JPG, GIF). The bot's avatar will update when this character is loaded.</small>
+            </div>
+            
             <button class="btn btn-primary" onclick="saveCharacter()">Save Character</button>
             <button class="btn btn-secondary" onclick="loadCharacter()">Load Character</button>
             <button class="btn btn-success" onclick="exportCharacter()">Export</button>
@@ -968,6 +974,7 @@
                 document.getElementById('character-description').value = character.description || '';
                 document.getElementById('character-scenario').value = character.scenario || '';
                 document.getElementById('character-system-prompt').value = character.system_prompt || '';
+                document.getElementById('character-avatar-url').value = character.avatar_url || '';
                 
                 showMessage('characters-message', `Loaded character: ${name}`, 'success');
             } catch (error) {
@@ -988,7 +995,8 @@
                     personality: document.getElementById('character-personality').value,
                     description: document.getElementById('character-description').value,
                     scenario: document.getElementById('character-scenario').value,
-                    system_prompt: document.getElementById('character-system-prompt').value
+                    system_prompt: document.getElementById('character-system-prompt').value,
+                    avatar_url: document.getElementById('character-avatar-url').value
                 };
                 
                 const response = await fetch(`/api/characters/${name}`, {
