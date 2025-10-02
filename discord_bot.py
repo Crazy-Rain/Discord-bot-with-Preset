@@ -12,6 +12,134 @@ from user_characters_manager import UserCharactersManager
 from lorebook_manager import LorebookManager
 from openai_client import OpenAIClient
 
+
+def smart_split_text(text: str, max_length: int = 4096, prefer_length: int = 3900) -> List[str]:
+    """Split text intelligently while preserving markdown formatting.
+    
+    This function splits long text into chunks that:
+    1. Don't exceed max_length
+    2. Try to stay under prefer_length for cleaner splits
+    3. Preserve markdown formatting (avoid breaking *, **, ___, etc.)
+    4. Split at natural boundaries (paragraphs, sentences, words)
+    
+    Args:
+        text: The text to split
+        max_length: Maximum length of each chunk (default: 4096 for embed descriptions)
+        prefer_length: Preferred maximum length to allow room for formatting (default: 3900)
+    
+    Returns:
+        List of text chunks
+    """
+    if len(text) <= max_length:
+        return [text]
+    
+    chunks = []
+    remaining = text
+    
+    # Markdown formatting patterns to track
+    markdown_patterns = [
+        r'\*\*\*',  # Bold italic
+        r'\*\*',    # Bold
+        r'\*',      # Italic
+        r'___',     # Bold italic (underscore)
+        r'__',      # Bold (underscore)
+        r'_',       # Italic (underscore)
+        r'~~',      # Strikethrough
+        r'`',       # Inline code
+        r'```',     # Code block
+    ]
+    
+    while remaining:
+        if len(remaining) <= max_length:
+            chunks.append(remaining)
+            break
+        
+        # Try to find a good split point
+        split_point = prefer_length
+        
+        # Try to split at paragraph boundary (double newline)
+        paragraph_end = remaining.rfind('\n\n', 0, prefer_length)
+        if paragraph_end > prefer_length // 2:  # At least halfway through preferred length
+            split_point = paragraph_end + 2
+        else:
+            # Try to split at sentence boundary (. ! ?)
+            sentence_end = max(
+                remaining.rfind('. ', 0, prefer_length),
+                remaining.rfind('! ', 0, prefer_length),
+                remaining.rfind('? ', 0, prefer_length)
+            )
+            if sentence_end > prefer_length // 2:
+                split_point = sentence_end + 2
+            else:
+                # Try to split at newline
+                newline = remaining.rfind('\n', 0, prefer_length)
+                if newline > prefer_length // 2:
+                    split_point = newline + 1
+                else:
+                    # Try to split at word boundary (space)
+                    space = remaining.rfind(' ', 0, prefer_length)
+                    if space > prefer_length // 2:
+                        split_point = space + 1
+                    else:
+                        # Last resort: hard split at prefer_length
+                        split_point = prefer_length
+        
+        # Check if we're breaking markdown formatting
+        chunk = remaining[:split_point]
+        
+        # Count unclosed markdown formatting in chunk
+        for pattern in markdown_patterns:
+            # Count occurrences of this pattern
+            count = len(re.findall(pattern, chunk))
+            # If odd number, we have an unclosed formatting marker
+            if count % 2 == 1:
+                # Try to find the opening marker and include its closing in this chunk
+                # or move the opening to the next chunk
+                marker = pattern.replace('\\', '')
+                last_occurrence = chunk.rfind(marker)
+                
+                # If the marker is near the end, move it to next chunk
+                if last_occurrence > split_point - len(marker) - 10:
+                    split_point = last_occurrence
+                    chunk = remaining[:split_point]
+                    break
+        
+        # Make sure we don't exceed max_length
+        if split_point > max_length:
+            split_point = max_length
+            chunk = remaining[:split_point]
+        
+        chunks.append(chunk)
+        remaining = remaining[split_point:]
+    
+    return chunks
+
+
+async def send_long_message(ctx, content: str):
+    """Send a long message using embeds with smart splitting.
+    
+    Helper function for sending messages that may exceed Discord's limits.
+    Uses embeds to support up to 4096 characters per message.
+    
+    Args:
+        ctx: Discord command context
+        content: The message content to send
+    """
+    if len(content) > 4096:
+        # Use smart splitting to preserve markdown formatting
+        chunks = smart_split_text(content, max_length=4096, prefer_length=3900)
+        for i, chunk in enumerate(chunks):
+            embed = discord.Embed(description=chunk, color=0x2b2d31)
+            # Add page indicator if multiple chunks
+            if len(chunks) > 1:
+                embed.set_footer(text=f"Page {i+1}/{len(chunks)}")
+            await ctx.send(embed=embed)
+    else:
+        # Single embed for content under 4096 characters
+        embed = discord.Embed(description=content, color=0x2b2d31)
+        await ctx.send(embed=embed)
+
+
 class DiscordBot(commands.Bot):
     def __init__(self, config: ConfigManager):
         intents = discord.Intents.default()
@@ -155,7 +283,11 @@ class DiscordBot(commands.Bot):
         content: str,
         character_data: Dict[str, any]
     ) -> bool:
-        """Send a message as a character using webhooks.
+        """Send a message as a character using webhooks with embeds.
+        
+        Uses Discord embeds to support up to 4096 characters per message
+        (vs 2000 for regular content). For even longer messages, uses
+        smart text splitting to preserve markdown formatting.
         
         Args:
             channel: The channel to send the message in
@@ -185,18 +317,25 @@ class DiscordBot(commands.Bot):
             if avatar_url and avatar_url.strip():
                 webhook_params['avatar_url'] = avatar_url
             
-            # Send message via webhook with character's name and avatar
-            # Split long messages
-            if len(content) > 2000:
-                for i in range(0, len(content), 2000):
-                    chunk = content[i:i+2000]
+            # Use embeds for better formatting and higher character limit (4096 vs 2000)
+            # Split intelligently if content exceeds embed description limit
+            if len(content) > 4096:
+                # Use smart splitting to preserve markdown formatting
+                chunks = smart_split_text(content, max_length=4096, prefer_length=3900)
+                for i, chunk in enumerate(chunks):
+                    embed = discord.Embed(description=chunk, color=0x2b2d31)
+                    # Add page indicator if multiple chunks
+                    if len(chunks) > 1:
+                        embed.set_footer(text=f"Page {i+1}/{len(chunks)}")
                     await webhook.send(
-                        content=chunk,
+                        embed=embed,
                         **webhook_params
                     )
             else:
+                # Single embed for content under 4096 characters
+                embed = discord.Embed(description=content, color=0x2b2d31)
                 await webhook.send(
-                    content=content,
+                    embed=embed,
                     **webhook_params
                 )
             return True
@@ -404,19 +543,11 @@ class DiscordBot(commands.Bot):
                         # Message sent successfully via webhook
                         pass
                     else:
-                        # Fallback to normal message if webhook fails
-                        if len(response) > 2000:
-                            for i in range(0, len(response), 2000):
-                                await ctx.send(response[i:i+2000])
-                        else:
-                            await ctx.send(response)
+                        # Fallback to normal message if webhook fails - use embeds
+                        await send_long_message(ctx, response)
                 else:
-                    # No character loaded, send normal message
-                    if len(response) > 2000:
-                        for i in range(0, len(response), 2000):
-                            await ctx.send(response[i:i+2000])
-                    else:
-                        await ctx.send(response)
+                    # No character loaded, send normal message - use embeds
+                    await send_long_message(ctx, response)
             
             except Exception as e:
                 await ctx.send(f"Error: {str(e)}")
@@ -955,19 +1086,11 @@ Visit http://localhost:5000 to configure the bot via web interface.
                         character_data
                     )
                     if not webhook_sent:
-                        # Fallback to normal message if webhook fails
-                        if len(response) > 2000:
-                            for i in range(0, len(response), 2000):
-                                await ctx.send(response[i:i+2000])
-                        else:
-                            await ctx.send(response)
+                        # Fallback to normal message if webhook fails - use embeds
+                        await send_long_message(ctx, response)
                 else:
-                    # No character loaded, send normal message
-                    if len(response) > 2000:
-                        for i in range(0, len(response), 2000):
-                            await ctx.send(response[i:i+2000])
-                    else:
-                        await ctx.send(response)
+                    # No character loaded, send normal message - use embeds
+                    await send_long_message(ctx, response)
                 
                 await ctx.send(f"*Alternative {current_idx + 1}/{alt_count} (use !swipe_left/!swipe_right to navigate)*")
             
@@ -1010,19 +1133,11 @@ Visit http://localhost:5000 to configure the bot via web interface.
                     character_data
                 )
                 if not webhook_sent:
-                    # Fallback to normal message if webhook fails
-                    if len(response) > 2000:
-                        for i in range(0, len(response), 2000):
-                            await ctx.send(response[i:i+2000])
-                    else:
-                        await ctx.send(response)
+                    # Fallback to normal message if webhook fails - use embeds
+                    await send_long_message(ctx, response)
             else:
-                # No character loaded, send normal message
-                if len(response) > 2000:
-                    for i in range(0, len(response), 2000):
-                        await ctx.send(response[i:i+2000])
-                else:
-                    await ctx.send(response)
+                # No character loaded, send normal message - use embeds
+                await send_long_message(ctx, response)
             
             await ctx.send(f"*Alternative {current_idx + 1}/{alt_count}*")
         
@@ -1062,19 +1177,11 @@ Visit http://localhost:5000 to configure the bot via web interface.
                     character_data
                 )
                 if not webhook_sent:
-                    # Fallback to normal message if webhook fails
-                    if len(response) > 2000:
-                        for i in range(0, len(response), 2000):
-                            await ctx.send(response[i:i+2000])
-                    else:
-                        await ctx.send(response)
+                    # Fallback to normal message if webhook fails - use embeds
+                    await send_long_message(ctx, response)
             else:
-                # No character loaded, send normal message
-                if len(response) > 2000:
-                    for i in range(0, len(response), 2000):
-                        await ctx.send(response[i:i+2000])
-                else:
-                    await ctx.send(response)
+                # No character loaded, send normal message - use embeds
+                await send_long_message(ctx, response)
             
             await ctx.send(f"*Alternative {current_idx + 1}/{alt_count}*")
     
