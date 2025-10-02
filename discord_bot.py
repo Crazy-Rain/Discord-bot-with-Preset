@@ -730,7 +730,9 @@ FORMAT GUIDELINES:
 `!reload_history [limit]` - Reload conversation from channel history (default: 50 messages)
 `!preset <name>` - Load a preset
 `!presets` - List available presets
-`!character <name>` - Load a character card
+`!character <name>` - Load a character card for this channel (uses webhooks)
+`!current_character` - Show which character is loaded in this channel
+`!unload_character` - Unload character from this channel
 `!characters` - List available characters
 `!swipe` - Generate alternative response to last message
 `!swipe_left` - Show previous alternative response
@@ -744,6 +746,13 @@ FORMAT GUIDELINES:
 `!lorebook_view <key>` - View a lorebook entry
 `!lorebook_delete <key>` - Delete a lorebook entry
 `!help_bot` - Show this help message
+
+**Per-Channel Character Avatars:**
+Load different characters in different channels! When you load a character in a channel, the bot uses webhooks to respond with the character's avatar and name. This bypasses Discord's rate limits and allows unlimited character switches.
+- No rate limits - switch characters as often as you want
+- Different characters can be active in different channels simultaneously
+- Requires bot to have "Manage Webhooks" permission
+Example: `!character luna` loads Luna for this channel only
 
 **Context & History:**
 The bot automatically loads recent !chat messages from the channel when starting a new conversation. This means past conversations persist even after bot restart. Use `!reload_history` to manually refresh the context from channel history.
