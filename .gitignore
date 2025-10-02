@@ -52,6 +52,9 @@ presets/*
 !presets/creative.json
 !presets/analytical.json
 
+# Character avatars (uploaded images)
+character_avatars/
+
 # Lorebook runtime files (auto-generated)
 lorebook/lorebook.json
 lorebook/lorebooks.json

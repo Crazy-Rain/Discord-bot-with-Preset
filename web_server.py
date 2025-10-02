@@ -2,6 +2,8 @@
 from flask import Flask, render_template, request, jsonify, send_from_directory
 import json
 import os
+import base64
+from werkzeug.utils import secure_filename
 from config_manager import ConfigManager
 from preset_manager import PresetManager
 from character_manager import CharacterManager
@@ -9,9 +11,10 @@ from user_characters_manager import UserCharactersManager
 from lorebook_manager import LorebookManager
 
 class WebServer:
-    def __init__(self, config_manager: ConfigManager):
+    def __init__(self, config_manager: ConfigManager, bot_instance=None):
         self.app = Flask(__name__)
         self.config_manager = config_manager
+        self.bot_instance = bot_instance
         self.preset_manager = PresetManager()
         self.character_manager = CharacterManager()
         self.user_characters_manager = UserCharactersManager()
@@ -43,14 +46,61 @@ class WebServer:
             """Update configuration."""
             try:
                 data = request.json
+                # Track if OpenAI config changed
+                openai_config_changed = False
+                new_api_key = None
+                new_base_url = None
+                new_model = None
+                
                 # Don't update hidden fields
                 if 'discord_token' in data and data['discord_token'] == '***HIDDEN***':
                     del data['discord_token']
                 if 'openai_config' in data and 'api_key' in data['openai_config']:
                     if data['openai_config']['api_key'] == '***HIDDEN***':
                         del data['openai_config']['api_key']
+                    else:
+                        # API key is being updated
+                        openai_config_changed = True
+                        new_api_key = data['openai_config']['api_key']
                 
+                # Check if base_url or model changed
+                if 'openai_config' in data:
+                    if 'base_url' in data['openai_config']:
+                        current_base_url = self.config_manager.get('openai_config.base_url')
+                        if data['openai_config']['base_url'] != current_base_url:
+                            openai_config_changed = True
+                            new_base_url = data['openai_config']['base_url']
+                    
+                    if 'model' in data['openai_config']:
+                        current_model = self.config_manager.get('openai_config.model')
+                        if data['openai_config']['model'] != current_model:
+                            openai_config_changed = True
+                            new_model = data['openai_config']['model']
+                
+                # Update config file
                 self.config_manager.update_config(data)
+                
+                # Apply changes to running bot if available
+                if openai_config_changed and self.bot_instance:
+                    # Get all current values (use new if provided, otherwise get from config)
+                    if new_api_key is None:
+                        new_api_key = self.config_manager.get('openai_config.api_key')
+                    if new_base_url is None:
+                        new_base_url = self.config_manager.get('openai_config.base_url')
+                    if new_model is None:
+                        new_model = self.config_manager.get('openai_config.model')
+                    
+                    # Update the bot's OpenAI client
+                    self.bot_instance.update_openai_config(
+                        api_key=new_api_key,
+                        base_url=new_base_url,
+                        model=new_model
+                    )
+                    return jsonify({
+                        "status": "success", 
+                        "message": "Configuration updated and applied to running bot"
+                    })
+                
                 return jsonify({"status": "success", "message": "Configuration updated"})
             except Exception as e:
                 return jsonify({"status": "error", "message": str(e)}), 400
@@ -194,6 +244,54 @@ class WebServer:
                 return jsonify({"status": "success", "message": f"Character '{character_name}' imported"})
             except Exception as e:
                 return jsonify({"status": "error", "message": str(e)}), 400
+        
+        @self.app.route('/api/characters/upload_avatar', methods=['POST'])
+        def upload_avatar():
+            """Upload an avatar image for a character."""
+            try:
+                if 'avatar' not in request.files:
+                    return jsonify({"status": "error", "message": "No file provided"}), 400
+                
+                file = request.files['avatar']
+                character_name = request.form.get('character_name')
+                
+                if not character_name:
+                    return jsonify({"status": "error", "message": "Character name is required"}), 400
+                
+                if file.filename == '':
+                    return jsonify({"status": "error", "message": "No file selected"}), 400
+                
+                # Validate file extension
+                allowed_extensions = {'png', 'jpg', 'jpeg', 'gif'}
+                file_ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+                if file_ext not in allowed_extensions:
+                    return jsonify({"status": "error", "message": "Invalid file type. Only PNG, JPG, and GIF are allowed"}), 400
+                
+                # Create avatars directory if it doesn't exist
+                avatars_dir = 'character_avatars'
+                if not os.path.exists(avatars_dir):
+                    os.makedirs(avatars_dir)
+                
+                # Save file with character name
+                filename = f"{secure_filename(character_name)}.{file_ext}"
+                filepath = os.path.join(avatars_dir, filename)
+                file.save(filepath)
+                
+                # Convert to base64 data URL for storage
+                with open(filepath, 'rb') as f:
+                    image_data = f.read()
+                    base64_data = base64.b64encode(image_data).decode('utf-8')
+                    mime_type = f"image/{file_ext if file_ext != 'jpg' else 'jpeg'}"
+                    data_url = f"data:{mime_type};base64,{base64_data}"
+                
+                return jsonify({
+                    "status": "success", 
+                    "message": "Avatar uploaded successfully",
+                    "avatar_url": data_url,
+                    "filename": filename
+                })
+            except Exception as e:
+                return jsonify({"status": "error", "message": f"Error uploading avatar: {str(e)}"}), 400
         
         @self.app.route('/api/user_characters', methods=['GET'])
         def list_user_characters():
