@@ -46,6 +46,12 @@ class DiscordBot(commands.Bot):
         # Track character names per channel for context
         self.character_names: Dict[int, List[str]] = {}
         
+        # Track loaded character per channel for webhook-based avatars
+        self.channel_characters: Dict[int, Dict[str, any]] = {}
+        
+        # Cache webhooks per channel to avoid recreating them
+        self.channel_webhooks: Dict[int, discord.Webhook] = {}
+        
         # Add commands
         self.add_bot_commands()
     
@@ -88,6 +94,106 @@ class DiscordBot(commands.Bot):
                             return False
         except Exception as e:
             print(f"Error updating bot avatar: {e}")
+            return False
+    
+    async def get_or_create_webhook(self, channel: discord.TextChannel) -> Optional[discord.Webhook]:
+        """Get existing webhook for channel or create a new one.
+        
+        Args:
+            channel: The text channel to get/create webhook for
+            
+        Returns:
+            The webhook object, or None if creation fails
+        """
+        channel_id = channel.id
+        
+        # Check cache first
+        if channel_id in self.channel_webhooks:
+            # Verify webhook still exists
+            try:
+                webhook = self.channel_webhooks[channel_id]
+                # Try to fetch to verify it still exists
+                await webhook.fetch()
+                return webhook
+            except (discord.NotFound, discord.HTTPException):
+                # Webhook was deleted, remove from cache
+                del self.channel_webhooks[channel_id]
+        
+        # Try to find existing webhook
+        try:
+            webhooks = await channel.webhooks()
+            for webhook in webhooks:
+                if webhook.user == self.user:
+                    self.channel_webhooks[channel_id] = webhook
+                    return webhook
+        except discord.Forbidden:
+            print(f"No permission to manage webhooks in channel {channel.name}")
+            return None
+        except Exception as e:
+            print(f"Error fetching webhooks: {e}")
+            return None
+        
+        # Create new webhook
+        try:
+            webhook = await channel.create_webhook(
+                name="Character Bot",
+                reason="For per-channel character avatars"
+            )
+            self.channel_webhooks[channel_id] = webhook
+            return webhook
+        except discord.Forbidden:
+            print(f"No permission to create webhook in channel {channel.name}")
+            return None
+        except Exception as e:
+            print(f"Error creating webhook: {e}")
+            return None
+    
+    async def send_as_character(
+        self, 
+        channel: discord.TextChannel, 
+        content: str,
+        character_data: Dict[str, any]
+    ) -> bool:
+        """Send a message as a character using webhooks.
+        
+        Args:
+            channel: The channel to send the message in
+            content: The message content
+            character_data: Character data including name and avatar_url
+            
+        Returns:
+            True if message was sent successfully, False otherwise
+        """
+        webhook = await self.get_or_create_webhook(channel)
+        if not webhook:
+            return False
+        
+        try:
+            # Get character name and avatar
+            character_name = character_data.get('name', 'Character')
+            avatar_url = character_data.get('avatar_url')
+            
+            # Send message via webhook with character's name and avatar
+            # Split long messages
+            if len(content) > 2000:
+                for i in range(0, len(content), 2000):
+                    chunk = content[i:i+2000]
+                    await webhook.send(
+                        content=chunk,
+                        username=character_name,
+                        avatar_url=avatar_url,
+                        wait=True
+                    )
+            else:
+                await webhook.send(
+                    content=content,
+                    username=character_name,
+                    avatar_url=avatar_url,
+                    wait=True
+                )
+            return True
+        except Exception as e:
+            print(f"Error sending webhook message: {e}")
             return False
     
     def update_openai_config(self, api_key: str = None, base_url: str = None, model: str = None):
@@ -318,12 +424,32 @@ FORMAT GUIDELINES:
                     if len(self.response_alternatives[channel_id]) > 10:
                         self.response_alternatives[channel_id] = self.response_alternatives[channel_id][-10:]
                 
-                # Send response (split if too long)
-                if len(response) > 2000:
-                    for i in range(0, len(response), 2000):
-                        await ctx.send(response[i:i+2000])
+                # Send response - use webhook if character is loaded for this channel
+                if channel_id in self.channel_characters:
+                    # Try to send via webhook with character's avatar
+                    character_data = self.channel_characters[channel_id]
+                    webhook_sent = await self.send_as_character(
+                        ctx.channel, 
+                        response, 
+                        character_data
+                    )
+                    if webhook_sent:
+                        # Message sent successfully via webhook
+                        pass
+                    else:
+                        # Fallback to normal message if webhook fails
+                        if len(response) > 2000:
+                            for i in range(0, len(response), 2000):
+                                await ctx.send(response[i:i+2000])
+                        else:
+                            await ctx.send(response)
                 else:
-                    await ctx.send(response)
+                    # No character loaded, send normal message
+                    if len(response) > 2000:
+                        for i in range(0, len(response), 2000):
+                            await ctx.send(response[i:i+2000])
+                    else:
+                        await ctx.send(response)
             
             except Exception as e:
                 await ctx.send(f"Error: {str(e)}")
@@ -340,6 +466,8 @@ FORMAT GUIDELINES:
                 del self.current_alternative_index[channel_id]
             if channel_id in self.character_names:
                 self.character_names[channel_id] = []
+            if channel_id in self.channel_characters:
+                del self.channel_characters[channel_id]
             await ctx.send("Conversation history and character names cleared!")
         
         @self.command(name="reload_history", help="Reload conversation from channel history")
@@ -407,41 +535,70 @@ FORMAT GUIDELINES:
             else:
                 await ctx.send("No presets available.")
         
-        @self.command(name="character", help="Load a character card")
+        @self.command(name="character", help="Load a character card for this channel")
         async def character(ctx, character_name: str):
-            """Load a character card by name."""
+            """Load a character card by name for this channel.
+            
+            This command loads a character specifically for the current channel.
+            When a character is loaded, the bot will use webhooks to display
+            messages with the character's avatar and name in this channel.
+            """
             try:
                 character_data = self.character_manager.load_character(character_name)
-                await ctx.send(f"Loaded character: {character_name}")
+                channel_id = ctx.channel.id
                 
-                # Change bot's display name to match character
+                # Store character data for this channel
+                self.channel_characters[channel_id] = character_data
+                
                 display_name = character_data.get('name', character_name)
-                try:
-                    # Get all guilds the bot is in and update nickname
-                    for guild in self.guilds:
-                        try:
-                            await guild.me.edit(nick=display_name)
-                        except discord.Forbidden:
-                            # Bot doesn't have permission to change nickname in this guild
-                            pass
-                        except Exception as e:
-                            print(f"Error changing nickname in guild {guild.name}: {e}")
-                except Exception as e:
-                    print(f"Error changing bot name: {e}")
-                
-                # Change bot's avatar if avatar_url is provided
                 avatar_url = character_data.get('avatar_url')
+                
+                # Send confirmation message
                 if avatar_url:
-                    avatar_updated = await self.update_bot_avatar(avatar_url)
-                    if avatar_updated:
-                        await ctx.send(f"✨ Updated bot avatar to match {display_name}")
+                    await ctx.send(
+                        f"✨ Loaded character **{display_name}** for this channel!\n"
+                        f"The bot will now respond with {display_name}'s avatar and name using webhooks."
+                    )
+                else:
+                    await ctx.send(
+                        f"✨ Loaded character **{display_name}** for this channel!\n"
+                        f"Note: No avatar URL set for this character. Set one to see the character's avatar."
+                    )
                 
                 # Clear conversation when switching characters
-                channel_id = ctx.channel.id
                 if channel_id in self.conversations:
                     self.conversations[channel_id] = []
+                    
             except FileNotFoundError:
                 await ctx.send(f"Character not found: {character_name}")
+            except Exception as e:
+                await ctx.send(f"Error loading character: {str(e)}")
+        
+        @self.command(name="current_character", help="Show current character for this channel")
+        async def current_character(ctx):
+            """Show which character is currently loaded for this channel."""
+            channel_id = ctx.channel.id
+            if channel_id in self.channel_characters:
+                character_data = self.channel_characters[channel_id]
+                character_name = character_data.get('name', 'Unknown')
+                avatar_url = character_data.get('avatar_url', 'None')
+                await ctx.send(
+                    f"**Current character for this channel:** {character_name}\n"
+                    f"**Avatar URL:** {avatar_url if avatar_url else 'Not set'}"
+                )
+            else:
+                await ctx.send("No character is currently loaded for this channel.")
+        
+        @self.command(name="unload_character", help="Unload current character from this channel")
+        async def unload_character(ctx):
+            """Unload the current character from this channel."""
+            channel_id = ctx.channel.id
+            if channel_id in self.channel_characters:
+                character_name = self.channel_characters[channel_id].get('name', 'Unknown')
+                del self.channel_characters[channel_id]
+                await ctx.send(f"✨ Unloaded character **{character_name}** from this channel. Bot will now respond normally.")
+            else:
+                await ctx.send("No character is currently loaded for this channel.")
         
         @self.command(name="characters", help="List available characters")
         async def characters(ctx):
@@ -734,12 +891,29 @@ FORMAT GUIDELINES:
                 alt_count = len(self.response_alternatives[channel_id][-1])
                 current_idx = self.current_alternative_index[channel_id]
                 
-                # Send response (split if too long)
-                if len(response) > 2000:
-                    for i in range(0, len(response), 2000):
-                        await ctx.send(response[i:i+2000])
+                # Send response - use webhook if character is loaded for this channel
+                if channel_id in self.channel_characters:
+                    # Try to send via webhook with character's avatar
+                    character_data = self.channel_characters[channel_id]
+                    webhook_sent = await self.send_as_character(
+                        ctx.channel, 
+                        response, 
+                        character_data
+                    )
+                    if not webhook_sent:
+                        # Fallback to normal message if webhook fails
+                        if len(response) > 2000:
+                            for i in range(0, len(response), 2000):
+                                await ctx.send(response[i:i+2000])
+                        else:
+                            await ctx.send(response)
                 else:
-                    await ctx.send(response)
+                    # No character loaded, send normal message
+                    if len(response) > 2000:
+                        for i in range(0, len(response), 2000):
+                            await ctx.send(response[i:i+2000])
+                    else:
+                        await ctx.send(response)
                 
                 await ctx.send(f"*Alternative {current_idx + 1}/{alt_count} (use !swipe_left/!swipe_right to navigate)*")
             
@@ -772,12 +946,29 @@ FORMAT GUIDELINES:
             
             alt_count = len(self.response_alternatives[channel_id][-1])
             
-            # Send response
-            if len(response) > 2000:
-                for i in range(0, len(response), 2000):
-                    await ctx.send(response[i:i+2000])
+            # Send response - use webhook if character is loaded for this channel
+            if channel_id in self.channel_characters:
+                # Try to send via webhook with character's avatar
+                character_data = self.channel_characters[channel_id]
+                webhook_sent = await self.send_as_character(
+                    ctx.channel, 
+                    response, 
+                    character_data
+                )
+                if not webhook_sent:
+                    # Fallback to normal message if webhook fails
+                    if len(response) > 2000:
+                        for i in range(0, len(response), 2000):
+                            await ctx.send(response[i:i+2000])
+                    else:
+                        await ctx.send(response)
             else:
-                await ctx.send(response)
+                # No character loaded, send normal message
+                if len(response) > 2000:
+                    for i in range(0, len(response), 2000):
+                        await ctx.send(response[i:i+2000])
+                else:
+                    await ctx.send(response)
             
             await ctx.send(f"*Alternative {current_idx + 1}/{alt_count}*")
         
@@ -807,12 +998,29 @@ FORMAT GUIDELINES:
             
             alt_count = len(self.response_alternatives[channel_id][-1])
             
-            # Send response
-            if len(response) > 2000:
-                for i in range(0, len(response), 2000):
-                    await ctx.send(response[i:i+2000])
+            # Send response - use webhook if character is loaded for this channel
+            if channel_id in self.channel_characters:
+                # Try to send via webhook with character's avatar
+                character_data = self.channel_characters[channel_id]
+                webhook_sent = await self.send_as_character(
+                    ctx.channel, 
+                    response, 
+                    character_data
+                )
+                if not webhook_sent:
+                    # Fallback to normal message if webhook fails
+                    if len(response) > 2000:
+                        for i in range(0, len(response), 2000):
+                            await ctx.send(response[i:i+2000])
+                    else:
+                        await ctx.send(response)
             else:
-                await ctx.send(response)
+                # No character loaded, send normal message
+                if len(response) > 2000:
+                    for i in range(0, len(response), 2000):
+                        await ctx.send(response[i:i+2000])
+                else:
+                    await ctx.send(response)
             
             await ctx.send(f"*Alternative {current_idx + 1}/{alt_count}*")
     

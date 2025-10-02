@@ -8,6 +8,10 @@ A feature-rich Discord bot with OpenAI-compatible API integration, preset manage
 - 🔌 **Custom OpenAI-Compatible API** - Connect to any OpenAI-compatible endpoint (OpenAI, LM Studio, Ollama, Text Generation WebUI, etc.)
 - 🎨 **Preset System** - Create, save, import/export presets with custom parameters (temperature, top_p, etc.)
 - 👤 **Character Cards** - Support for character cards with personality, scenarios, and custom system prompts
+- 🖼️ **Per-Channel Character Avatars** - Load different characters with unique avatars in each channel using webhooks
+  - **NEW**: Bypass Discord's 2-per-hour rate limit!
+  - **NEW**: Display different character avatars per channel simultaneously!
+  - **NEW**: Unlimited character switches without restrictions!
 - 👥 **User Character Descriptions** - Save and manage descriptions for user characters in roleplay scenarios
 - 📚 **Lorebook System** - Add world-building and lore information that's contextually included (like SillyTavern)
   - **NEW**: Manage multiple lorebooks, enable/disable them individually, and swap between settings!
@@ -90,21 +94,56 @@ This bot works with any OpenAI-compatible API endpoint:
 
 ## 🎮 Discord Commands
 
+### Core Commands
 - `!chat <message>` - Chat with the AI using current preset and character
 - `!clear` - Clear conversation history and character names for the current channel
 - `!reload_history [limit]` - Reload conversation context from channel history (default: 50, max: 100)
+
+### Character Commands (Per-Channel Avatars)
+- `!character <name>` - Load a character card for this channel (uses webhooks for avatar)
+- `!current_character` - Show which character is loaded for this channel
+- `!unload_character` - Unload the current character from this channel
+- `!characters` - List all available character cards
+
+### Preset Commands
 - `!preset <name>` - Load a specific preset
 - `!presets` - List all available presets
-- `!character <name>` - Load a specific character card
-- `!characters` - List all available character cards
+
+### Alternative Response Commands
 - `!swipe` - Generate an alternative response to the last message
 - `!swipe_left` - Navigate to the previous alternative response
 - `!swipe_right` - Navigate to the next alternative response
+
+### User Character Commands
 - `!update <Name>: <Description>` - Update user character description
 - `!user_chars` - List saved user characters
 - `!user_char <name>` - View a specific user character
 - `!delete_user_char <name>` - Delete a user character
+
+### Help
 - `!help_bot` - Show help information
+
+### 🖼️ Per-Channel Character Avatars
+
+The bot now supports loading different characters with unique avatars in each channel using Discord webhooks!
+
+**Key Benefits:**
+- ✅ **No Rate Limits** - Bypass Discord's 2-per-hour avatar change limit
+- ✅ **Multi-Character Support** - Different characters in different channels simultaneously
+- ✅ **Instant Switching** - Change characters as often as you want
+- ✅ **Character Names & Avatars** - Messages appear with the character's name and avatar
+
+**How to use:**
+```
+!character luna          # Load Luna character in this channel
+!chat Hello!            # Bot responds as Luna with her avatar
+!current_character      # Check which character is loaded
+!unload_character       # Return to normal bot behavior
+```
+
+See [PER_CHANNEL_AVATARS_GUIDE.md](PER_CHANNEL_AVATARS_GUIDE.md) for complete documentation.
+
+**Requirements:** Bot needs "Manage Webhooks" permission to use this feature.
 
 ### 👥 Character Name Tracking
 
