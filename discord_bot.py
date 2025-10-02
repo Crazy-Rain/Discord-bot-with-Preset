@@ -344,50 +344,9 @@ class DiscordBot(commands.Bot):
                 if character_name not in self.character_names[channel_id]:
                     self.character_names[channel_id].append(character_name)
             
-            # Get system prompt
-            system_prompt = self.get_system_prompt()
-            
-            # Build enhanced system prompt with character context
-            enhanced_system_prompt = system_prompt
-            if self.character_names[channel_id]:
-                character_list = ", ".join(self.character_names[channel_id])
-                enhanced_system_prompt = f"""{system_prompt}
-
-IMPORTANT: In this conversation, users will identify themselves as characters by prefixing their messages with 'CharacterName:'. The following character names are being used by users: {character_list}. You should NEVER pretend to be these characters or respond as if you are them. You are a separate entity having a conversation with these characters.
-
-FORMAT GUIDELINES:
-- Text in "quotes" represents spoken dialogue by the character
-- Text in *asterisks* represents actions performed by the character
-- Text without quotes or asterisks is descriptive text or additional context"""
-                
-                # Add user character descriptions to the system prompt
-                user_char_section = self.user_characters_manager.get_system_prompt_section(
-                    self.character_names[channel_id]
-                )
-                if user_char_section:
-                    enhanced_system_prompt += user_char_section
-            
-            # Add lorebook entries to the system prompt
-            # Use the message content to find relevant lorebook entries
-            lorebook_section = self.lorebook_manager.get_system_prompt_section(message)
-            if lorebook_section:
-                enhanced_system_prompt += "\n\n" + lorebook_section
-            
-            # Build messages
-            messages = []
-            if enhanced_system_prompt:
-                messages.append({"role": "system", "content": enhanced_system_prompt})
-            
-            # Add conversation history
-            messages.extend(self.conversations[channel_id])
-            
-            # Add user message (use the actual message content for conversation)
-            # If character name was provided, format it to show who is speaking
-            if character_name:
-                formatted_message = f"{character_name}: {actual_message}"
-                messages.append({"role": "user", "content": formatted_message})
-            else:
-                messages.append({"role": "user", "content": actual_message})
+            # Build messages using the new formatting system that supports
+            # SillyTavern-style presets with proper role separation
+            messages = self.build_chat_messages(channel_id, actual_message, character_name)
             
             # Get preset parameters
             preset = self.preset_manager.get_current_preset()
@@ -819,54 +778,28 @@ Visit http://localhost:5000 to configure the bot via web interface.
             
             # Get the last user message (should be second to last in history)
             last_user_msg = None
+            last_user_character = None
             for msg in reversed(self.conversations[channel_id]):
                 if msg["role"] == "user":
                     last_user_msg = msg["content"]
+                    # Try to parse character name from the message
+                    last_user_character, _ = self.parse_character_message(last_user_msg)
                     break
             
             if not last_user_msg:
                 await ctx.send("No user message found to regenerate.")
                 return
             
-            # Get system prompt
-            system_prompt = self.get_system_prompt()
+            # Remove last assistant message from conversation temporarily
+            last_assistant_msg = self.conversations[channel_id].pop()
             
-            # Build enhanced system prompt with character context
-            enhanced_system_prompt = system_prompt
-            if self.character_names[channel_id]:
-                character_list = ", ".join(self.character_names[channel_id])
-                enhanced_system_prompt = f"""{system_prompt}
-
-IMPORTANT: In this conversation, users will identify themselves as characters by prefixing their messages with 'CharacterName:'. The following character names are being used by users: {character_list}. You should NEVER pretend to be these characters or respond as if you are them. You are a separate entity having a conversation with these characters.
-
-FORMAT GUIDELINES:
-- Text in "quotes" represents spoken dialogue by the character
-- Text in *asterisks* represents actions performed by the character
-- Text without quotes or asterisks is descriptive text or additional context"""
-                
-                # Add user character descriptions
-                user_char_section = self.user_characters_manager.get_system_prompt_section(
-                    self.character_names[channel_id]
-                )
-                if user_char_section:
-                    enhanced_system_prompt += user_char_section
+            # Build messages using the new system (it will include everything up to last user msg)
+            # Extract just the message content without character prefix for build_chat_messages
+            _, clean_message = self.parse_character_message(last_user_msg)
+            messages = self.build_chat_messages(channel_id, clean_message, last_user_character)
             
-            # Add lorebook entries based on the last user message
-            lorebook_section = self.lorebook_manager.get_system_prompt_section(last_user_msg)
-            if lorebook_section:
-                enhanced_system_prompt += "\n\n" + lorebook_section
-            
-            # Build messages (exclude last assistant response)
-            messages = []
-            if enhanced_system_prompt:
-                messages.append({"role": "system", "content": enhanced_system_prompt})
-            
-            # Add conversation history except the last assistant message
-            conv_without_last = self.conversations[channel_id][:-1] if self.conversations[channel_id] else []
-            messages.extend(conv_without_last)
-            
-            # Add the last user message again
-            messages.append({"role": "user", "content": last_user_msg})
+            # Restore the last assistant message (we'll update it with the new response)
+            self.conversations[channel_id].append(last_assistant_msg)
             
             # Get preset parameters
             preset = self.preset_manager.get_current_preset()
@@ -1043,6 +976,99 @@ FORMAT GUIDELINES:
         # Fall back to preset
         preset = self.preset_manager.get_current_preset()
         return preset.get("system_prompt", "You are a helpful AI assistant.")
+    
+    def build_chat_messages(
+        self, 
+        channel_id: int, 
+        user_message: str, 
+        character_name: Optional[str] = None
+    ) -> List[Dict[str, str]]:
+        """
+        Build the message list for chat completion with proper role separation.
+        Follows SillyTavern-style preset formatting with separate system, user, and assistant messages.
+        
+        Args:
+            channel_id: Channel ID for conversation history
+            user_message: The user's message content
+            character_name: Optional character name if user is roleplaying
+        
+        Returns:
+            List of message dicts with 'role' and 'content' keys
+        """
+        messages = []
+        preset = self.preset_manager.get_current_preset()
+        
+        # Get character data if loaded for this channel
+        character_data = None
+        if channel_id in self.channel_characters:
+            character_data = self.channel_characters[channel_id]
+        elif self.character_manager.current_character:
+            character_data = self.character_manager.current_character
+        
+        # Format character card according to preset rules
+        char_format = self.preset_manager.format_character_for_prompt(
+            character_data, 
+            preset
+        )
+        
+        # 1. Add main system prompt
+        system_prompt = char_format.get('system_prompt', '')
+        if not system_prompt:
+            system_prompt = preset.get('system_prompt', 'You are a helpful AI assistant.')
+        
+        # Build enhanced system prompt with character context
+        enhanced_system_prompt = system_prompt
+        
+        # Add character system info if present
+        char_system = char_format.get('character_system', '')
+        if char_system:
+            enhanced_system_prompt += '\n\n' + char_system
+        
+        # Add user character tracking info if needed
+        if self.character_names.get(channel_id):
+            character_list = ", ".join(self.character_names[channel_id])
+            enhanced_system_prompt += f"""
+
+IMPORTANT: In this conversation, users will identify themselves as characters by prefixing their messages with 'CharacterName:'. The following character names are being used by users: {character_list}. You should NEVER pretend to be these characters or respond as if you are them. You are a separate entity having a conversation with these characters.
+
+FORMAT GUIDELINES:
+- Text in "quotes" represents spoken dialogue by the character
+- Text in *asterisks* represents actions performed by the character
+- Text without quotes or asterisks is descriptive text or additional context"""
+            
+            # Add user character descriptions
+            user_char_section = self.user_characters_manager.get_system_prompt_section(
+                self.character_names[channel_id]
+            )
+            if user_char_section:
+                enhanced_system_prompt += user_char_section
+        
+        # Add lorebook entries
+        lorebook_section = self.lorebook_manager.get_system_prompt_section(user_message)
+        if lorebook_section:
+            enhanced_system_prompt += "\n\n" + lorebook_section
+        
+        # Add the system message
+        if enhanced_system_prompt:
+            messages.append({"role": "system", "content": enhanced_system_prompt})
+        
+        # 2. Add example dialogues from character card (if configured in preset)
+        example_dialogues = char_format.get('example_dialogues', [])
+        if example_dialogues:
+            messages.extend(example_dialogues)
+        
+        # 3. Add conversation history
+        if channel_id in self.conversations:
+            messages.extend(self.conversations[channel_id])
+        
+        # 4. Add current user message
+        if character_name:
+            formatted_message = f"{character_name}: {user_message}"
+            messages.append({"role": "user", "content": formatted_message})
+        else:
+            messages.append({"role": "user", "content": user_message})
+        
+        return messages
     
     async def on_ready(self):
         """Called when bot is ready."""
