@@ -594,47 +594,6 @@ class DiscordBot(commands.Bot):
         # Add commands
         self.add_bot_commands()
     
-    async def update_bot_avatar(self, avatar_url: str) -> bool:
-        """Update bot's avatar from a URL or base64 data URL.
-        
-        Args:
-            avatar_url: URL to the avatar image or base64 data URL
-            
-        Returns:
-            True if avatar was updated successfully, False otherwise
-        """
-        if not avatar_url:
-            return False
-            
-        try:
-            # Check if it's a base64 data URL
-            if avatar_url.startswith('data:image'):
-                import base64
-                # Extract base64 data from data URL
-                # Format: data:image/png;base64,iVBORw0KGgoAAAANS...
-                header, encoded = avatar_url.split(',', 1)
-                avatar_bytes = base64.b64decode(encoded)
-                # Update bot's avatar
-                await self.user.edit(avatar=avatar_bytes)
-                print(f"Updated bot avatar from uploaded image")
-                return True
-            else:
-                # Download the image from URL
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(avatar_url) as response:
-                        if response.status == 200:
-                            avatar_bytes = await response.read()
-                            # Update bot's avatar
-                            await self.user.edit(avatar=avatar_bytes)
-                            print(f"Updated bot avatar from: {avatar_url}")
-                            return True
-                        else:
-                            print(f"Failed to download avatar: HTTP {response.status}")
-                            return False
-        except Exception as e:
-            print(f"Error updating bot avatar: {e}")
-            return False
-    
     async def get_or_create_webhook(self, channel: discord.TextChannel) -> Optional[discord.Webhook]:
         """Get existing webhook for channel or create a new one.
         
@@ -2220,26 +2179,3 @@ FORMAT GUIDELINES:
                         print(f"  Loaded character '{character_name}' for channel {channel_id}")
                     except Exception as e:
                         print(f"  Failed to load character '{character_name}' for channel {channel_id}: {e}")
-        
-        # Set bot name and avatar to character if a character is loaded
-        current_char = self.character_manager.get_current_character()
-        if current_char and current_char.get('name'):
-            display_name = current_char['name']
-            try:
-                for guild in self.guilds:
-                    try:
-                        await guild.me.edit(nick=display_name)
-                        print(f"Set bot nickname to '{display_name}' in guild {guild.name}")
-                    except discord.Forbidden:
-                        print(f"Permission denied to change nickname in guild {guild.name}")
-                    except Exception as e:
-                        print(f"Error changing nickname in guild {guild.name}: {e}")
-            except Exception as e:
-                print(f"Error setting bot name on ready: {e}")
-            
-            # Set bot avatar if avatar_url is provided
-            avatar_url = current_char.get('avatar_url')
-            if avatar_url:
-                avatar_updated = await self.update_bot_avatar(avatar_url)
-                if avatar_updated:
-                    print(f"Set bot avatar to match '{display_name}'")
