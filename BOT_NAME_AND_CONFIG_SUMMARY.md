@@ -1,36 +1,19 @@
-# Bot Name Change & Dynamic Config - Implementation Summary
+# Dynamic Config Updates - Implementation Summary
 
 ## Overview
 
-This implementation adds two key features:
-1. **Bot Name Change**: Bot's nickname automatically changes to match the loaded character
-2. **Dynamic Config Updates**: API key, proxy, and model changes apply immediately without restart
+This implementation adds dynamic configuration updates: API key, proxy, and model changes apply immediately without restart.
+
+**Note**: The bot name change feature previously described in this document has been removed. Characters are now displayed using webhooks with the character's name and avatar, which is more flexible and doesn't have Discord's 32-character nickname limit.
 
 ## Changes Made
 
-### 1. Bot Name Change Feature (discord_bot.py)
+### 1. Character Display via Webhooks
 
-**Modified `!character` command (lines 338-367):**
-```python
-# Now retrieves character data and extracts display name
-character_data = self.character_manager.load_character(character_name)
-display_name = character_data.get('name', character_name)
-
-# Updates bot nickname in all guilds
-for guild in self.guilds:
-    await guild.me.edit(nick=display_name)
-```
-
-**Modified `on_ready` method (lines 735-752):**
-```python
-# Checks if character is loaded on startup
-current_char = self.character_manager.get_current_character()
-if current_char and current_char.get('name'):
-    # Sets nickname to character name
-    display_name = current_char['name']
-    for guild in self.guilds:
-        await guild.me.edit(nick=display_name)
-```
+**Per-channel character loading:**
+- Characters are loaded per-channel using the `!character` command
+- Webhooks are used to display messages with the character's name and avatar
+- This approach avoids nickname length limits and permission issues
 
 ### 2. Dynamic Configuration Updates
 
@@ -66,10 +49,10 @@ if openai_config_changed and self.bot_instance:
 
 ## Files Modified
 
-1. **discord_bot.py** (+64 lines)
-   - Added `update_openai_config()` method
-   - Enhanced `!character` command with nickname change
-   - Enhanced `on_ready` with automatic nickname setting
+1. **discord_bot.py**
+   - Removed `update_bot_avatar()` method (no longer needed)
+   - Removed bot nickname changing code from `on_ready()` method
+   - Character display is now handled via webhooks in `send_as_character()` method
 
 2. **main.py** (+29 lines)
    - Bot instance created early and shared globally
@@ -81,8 +64,8 @@ if openai_config_changed and self.bot_instance:
 
 ## Files Added
 
-1. **FEATURE_UPDATE.md** - User documentation
-2. **test_new_features.py** - Automated tests for both features
+1. **FEATURE_UPDATE.md** - User documentation (updated to reflect webhook-based character display)
+2. **test_new_features.py** - Automated tests for both features (updated)
 
 ## Test Results
 
@@ -99,17 +82,18 @@ if openai_config_changed and self.bot_instance:
 
 ### New Feature Tests (test_new_features.py)
 ```
-✓ PASS - Bot Name Change
+✓ PASS - Character Loading
 ✓ PASS - Dynamic Config Update
 ```
 
 ## Usage Examples
 
-### Bot Name Change
+### Character Display via Webhooks
 ```
 User: !character luna
-Bot: Loaded character: luna
-[Bot's Discord nickname changes to "Luna"]
+Bot: ✨ Loaded character Luna for this channel!
+     The bot will now respond with Luna's avatar and name using webhooks.
+[Bot responses in this channel appear as "Luna" with Luna's avatar]
 ```
 
 ### Dynamic Config Update
@@ -122,11 +106,12 @@ Bot: Loaded character: luna
 
 ## Error Handling
 
-### Bot Name Change
-- Handles `discord.Forbidden` when bot lacks "Change Nickname" permission
-- Silently continues on permission errors (no user-facing error)
-- Handles per-guild errors independently
-- Works across all guilds bot is in
+### Character Display via Webhooks
+- Webhooks handle character name and avatar display
+- No nickname length restrictions (unlike bot nicknames limited to 32 chars)
+- No special permissions required
+- Handles per-channel character assignment
+- Works independently in each channel
 
 ### Dynamic Config Update
 - Validates configuration before applying
@@ -137,16 +122,18 @@ Bot: Loaded character: luna
 ## Key Benefits
 
 1. **Zero Downtime**: No restart needed for config changes
-2. **Immersive Roleplay**: Bot name matches character
+2. **Immersive Roleplay**: Character display via webhooks with name and avatar
 3. **Development Friendly**: Quick API endpoint switching
 4. **Robust**: Comprehensive error handling
 5. **Minimal Changes**: Surgical modifications to existing code
 6. **Backward Compatible**: No breaking changes
+7. **No Length Limits**: Webhooks support longer character names than Discord nicknames
 
 ## Technical Notes
 
 - Bot instance sharing uses global variable pattern (thread-safe in this context)
 - OpenAI client recreation is lightweight and fast
-- Nickname changes apply per-guild (Discord limitation)
+- Character display uses webhooks (per-channel, not global)
 - Web server starts before Discord bot for early access
 - Config changes persist to file and apply to running instance
+- Webhooks allow character names longer than Discord's 32-character nickname limit

@@ -1,22 +1,23 @@
-# Feature Update - Bot Name Change & Dynamic Config Updates
+# Feature Update - Dynamic Config Updates
 
 ## New Features
 
-### 1. Bot Name Changes to Match Character
+### 1. Per-Channel Character Display via Webhooks
 
-When you load a character card using the `!character <name>` command, the bot will now automatically change its display name (nickname) to match the character's display name.
+When you load a character card using the `!character <name>` command, the bot will use Discord webhooks to display messages with the character's name and avatar for that specific channel.
 
 **How it works:**
-- When you use `!character luna`, the bot's nickname in Discord will change to "Luna" (or whatever name is specified in the character card's `name` field)
-- The bot will update its nickname in all servers it's a member of
-- If the bot doesn't have permission to change its nickname in a server, it will silently continue (no error shown to users)
-- When the bot starts, if a character is already loaded, it will set its nickname to that character automatically
+- When you use `!character luna`, the bot will use webhooks to send messages with "Luna" as the display name and the character's avatar (if set)
+- This is channel-specific - different channels can have different characters
+- The character display persists across bot restarts
+- No special permissions are required for this feature
 
 **Example:**
 ```
 User: !character luna
-Bot: Loaded character: luna
-[Bot's nickname changes to "Luna"]
+Bot: ✨ Loaded character Luna for this channel!
+     The bot will now respond with Luna's avatar and name using webhooks.
+[Bot responses in this channel will display as "Luna" with Luna's avatar]
 ```
 
 ### 2. Dynamic Configuration Updates (No Restart Required)
@@ -45,16 +46,8 @@ Previously, when you updated the API key or proxy (base URL) in the web configur
 
 ## Benefits
 
-1. **Better Immersion**: The bot's display name matching the character makes roleplay and character interactions more immersive
+1. **Better Immersion**: Character display via webhooks makes roleplay and character interactions more immersive without changing the bot's global identity
 2. **Faster Configuration**: No need to restart the bot when switching between different API providers or updating credentials
 3. **Easier Testing**: Quickly switch between different API endpoints (e.g., OpenAI, local LM Studio, different proxies) for testing
 4. **Improved UX**: Seamless configuration updates without service interruption
-
-## Permissions Note
-
-For the bot name change feature to work, the bot needs the "Change Nickname" permission in your Discord server. If it doesn't have this permission, the feature will fail silently (no error shown to users, but the name won't change).
-
-To grant this permission:
-1. Go to Server Settings → Roles
-2. Find your bot's role
-3. Enable "Change Nickname" permission
+5. **No Character Name Limits**: Unlike bot nicknames (limited to 32 characters), webhook usernames support longer character names
