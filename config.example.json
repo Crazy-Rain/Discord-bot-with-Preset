@@ -14,6 +14,7 @@
     "start_tag": "<think>",
     "end_tag": "</think>"
   },
+  "auto_context_limit": 50,
   "default_preset": {
     "temperature": 0.7,
     "max_tokens": 2000,

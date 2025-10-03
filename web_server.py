@@ -101,6 +101,13 @@ class WebServer:
                         "message": "Configuration updated and applied to running bot"
                     })
                 
+                # Update auto_context_limit in the running bot if it changed
+                if 'auto_context_limit' in data and self.bot_instance:
+                    new_limit = data['auto_context_limit']
+                    # Validate and clamp the limit
+                    new_limit = max(50, min(5000, new_limit))
+                    self.bot_instance.auto_context_limit = new_limit
+                
                 return jsonify({"status": "success", "message": "Configuration updated"})
             except Exception as e:
                 return jsonify({"status": "error", "message": str(e)}), 400
