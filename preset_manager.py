@@ -26,6 +26,15 @@ class PresetManager:
         self.current_preset = preset
         return preset
     
+    def get_preset(self, preset_name: str) -> Dict[str, Any]:
+        """Get a preset from file without setting it as current."""
+        preset_path = os.path.join(self.presets_dir, f"{preset_name}.json")
+        if not os.path.exists(preset_path):
+            raise FileNotFoundError(f"Preset not found: {preset_name}")
+        
+        with open(preset_path, "r") as f:
+            return json.load(f)
+    
     def save_preset(self, preset_name: str, preset_data: Dict[str, Any]) -> None:
         """Save a preset to file."""
         preset_path = os.path.join(self.presets_dir, f"{preset_name}.json")

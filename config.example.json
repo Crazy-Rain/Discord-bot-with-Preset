@@ -1,8 +1,9 @@
 {
   "discord_token": "YOUR_DISCORD_BOT_TOKEN",
   "openai_config": {
+    "api_key": "",
     "base_url": "https://api.openai.com/v1",
-    "model": "gpt-3.5-turbo"
+    "model": "gpt-4"
   },
   "web_server": {
     "host": "0.0.0.0",
@@ -15,12 +16,44 @@
   },
   "auto_context_limit": 50,
   "default_preset": {
-    "system_prompt": "You are a helpful AI assistant.",
+    "prompt_sections": [
+      {
+        "id": "default-prompt-section-0",
+        "role": "system",
+        "content": "You are a helpful AI assistant.",
+        "order": 0,
+        "enabled": true
+      }
+    ],
     "temperature": 0.7,
     "max_tokens": 2100,
     "max_response_length": 2000,
     "top_p": 1,
     "frequency_penalty": 0,
-    "presence_penalty": 0
+    "presence_penalty": 0,
+    "frequency_penalty_enabled": true,
+    "presence_penalty_enabled": true
+  },
+  "channel_configs": {
+    "123456": {
+      "preset": "creative",
+      "api_config": "my_api",
+      "character": "luna"
+    },
+    "123457": {
+      "preset": "analytical",
+      "api_config": "",
+      "character": "sherlock"
+    },
+    "234567": {
+      "preset": "sillytavern_style",
+      "api_config": "",
+      "character": "aria"
+    }
+  },
+  "cp_tracking": {
+    "enabled": false,
+    "cp_per_count": 100,
+    "cp_total": 0
   }
 }

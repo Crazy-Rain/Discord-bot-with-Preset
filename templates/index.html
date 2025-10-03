@@ -367,6 +367,7 @@
             <button class="tab" onclick="switchTab('characters')">Characters</button>
             <button class="tab" onclick="switchTab('user_characters')">User Characters</button>
             <button class="tab" onclick="switchTab('lorebook')">Lorebook</button>
+            <button class="tab" onclick="switchTab('servers')">Servers/Channels</button>
         </div>
         
         <!-- Configuration Tab -->
@@ -963,6 +964,45 @@
             <h3 style="margin-top: 30px;">Lorebook Entries</h3>
             <div id="lorebook-list"></div>
         </div>
+        
+        <!-- Servers/Channels Tab -->
+        <div id="servers" class="tab-content">
+            <div id="servers-message" class="message"></div>
+            <h2>Server & Channel Configuration</h2>
+            <p style="margin-bottom: 20px; color: #666;">Configure presets, API configs, and characters for each channel the bot is active in.</p>
+            
+            <!-- Default Configuration Section -->
+            <div style="background: #e8f4f8; border: 2px solid #3498db; border-radius: 8px; padding: 20px; margin-bottom: 25px;">
+                <h3 style="margin-top: 0; color: #2c3e50; display: flex; align-items: center;">
+                    <span style="font-size: 1.5em; margin-right: 10px;">⚙️</span>
+                    Default Configuration
+                </h3>
+                <p style="color: #555; margin-bottom: 15px;">
+                    These are the default settings used when a channel doesn't have specific configuration. 
+                    These values come from the <strong>Configuration</strong> tab and update automatically when you save changes there.
+                </p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div>
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50;">Default Preset</label>
+                        <div id="default-preset-display" style="padding: 10px; background: white; border: 2px solid #ddd; border-radius: 5px; color: #555;">
+                            Loading...
+                        </div>
+                        <small style="color: #666; display: block; margin-top: 5px;">From Configuration → Default Preset</small>
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50;">Default API Config</label>
+                        <div id="default-api-display" style="padding: 10px; background: white; border: 2px solid #ddd; border-radius: 5px; color: #555;">
+                            Loading...
+                        </div>
+                        <small style="color: #666; display: block; margin-top: 5px;">From Configuration → OpenAI API Configuration</small>
+                    </div>
+                </div>
+            </div>
+            
+            <button class="btn btn-primary" onclick="loadServersList()" style="margin-bottom: 20px;">🔄 Refresh Servers</button>
+            
+            <div id="servers-list"></div>
+        </div>
     </div>
     
     <script>
@@ -985,6 +1025,8 @@
                 loadUserCharactersList();
             } else if (tabName === 'lorebook') {
                 loadLorebookList();
+            } else if (tabName === 'servers') {
+                loadServersList();
             }
         }
         
@@ -1188,6 +1230,11 @@
                 
                 const result = await response.json();
                 showMessage('config-message', result.message, result.status === 'success' ? 'success' : 'error');
+                
+                // Update the default config display on Servers/Channels tab if it's loaded
+                if (document.getElementById('default-preset-display')) {
+                    await loadDefaultConfig();
+                }
             } catch (error) {
                 showMessage('config-message', 'Error saving configuration: ' + error.message, 'error');
             }
@@ -2903,6 +2950,171 @@
                 });
             } catch (error) {
                 console.error('Error loading characters:', error);
+            }
+        }
+        
+        // Server/Channel configuration functions
+        function toggleServerChannels(serverId) {
+            const content = document.getElementById(`server-content-${serverId}`);
+            const icon = document.getElementById(`server-icon-${serverId}`);
+            
+            if (content.classList.contains('open')) {
+                content.classList.remove('open');
+                icon.classList.remove('open');
+            } else {
+                content.classList.add('open');
+                icon.classList.add('open');
+            }
+        }
+        
+        async function loadDefaultConfig() {
+            try {
+                const response = await fetch('/api/config');
+                const config = await response.json();
+                
+                // Display default preset
+                const defaultPresetEl = document.getElementById('default-preset-display');
+                if (config.default_preset && config.default_preset.system_prompt) {
+                    // Show a preview of the system prompt
+                    const systemPrompt = config.default_preset.system_prompt;
+                    const preview = systemPrompt.length > 60 ? systemPrompt.substring(0, 60) + '...' : systemPrompt;
+                    defaultPresetEl.innerHTML = `<strong>Custom Preset:</strong> "${preview}"`;
+                } else {
+                    defaultPresetEl.innerHTML = '<strong>Default Preset</strong> (from Configuration tab)';
+                }
+                
+                // Display default API config
+                const defaultApiEl = document.getElementById('default-api-display');
+                if (config.openai_config) {
+                    const baseUrl = config.openai_config.base_url || 'https://api.openai.com/v1';
+                    const model = config.openai_config.model || 'gpt-3.5-turbo';
+                    // Shorten the URL for display
+                    const displayUrl = baseUrl.replace('https://', '').replace('/v1', '');
+                    defaultApiEl.innerHTML = `<strong>${displayUrl}</strong> - ${model}`;
+                } else {
+                    defaultApiEl.innerHTML = '<strong>OpenAI API</strong> (from Configuration tab)';
+                }
+            } catch (error) {
+                console.error('Error loading default config:', error);
+                document.getElementById('default-preset-display').innerHTML = 'Error loading';
+                document.getElementById('default-api-display').innerHTML = 'Error loading';
+            }
+        }
+        
+        async function loadServersList() {
+            try {
+                // Load default configuration first
+                await loadDefaultConfig();
+                
+                const response = await fetch('/api/servers');
+                const data = await response.json();
+                const servers = data.servers || [];
+                
+                const listEl = document.getElementById('servers-list');
+                
+                if (servers.length === 0) {
+                    listEl.innerHTML = '<p style="color: #666;">No servers connected. Make sure the bot is running and connected to Discord.</p>';
+                    return;
+                }
+                
+                listEl.innerHTML = '';
+                
+                // Load preset, API config, and character options
+                const presetsResponse = await fetch('/api/presets');
+                const presetsData = await presetsResponse.json();
+                const presets = presetsData.presets || [];
+                
+                const apiConfigsResponse = await fetch('/api/api_configs');
+                const apiConfigsData = await apiConfigsResponse.json();
+                const apiConfigs = apiConfigsData.configs || [];
+                
+                const charactersResponse = await fetch('/api/characters');
+                const charactersData = await charactersResponse.json();
+                const characters = charactersData.characters || [];
+                
+                servers.forEach((server, index) => {
+                    const serverSection = document.createElement('div');
+                    serverSection.style.cssText = 'margin-bottom: 15px;';
+                    
+                    let channelsHtml = '';
+                    
+                    if (server.channels.length === 0) {
+                        channelsHtml = '<p style="color: #666; padding: 15px;">No text channels found.</p>';
+                    } else {
+                        server.channels.forEach(channel => {
+                            channelsHtml += `
+                                <div style="background: white; padding: 15px; border-radius: 5px; margin-bottom: 10px; border-left: 4px solid #667eea;">
+                                    <h4 style="margin-top: 0; color: #34495e;"># ${channel.name}</h4>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 10px;">
+                                        <div>
+                                            <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #2c3e50;">Preset</label>
+                                            <select id="preset-${channel.id}" style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 5px;">
+                                                <option value="">Default Preset</option>
+                                                ${presets.map(p => `<option value="${p}" ${channel.preset === p ? 'selected' : ''}>${p}</option>`).join('')}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #2c3e50;">API Config</label>
+                                            <select id="api-${channel.id}" style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 5px;">
+                                                <option value="">Default API Config</option>
+                                                ${apiConfigs.map(cfg => `<option value="${cfg.name}" ${channel.api_config === cfg.name ? 'selected' : ''}>${cfg.display || cfg.name}</option>`).join('')}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #2c3e50;">Character</label>
+                                            <select id="character-${channel.id}" style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 5px;">
+                                                <option value="">No Character</option>
+                                                ${characters.map(c => `<option value="${c}" ${channel.character === c ? 'selected' : ''}>${c}</option>`).join('')}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-primary btn-sm" onclick="saveChannelConfig('${channel.id}')">💾 Save Configuration</button>
+                                </div>
+                            `;
+                        });
+                    }
+                    
+                    serverSection.innerHTML = `
+                        <div class="collapsible-header" onclick="toggleServerChannels('${server.id}')" style="display: flex; justify-content: space-between; align-items: center;">
+                            <h3 style="margin: 0;">🖥️ ${server.name}</h3>
+                            <span class="collapsible-icon" id="server-icon-${server.id}">▼</span>
+                        </div>
+                        <div class="collapsible-content" id="server-content-${server.id}" style="background: #f5f5f5; padding: 0; border-radius: 0 0 8px 8px;">
+                            <div style="padding: 20px;">
+                                ${channelsHtml}
+                            </div>
+                        </div>
+                    `;
+                    
+                    listEl.appendChild(serverSection);
+                });
+                
+                showMessage('servers-message', `Loaded ${servers.length} server(s) with ${servers.reduce((sum, s) => sum + s.channels.length, 0)} channel(s)`, 'success');
+            } catch (error) {
+                showMessage('servers-message', 'Error loading servers: ' + error.message, 'error');
+            }
+        }
+        
+        async function saveChannelConfig(channelId) {
+            try {
+                const preset = document.getElementById(`preset-${channelId}`).value;
+                const apiConfig = document.getElementById(`api-${channelId}`).value;
+                const character = document.getElementById(`character-${channelId}`).value;
+                
+                const response = await fetch(`/api/channel_config/${channelId}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        preset: preset,
+                        api_config: apiConfig,
+                        character: character
+                    })
+                });
+                
+                const result = await response.json();
+                showMessage('servers-message', result.message, result.status === 'success' ? 'success' : 'error');
+            } catch (error) {
+                showMessage('servers-message', 'Error saving channel configuration: ' + error.message, 'error');
             }
         }
         
