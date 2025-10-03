@@ -70,7 +70,9 @@ class OpenAIClient:
         max_tokens: int = 2000,
         top_p: float = 1.0,
         frequency_penalty: float = 0.0,
-        presence_penalty: float = 0.0
+        presence_penalty: float = 0.0,
+        frequency_penalty_enabled: bool = True,
+        presence_penalty_enabled: bool = True
     ) -> str:
         """
         Generate chat completion using OpenAI-compatible API.
@@ -82,6 +84,8 @@ class OpenAIClient:
             top_p: Nucleus sampling parameter
             frequency_penalty: Frequency penalty
             presence_penalty: Presence penalty
+            frequency_penalty_enabled: Whether to include frequency penalty in request
+            presence_penalty_enabled: Whether to include presence penalty in request
         
         Returns:
             Generated text response
@@ -94,15 +98,22 @@ class OpenAIClient:
             )
         
         try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                top_p=top_p,
-                frequency_penalty=frequency_penalty,
-                presence_penalty=presence_penalty
-            )
+            # Build request parameters
+            request_params = {
+                "model": self.model,
+                "messages": messages,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "top_p": top_p
+            }
+            
+            # Only include penalties if they are enabled
+            if frequency_penalty_enabled:
+                request_params["frequency_penalty"] = frequency_penalty
+            if presence_penalty_enabled:
+                request_params["presence_penalty"] = presence_penalty
+            
+            response = self.client.chat.completions.create(**request_params)
             
             return response.choices[0].message.content
         except Exception as e:
