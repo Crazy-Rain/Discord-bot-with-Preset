@@ -440,6 +440,54 @@
                 </div>
             </div>
             
+            <h3 style="margin-top: 30px;">SillyTavern Options</h3>
+            <p style="color: #666; margin-bottom: 15px;">Optional settings for SillyTavern-style character card integration and prompt formatting.</p>
+            
+            <div class="grid">
+                <div class="form-group">
+                    <label>Prompt Format</label>
+                    <select id="preset-prompt-format">
+                        <option value="default">Default</option>
+                        <option value="sillytavern">SillyTavern</option>
+                    </select>
+                    <small style="color: #666; display: block; margin-top: 5px;">
+                        Format style for building prompts. Use "SillyTavern" for proper role separation with character cards.
+                    </small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Character Position</label>
+                    <select id="preset-character-position">
+                        <option value="system">System Message</option>
+                        <option value="examples">Example Dialogues</option>
+                        <option value="both">Both</option>
+                    </select>
+                    <small style="color: #666; display: block; margin-top: 5px;">
+                        Where to inject character card information in the message structure.
+                    </small>
+                </div>
+            </div>
+            
+            <div class="grid">
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" id="preset-include-examples" checked style="width: auto;">
+                        Include Example Dialogues
+                    </label>
+                    <small style="color: #666; display: block; margin-top: 5px;">
+                        Whether to include example dialogues from character cards (first_mes and mes_example fields).
+                    </small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Example Separator</label>
+                    <input type="text" id="preset-example-separator" value="<START>" placeholder="<START>">
+                    <small style="color: #666; display: block; margin-top: 5px;">
+                        The separator used in mes_example field of character cards to split dialogue examples.
+                    </small>
+                </div>
+            </div>
+            
             <button class="btn btn-primary" onclick="savePreset()">Save Preset</button>
             <button class="btn btn-secondary" onclick="loadPreset()">Load Preset</button>
             <button class="btn btn-success" onclick="exportPreset()">Export</button>
@@ -975,6 +1023,10 @@
                 document.getElementById('preset-top-p').value = preset.top_p || 1.0;
                 document.getElementById('preset-frequency-penalty').value = preset.frequency_penalty || 0.0;
                 document.getElementById('preset-presence-penalty').value = preset.presence_penalty || 0.0;
+                document.getElementById('preset-prompt-format').value = preset.prompt_format || 'default';
+                document.getElementById('preset-character-position').value = preset.character_position || 'system';
+                document.getElementById('preset-include-examples').checked = preset.include_examples !== false;
+                document.getElementById('preset-example-separator').value = preset.example_separator || '<START>';
                 
                 updateSlider('preset-temp', preset.temperature || 0.7);
                 updateSlider('preset-tokens', preset.max_tokens || 2000);
@@ -1004,7 +1056,11 @@
                     max_response_length: parseInt(document.getElementById('preset-max-response-length').value),
                     top_p: parseFloat(document.getElementById('preset-top-p').value),
                     frequency_penalty: parseFloat(document.getElementById('preset-frequency-penalty').value),
-                    presence_penalty: parseFloat(document.getElementById('preset-presence-penalty').value)
+                    presence_penalty: parseFloat(document.getElementById('preset-presence-penalty').value),
+                    prompt_format: document.getElementById('preset-prompt-format').value,
+                    character_position: document.getElementById('preset-character-position').value,
+                    include_examples: document.getElementById('preset-include-examples').checked,
+                    example_separator: document.getElementById('preset-example-separator').value
                 };
                 
                 const response = await fetch(`/api/presets/${name}`, {
