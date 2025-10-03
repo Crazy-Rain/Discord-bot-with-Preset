@@ -146,25 +146,29 @@ class SwipeButtonView(discord.ui.View):
         # Get the alternative response
         response = self.bot.response_alternatives[self.channel_id][-1][current_idx]
         
-        # Update conversation history
-        self.bot.conversations[self.channel_id][-1] = {"role": "assistant", "content": response}
+        # Apply thinking filter to the stored response
+        full_response, filtered_response = self.bot.filter_thinking_tags(response)
+        
+        # Update conversation history (with full response)
+        self.bot.conversations[self.channel_id][-1] = {"role": "assistant", "content": full_response}
         
         alt_count = len(self.bot.response_alternatives[self.channel_id][-1])
         
         # Replace all messages (handles multi-page responses)
+        # Use filtered_response for what's actually sent to Discord
         try:
             channel = interaction.channel
             if self.channel_id in self.bot.channel_characters:
                 # Replace webhook messages
                 character_data = self.bot.channel_characters[self.channel_id]
                 last_msg, new_ids = await self.bot.replace_as_character(
-                    channel, self.message_ids, response, character_data, view=self
+                    channel, self.message_ids, filtered_response, character_data, view=self
                 )
                 # Update message IDs for next swipe
                 self.message_ids = new_ids
             else:
                 # Replace regular messages
-                new_ids = await replace_multi_page_message(channel, self.message_ids, response, view=self)
+                new_ids = await replace_multi_page_message(channel, self.message_ids, filtered_response, view=self)
                 # Update message IDs for next swipe
                 self.message_ids = new_ids
             
@@ -218,34 +222,51 @@ class SwipeButtonView(discord.ui.View):
                 presence_penalty=preset.get("presence_penalty", 0.0)
             )
             
-            # Add to alternatives
+            # Apply thinking filter
+            full_response, filtered_response = self.bot.filter_thinking_tags(response)
+            
+            # Log full response to console if filtering is active
+            thinking_config = self.bot.config_manager.get("thinking_filter", {})
+            if thinking_config.get("enabled", False) and full_response != filtered_response:
+                print(f"\n{'='*60}")
+                print(f"FULL RESPONSE (before filtering):")
+                print(f"{'='*60}")
+                print(full_response)
+                print(f"{'='*60}")
+                print(f"FILTERED RESPONSE (sent to Discord):")
+                print(f"{'='*60}")
+                print(filtered_response)
+                print(f"{'='*60}\n")
+            
+            # Add to alternatives (store full response)
             if self.channel_id in self.bot.response_alternatives and len(self.bot.response_alternatives[self.channel_id]) > 0:
-                self.bot.response_alternatives[self.channel_id][-1].append(response)
+                self.bot.response_alternatives[self.channel_id][-1].append(full_response)
                 self.bot.current_alternative_index[self.channel_id] = len(self.bot.response_alternatives[self.channel_id][-1]) - 1
             else:
                 if self.channel_id not in self.bot.response_alternatives:
                     self.bot.response_alternatives[self.channel_id] = []
-                self.bot.response_alternatives[self.channel_id].append([response])
+                self.bot.response_alternatives[self.channel_id].append([full_response])
                 self.bot.current_alternative_index[self.channel_id] = 0
             
-            # Update conversation history
-            self.bot.conversations[self.channel_id][-1] = {"role": "assistant", "content": response}
+            # Update conversation history (with full response)
+            self.bot.conversations[self.channel_id][-1] = {"role": "assistant", "content": full_response}
             
             alt_count = len(self.bot.response_alternatives[self.channel_id][-1])
             current_idx = self.bot.current_alternative_index[self.channel_id]
             
             # Replace all messages (handles multi-page responses)
+            # Use filtered_response for what's actually sent to Discord
             try:
                 channel = interaction.channel
                 if self.channel_id in self.bot.channel_characters:
                     character_data = self.bot.channel_characters[self.channel_id]
                     last_msg, new_ids = await self.bot.replace_as_character(
-                        channel, self.message_ids, response, character_data, view=self
+                        channel, self.message_ids, filtered_response, character_data, view=self
                     )
                     # Update message IDs for next swipe
                     self.message_ids = new_ids
                 else:
-                    new_ids = await replace_multi_page_message(channel, self.message_ids, response, view=self)
+                    new_ids = await replace_multi_page_message(channel, self.message_ids, filtered_response, view=self)
                     # Update message IDs for next swipe
                     self.message_ids = new_ids
                 
@@ -277,25 +298,29 @@ class SwipeButtonView(discord.ui.View):
         # Get the alternative response
         response = self.bot.response_alternatives[self.channel_id][-1][current_idx]
         
-        # Update conversation history
-        self.bot.conversations[self.channel_id][-1] = {"role": "assistant", "content": response}
+        # Apply thinking filter to the stored response
+        full_response, filtered_response = self.bot.filter_thinking_tags(response)
+        
+        # Update conversation history (with full response)
+        self.bot.conversations[self.channel_id][-1] = {"role": "assistant", "content": full_response}
         
         alt_count = len(self.bot.response_alternatives[self.channel_id][-1])
         
         # Replace all messages (handles multi-page responses)
+        # Use filtered_response for what's actually sent to Discord
         try:
             channel = interaction.channel
             if self.channel_id in self.bot.channel_characters:
                 # Replace webhook messages
                 character_data = self.bot.channel_characters[self.channel_id]
                 last_msg, new_ids = await self.bot.replace_as_character(
-                    channel, self.message_ids, response, character_data, view=self
+                    channel, self.message_ids, filtered_response, character_data, view=self
                 )
                 # Update message IDs for next swipe
                 self.message_ids = new_ids
             else:
                 # Replace regular messages
-                new_ids = await replace_multi_page_message(channel, self.message_ids, response, view=self)
+                new_ids = await replace_multi_page_message(channel, self.message_ids, filtered_response, view=self)
                 # Update message IDs for next swipe
                 self.message_ids = new_ids
             
@@ -836,6 +861,39 @@ class DiscordBot(commands.Bot):
             return character_name, actual_message
         return None, message
     
+    def filter_thinking_tags(self, text: str) -> Tuple[str, str]:
+        """Filter out thinking tags from response based on configuration.
+        
+        Returns:
+            Tuple of (full_response, filtered_response). If filtering is disabled,
+            both will be the same.
+        """
+        # Get thinking filter config
+        thinking_config = self.config_manager.get("thinking_filter", {})
+        enabled = thinking_config.get("enabled", False)
+        
+        if not enabled:
+            return text, text
+        
+        start_tag = thinking_config.get("start_tag", "<think>")
+        end_tag = thinking_config.get("end_tag", "</think>")
+        
+        # Escape special regex characters in tags
+        start_tag_escaped = re.escape(start_tag)
+        end_tag_escaped = re.escape(end_tag)
+        
+        # Pattern to match start_tag...end_tag (non-greedy, case-sensitive)
+        pattern = f"{start_tag_escaped}.*?{end_tag_escaped}"
+        
+        # Remove all occurrences of the pattern
+        filtered_text = re.sub(pattern, "", text, flags=re.DOTALL)
+        
+        # Clean up any excessive whitespace left behind
+        filtered_text = re.sub(r'\n\n\n+', '\n\n', filtered_text)
+        filtered_text = filtered_text.strip()
+        
+        return text, filtered_text
+    
     async def load_channel_history(self, channel, limit: int = 50) -> List[Dict[str, str]]:
         """Load recent !chat messages from channel history to build context.
         
@@ -958,17 +1016,34 @@ class DiscordBot(commands.Bot):
                         presence_penalty=preset.get("presence_penalty", 0.0)
                     )
                 
-                # Update conversation history with formatted message
+                # Apply thinking filter
+                full_response, filtered_response = self.filter_thinking_tags(response)
+                
+                # Log full response to console if filtering is active
+                thinking_config = self.config_manager.get("thinking_filter", {})
+                if thinking_config.get("enabled", False) and full_response != filtered_response:
+                    print(f"\n{'='*60}")
+                    print(f"FULL RESPONSE (before filtering):")
+                    print(f"{'='*60}")
+                    print(full_response)
+                    print(f"{'='*60}")
+                    print(f"FILTERED RESPONSE (sent to Discord):")
+                    print(f"{'='*60}")
+                    print(filtered_response)
+                    print(f"{'='*60}\n")
+                
+                # Update conversation history with full response (unfiltered)
+                # This ensures context is preserved even if thinking tags are filtered
                 if character_name:
                     self.conversations[channel_id].append({"role": "user", "content": f"{character_name}: {actual_message}"})
                 else:
                     self.conversations[channel_id].append({"role": "user", "content": actual_message})
-                self.conversations[channel_id].append({"role": "assistant", "content": response})
+                self.conversations[channel_id].append({"role": "assistant", "content": full_response})
                 
-                # Store response for swipe functionality (initialize with current response)
+                # Store full response for swipe functionality (initialize with current response)
                 if channel_id not in self.response_alternatives:
                     self.response_alternatives[channel_id] = []
-                self.response_alternatives[channel_id].append([response])
+                self.response_alternatives[channel_id].append([full_response])
                 self.current_alternative_index[channel_id] = 0
                 
                 # Limit conversation history
@@ -979,6 +1054,7 @@ class DiscordBot(commands.Bot):
                         self.response_alternatives[channel_id] = self.response_alternatives[channel_id][-10:]
                 
                 # Send response - use webhook if character is loaded for this channel
+                # Use filtered_response for what's actually sent to Discord
                 if channel_id in self.channel_characters:
                     # Try to send via webhook with character's avatar
                     character_data = self.channel_characters[channel_id]
@@ -986,7 +1062,7 @@ class DiscordBot(commands.Bot):
                     view = SwipeButtonView(self, channel_id)
                     last_msg, msg_ids = await self.send_as_character(
                         ctx.channel, 
-                        response, 
+                        filtered_response, 
                         character_data,
                         view=view
                     )
@@ -996,7 +1072,7 @@ class DiscordBot(commands.Bot):
                 else:
                     # No character loaded, send normal message - use embeds
                     view = SwipeButtonView(self, channel_id)
-                    last_msg, msg_ids = await send_long_message_with_view(ctx.channel, response, view=view)
+                    last_msg, msg_ids = await send_long_message_with_view(ctx.channel, filtered_response, view=view)
                     # Update view with message IDs for multi-page swipe support
                     if msg_ids:
                         view.message_ids = msg_ids
@@ -1511,31 +1587,48 @@ Visit http://localhost:5000 to configure the bot via web interface.
                         presence_penalty=preset.get("presence_penalty", 0.0)
                     )
                 
-                # Add to alternatives
+                # Apply thinking filter
+                full_response, filtered_response = self.filter_thinking_tags(response)
+                
+                # Log full response to console if filtering is active
+                thinking_config = self.config_manager.get("thinking_filter", {})
+                if thinking_config.get("enabled", False) and full_response != filtered_response:
+                    print(f"\n{'='*60}")
+                    print(f"FULL RESPONSE (before filtering):")
+                    print(f"{'='*60}")
+                    print(full_response)
+                    print(f"{'='*60}")
+                    print(f"FILTERED RESPONSE (sent to Discord):")
+                    print(f"{'='*60}")
+                    print(filtered_response)
+                    print(f"{'='*60}\n")
+                
+                # Add to alternatives (store full response)
                 if channel_id in self.response_alternatives and len(self.response_alternatives[channel_id]) > 0:
-                    self.response_alternatives[channel_id][-1].append(response)
+                    self.response_alternatives[channel_id][-1].append(full_response)
                     self.current_alternative_index[channel_id] = len(self.response_alternatives[channel_id][-1]) - 1
                 else:
                     # Initialize if needed
                     if channel_id not in self.response_alternatives:
                         self.response_alternatives[channel_id] = []
-                    self.response_alternatives[channel_id].append([response])
+                    self.response_alternatives[channel_id].append([full_response])
                     self.current_alternative_index[channel_id] = 0
                 
-                # Update the last assistant message in history
-                self.conversations[channel_id][-1] = {"role": "assistant", "content": response}
+                # Update the last assistant message in history (with full response)
+                self.conversations[channel_id][-1] = {"role": "assistant", "content": full_response}
                 
                 alt_count = len(self.response_alternatives[channel_id][-1])
                 current_idx = self.current_alternative_index[channel_id]
                 
                 # Send response - use webhook if character is loaded for this channel
+                # Use filtered_response for what's actually sent to Discord
                 if channel_id in self.channel_characters:
                     # Try to send via webhook with character's avatar
                     character_data = self.channel_characters[channel_id]
                     view = SwipeButtonView(self, channel_id)
                     last_msg, msg_ids = await self.send_as_character(
                         ctx.channel, 
-                        response, 
+                        filtered_response, 
                         character_data,
                         view=view
                     )
@@ -1545,7 +1638,7 @@ Visit http://localhost:5000 to configure the bot via web interface.
                 else:
                     # No character loaded, send normal message - use embeds
                     view = SwipeButtonView(self, channel_id)
-                    last_msg, msg_ids = await send_long_message_with_view(ctx.channel, response, view=view)
+                    last_msg, msg_ids = await send_long_message_with_view(ctx.channel, filtered_response, view=view)
                     # Update view with message IDs for multi-page swipe support
                     if msg_ids:
                         view.message_ids = msg_ids
