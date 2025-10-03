@@ -1484,7 +1484,7 @@
         // Prompt sections management
         let promptSectionCounter = 0;
         
-        function addPromptSection(role = 'system', content = '', order = null) {
+        function addPromptSection(role = 'system', content = '', order = null, enabled = true) {
             const container = document.getElementById('prompt-sections-container');
             const sectionId = `prompt-section-${promptSectionCounter++}`;
             const actualOrder = order !== null ? order : container.children.length;
@@ -1498,6 +1498,10 @@
                             <option value="assistant" ${role === 'assistant' ? 'selected' : ''}>Assistant</option>
                         </select>
                         <div class="prompt-section-controls">
+                            <label style="display: flex; align-items: center; gap: 5px; margin-right: 10px; cursor: pointer;">
+                                <input type="checkbox" class="prompt-section-enabled" ${enabled ? 'checked' : ''} style="width: auto;" title="Enable/Disable this section">
+                                <span style="font-size: 0.9em; color: #666;">Active</span>
+                            </label>
                             <div class="prompt-section-order-btns">
                                 <button type="button" class="btn btn-secondary btn-icon" onclick="moveSectionUp('${sectionId}')" title="Move up">▲</button>
                                 <button type="button" class="btn btn-secondary btn-icon" onclick="moveSectionDown('${sectionId}')" title="Move down">▼</button>
@@ -1559,12 +1563,13 @@
             sections.forEach((section, index) => {
                 const role = section.querySelector('.prompt-section-role').value;
                 const content = section.querySelector('.prompt-section-content').value;
+                const enabled = section.querySelector('.prompt-section-enabled').checked;
                 result.push({
                     id: section.getAttribute('data-section-id'),
                     role: role,
                     content: content,
                     order: index,
-                    enabled: true
+                    enabled: enabled
                 });
             });
             
@@ -1578,12 +1583,12 @@
             
             if (!sections || sections.length === 0) {
                 // Default: create one system section
-                addPromptSection('system', 'You are a helpful AI assistant.');
+                addPromptSection('system', 'You are a helpful AI assistant.', null, true);
             } else {
                 // Sort by order and load sections
                 sections.sort((a, b) => (a.order || 0) - (b.order || 0));
                 sections.forEach(section => {
-                    addPromptSection(section.role, section.content, section.order);
+                    addPromptSection(section.role, section.content, section.order, section.enabled !== false);
                 });
             }
         }
@@ -1591,7 +1596,7 @@
         // Default preset prompt sections management
         let defaultPromptSectionCounter = 0;
         
-        function addDefaultPromptSection(role = 'system', content = '', order = null) {
+        function addDefaultPromptSection(role = 'system', content = '', order = null, enabled = true) {
             const container = document.getElementById('default-prompt-sections-container');
             const sectionId = `default-prompt-section-${defaultPromptSectionCounter++}`;
             const actualOrder = order !== null ? order : container.children.length;
@@ -1605,6 +1610,10 @@
                             <option value="assistant" ${role === 'assistant' ? 'selected' : ''}>Assistant</option>
                         </select>
                         <div class="prompt-section-controls">
+                            <label style="display: flex; align-items: center; gap: 5px; margin-right: 10px; cursor: pointer;">
+                                <input type="checkbox" class="prompt-section-enabled" ${enabled ? 'checked' : ''} style="width: auto;" title="Enable/Disable this section">
+                                <span style="font-size: 0.9em; color: #666;">Active</span>
+                            </label>
                             <div class="prompt-section-order-btns">
                                 <button type="button" class="btn btn-secondary btn-icon" onclick="moveDefaultSectionUp('${sectionId}')" title="Move up">▲</button>
                                 <button type="button" class="btn btn-secondary btn-icon" onclick="moveDefaultSectionDown('${sectionId}')" title="Move down">▼</button>
@@ -1666,12 +1675,13 @@
             sections.forEach((section, index) => {
                 const role = section.querySelector('.prompt-section-role').value;
                 const content = section.querySelector('.prompt-section-content').value;
+                const enabled = section.querySelector('.prompt-section-enabled').checked;
                 result.push({
                     id: section.getAttribute('data-section-id'),
                     role: role,
                     content: content,
                     order: index,
-                    enabled: true
+                    enabled: enabled
                 });
             });
             
@@ -1685,12 +1695,12 @@
             
             if (!sections || sections.length === 0) {
                 // Default: create one system section
-                addDefaultPromptSection('system', 'You are a helpful AI assistant.');
+                addDefaultPromptSection('system', 'You are a helpful AI assistant.', null, true);
             } else {
                 // Sort by order and load sections
                 sections.sort((a, b) => (a.order || 0) - (b.order || 0));
                 sections.forEach(section => {
-                    addDefaultPromptSection(section.role, section.content, section.order);
+                    addDefaultPromptSection(section.role, section.content, section.order, section.enabled !== false);
                 });
             }
         }
