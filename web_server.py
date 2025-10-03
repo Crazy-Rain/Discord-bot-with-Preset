@@ -683,9 +683,18 @@ class WebServer:
         
         @self.app.route('/api/servers/<server_id>/channels', methods=['GET'])
         def get_server_channels(server_id):
-            """Get channels for a specific server."""
+            """Get channels for a specific server with pagination support."""
             if not self.bot_instance:
-                return jsonify({"channels": []})
+                return jsonify({"channels": [], "total": 0, "page": 1, "per_page": 100})
+            
+            # Get pagination parameters
+            page = int(request.args.get('page', 1))
+            per_page = int(request.args.get('per_page', 100))
+            search = request.args.get('search', '').lower()
+            
+            # Validate pagination parameters
+            page = max(1, page)
+            per_page = min(max(1, per_page), 500)  # Max 500 per page
             
             # Find the guild
             guild = None
@@ -697,14 +706,18 @@ class WebServer:
             if not guild:
                 return jsonify({"error": "Server not found"}), 404
             
-            channels = []
+            all_channels = []
             try:
                 # Safely access text_channels
                 text_channels = guild.text_channels if hasattr(guild, 'text_channels') and guild.text_channels is not None else []
                 for channel in text_channels:
+                    # Apply search filter if provided
+                    if search and search not in channel.name.lower():
+                        continue
+                    
                     # Get current configuration for this channel
                     channel_config = self.config_manager.get(f'channel_configs.{channel.id}', {})
-                    channels.append({
+                    all_channels.append({
                         'id': str(channel.id),
                         'name': channel.name,
                         'preset': channel_config.get('preset', ''),
@@ -714,9 +727,21 @@ class WebServer:
             except Exception as e:
                 # If there's any error getting channels, return empty list
                 print(f"Error getting channels for guild {server_id}: {e}")
-                return jsonify({"channels": []})
+                return jsonify({"channels": [], "total": 0, "page": page, "per_page": per_page})
             
-            return jsonify({"channels": channels})
+            # Calculate pagination
+            total_channels = len(all_channels)
+            start_idx = (page - 1) * per_page
+            end_idx = start_idx + per_page
+            paginated_channels = all_channels[start_idx:end_idx]
+            
+            return jsonify({
+                "channels": paginated_channels,
+                "total": total_channels,
+                "page": page,
+                "per_page": per_page,
+                "total_pages": (total_channels + per_page - 1) // per_page if per_page > 0 else 0
+            })
         
         @self.app.route('/api/channel_config/<channel_id>', methods=['POST'])
         def save_channel_config(channel_id):
