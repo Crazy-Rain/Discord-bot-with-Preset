@@ -8,10 +8,10 @@ from character_manager import CharacterManager
 from discord_bot import DiscordBot
 from openai_client import OpenAIClient
 
-def test_bot_name_change():
-    """Test that character loading stores the character data."""
+def test_character_loading():
+    """Test that character loading works correctly for webhook display."""
     print("\n" + "=" * 60)
-    print("Testing Bot Name Change Feature")
+    print("Testing Character Loading Feature")
     print("=" * 60)
     
     try:
@@ -24,7 +24,7 @@ def test_bot_name_change():
         # Verify character has a name
         if 'name' in character_data:
             print(f"   ✓ Character loaded with name: {character_data['name']}")
-            print(f"   ✓ Bot would set nickname to: '{character_data['name']}'")
+            print(f"   ✓ Character data will be used for webhook display")
         else:
             print("   ✗ Character has no 'name' field")
             return False
@@ -38,12 +38,12 @@ def test_bot_name_change():
             print("   ✗ Current character not stored correctly")
             return False
         
-        print("\n✅ Bot name change feature implementation verified!")
-        print("   Note: Actual Discord nickname change requires a running bot with Discord connection")
+        print("\n✅ Character loading feature verified!")
+        print("   Note: Characters are displayed via webhooks with character name and avatar")
         return True
         
     except Exception as e:
-        print(f"\n✗ Error testing bot name change: {e}")
+        print(f"\n✗ Error testing character loading: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -124,8 +124,8 @@ def main():
     
     results = []
     
-    # Test bot name change
-    results.append(("Bot Name Change", test_bot_name_change()))
+    # Test character loading (for webhook display)
+    results.append(("Character Loading", test_character_loading()))
     
     # Test dynamic config update
     results.append(("Dynamic Config Update", test_dynamic_config_update()))
