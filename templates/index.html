@@ -3106,9 +3106,12 @@
                     const serverSection = document.createElement('div');
                     serverSection.style.cssText = 'margin-bottom: 15px;';
                     
+                    // Safely get channel count, default to 0 if not present
+                    const channelCount = server.channel_count || 0;
+                    
                     serverSection.innerHTML = `
                         <div class="collapsible-header" onclick="toggleServerChannels('${server.id}')" style="display: flex; justify-content: space-between; align-items: center;">
-                            <h3 style="margin: 0;">🖥️ ${server.name} <span style="font-size: 0.8em; color: #666;">(${server.channel_count} channels)</span></h3>
+                            <h3 style="margin: 0;">🖥️ ${server.name} <span style="font-size: 0.8em; color: #666;">(${channelCount} channels)</span></h3>
                             <span class="collapsible-icon" id="server-icon-${server.id}">▼</span>
                         </div>
                         <div class="collapsible-content" id="server-content-${server.id}" style="background: #f5f5f5; padding: 0; border-radius: 0 0 8px 8px;">

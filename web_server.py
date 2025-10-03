@@ -666,11 +666,18 @@ class WebServer:
             
             servers = []
             for guild in self.bot_instance.guilds:
-                servers.append({
-                    'id': str(guild.id),
-                    'name': guild.name,
-                    'channel_count': len(guild.text_channels)
-                })
+                try:
+                    # Safely get text_channels count
+                    channel_count = len(guild.text_channels) if hasattr(guild, 'text_channels') and guild.text_channels is not None else 0
+                    servers.append({
+                        'id': str(guild.id),
+                        'name': guild.name,
+                        'channel_count': channel_count
+                    })
+                except Exception as e:
+                    # If there's any error getting guild info, skip it but log the issue
+                    print(f"Error getting info for guild {guild.id}: {e}")
+                    continue
             
             return jsonify({"servers": servers})
         
@@ -691,16 +698,23 @@ class WebServer:
                 return jsonify({"error": "Server not found"}), 404
             
             channels = []
-            for channel in guild.text_channels:
-                # Get current configuration for this channel
-                channel_config = self.config_manager.get(f'channel_configs.{channel.id}', {})
-                channels.append({
-                    'id': str(channel.id),
-                    'name': channel.name,
-                    'preset': channel_config.get('preset', ''),
-                    'api_config': channel_config.get('api_config', ''),
-                    'character': channel_config.get('character', '')
-                })
+            try:
+                # Safely access text_channels
+                text_channels = guild.text_channels if hasattr(guild, 'text_channels') and guild.text_channels is not None else []
+                for channel in text_channels:
+                    # Get current configuration for this channel
+                    channel_config = self.config_manager.get(f'channel_configs.{channel.id}', {})
+                    channels.append({
+                        'id': str(channel.id),
+                        'name': channel.name,
+                        'preset': channel_config.get('preset', ''),
+                        'api_config': channel_config.get('api_config', ''),
+                        'character': channel_config.get('character', '')
+                    })
+            except Exception as e:
+                # If there's any error getting channels, return empty list
+                print(f"Error getting channels for guild {server_id}: {e}")
+                return jsonify({"channels": []})
             
             return jsonify({"channels": channels})
         
