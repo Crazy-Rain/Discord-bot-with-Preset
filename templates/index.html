@@ -361,6 +361,33 @@
                 </div>
             </div>
             
+            <h3>Saved API Configurations</h3>
+            <p style="color: #666; margin-bottom: 15px;">Save and manage multiple API configurations for quick switching between different proxies and models. The dropdown shows "Base URL - Model Name" (API keys are hidden for security).</p>
+            
+            <div class="grid">
+                <div class="form-group">
+                    <label>Configuration Name</label>
+                    <input type="text" id="api-config-name" placeholder="e.g., OpenAI GPT-4, Local Ollama, etc.">
+                </div>
+                
+                <div class="form-group">
+                    <label>Saved Configurations</label>
+                    <select id="saved-api-configs" onchange="loadSelectedApiConfig()">
+                        <option value="">-- Select a configuration --</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <button class="btn btn-primary" onclick="saveCurrentApiConfig()">Save API Config</button>
+                <button class="btn btn-secondary" onclick="loadApiConfigFromDropdown()">Load Selected</button>
+                <button class="btn btn-danger" onclick="deleteSelectedApiConfig()">Delete Selected</button>
+            </div>
+            
+            <div id="api-configs-list" style="margin-bottom: 20px;">
+                <!-- List of saved configurations will appear here -->
+            </div>
+            
             <h3>Default Preset</h3>
             <div class="grid">
                 <div class="form-group">
@@ -1034,6 +1061,173 @@
             } catch (error) {
                 showMessage('models-message', 'Error fetching models: ' + error.message, 'error');
             }
+        }
+        
+        // API Configuration Management Functions
+        async function loadSavedApiConfigs() {
+            try {
+                const response = await fetch('/api/api_configs');
+                const data = await response.json();
+                const configs = data.configs || [];
+                
+                const select = document.getElementById('saved-api-configs');
+                select.innerHTML = '<option value="">-- Select a configuration --</option>';
+                
+                const listDiv = document.getElementById('api-configs-list');
+                listDiv.innerHTML = '<h4 style="margin-top: 20px;">Available API Configurations:</h4>';
+                
+                if (configs.length === 0) {
+                    listDiv.innerHTML += '<p style="color: #666;">No saved API configurations yet.</p>';
+                    return;
+                }
+                
+                configs.forEach(config => {
+                    const option = document.createElement('option');
+                    option.value = config.name;
+                    option.textContent = `${config.base_url} - ${config.model}`;
+                    select.appendChild(option);
+                    
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'list-item';
+                    itemDiv.innerHTML = `
+                        <div>
+                            <strong>${config.name}</strong>
+                            <div style="color: #666; font-size: 0.9em;">${config.base_url} - ${config.model}</div>
+                        </div>
+                        <div>
+                            <button class="btn btn-sm btn-secondary" onclick="loadApiConfigByName('${config.name}')">Load</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteApiConfigByName('${config.name}')">Delete</button>
+                        </div>
+                    `;
+                    listDiv.appendChild(itemDiv);
+                });
+            } catch (error) {
+                console.error('Error loading saved API configs:', error);
+            }
+        }
+        
+        async function saveCurrentApiConfig() {
+            const name = document.getElementById('api-config-name').value.trim();
+            const apiKey = document.getElementById('api-key').value;
+            const baseUrl = document.getElementById('base-url').value;
+            const model = document.getElementById('model').value;
+            
+            if (!name) {
+                showMessage('config-message', 'Please enter a configuration name', 'error');
+                return;
+            }
+            
+            if (!apiKey || !baseUrl || !model) {
+                showMessage('config-message', 'Please fill in all API configuration fields (API Key, Base URL, Model)', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/api_configs/${encodeURIComponent(name)}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        api_key: apiKey,
+                        base_url: baseUrl,
+                        model: model
+                    })
+                });
+                
+                const result = await response.json();
+                showMessage('config-message', result.message, result.status === 'success' ? 'success' : 'error');
+                
+                if (result.status === 'success') {
+                    document.getElementById('api-config-name').value = '';
+                    await loadSavedApiConfigs();
+                }
+            } catch (error) {
+                showMessage('config-message', 'Error saving API configuration: ' + error.message, 'error');
+            }
+        }
+        
+        async function loadApiConfigByName(name) {
+            try {
+                const response = await fetch(`/api/api_configs/${encodeURIComponent(name)}/load`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    const config = result.config;
+                    document.getElementById('api-key').value = config.api_key;
+                    document.getElementById('base-url').value = config.base_url;
+                    document.getElementById('model').value = config.model;
+                    document.getElementById('api-config-name').value = name;
+                    
+                    showMessage('config-message', `Loaded API configuration: ${name}`, 'success');
+                } else {
+                    showMessage('config-message', result.message, 'error');
+                }
+            } catch (error) {
+                showMessage('config-message', 'Error loading API configuration: ' + error.message, 'error');
+            }
+        }
+        
+        async function loadApiConfigFromDropdown() {
+            const select = document.getElementById('saved-api-configs');
+            const name = select.value;
+            
+            if (!name) {
+                showMessage('config-message', 'Please select a configuration to load', 'error');
+                return;
+            }
+            
+            await loadApiConfigByName(name);
+        }
+        
+        async function loadSelectedApiConfig() {
+            // Auto-load when selection changes
+            const select = document.getElementById('saved-api-configs');
+            if (select.value) {
+                const selectedText = select.options[select.selectedIndex].text;
+                document.getElementById('api-config-name').value = select.value;
+                // Just update the name field, don't auto-load the full config
+                // User needs to click "Load Selected" button
+            }
+        }
+        
+        async function deleteApiConfigByName(name) {
+            if (!confirm(`Delete API configuration "${name}"?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/api_configs/${encodeURIComponent(name)}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                showMessage('config-message', result.message, result.status === 'success' ? 'success' : 'error');
+                
+                if (result.status === 'success') {
+                    await loadSavedApiConfigs();
+                    
+                    // Clear name field if it was the deleted config
+                    if (document.getElementById('api-config-name').value === name) {
+                        document.getElementById('api-config-name').value = '';
+                    }
+                }
+            } catch (error) {
+                showMessage('config-message', 'Error deleting API configuration: ' + error.message, 'error');
+            }
+        }
+        
+        async function deleteSelectedApiConfig() {
+            const select = document.getElementById('saved-api-configs');
+            const name = select.value;
+            
+            if (!name) {
+                showMessage('config-message', 'Please select a configuration to delete', 'error');
+                return;
+            }
+            
+            await deleteApiConfigByName(name);
         }
         
         // Preset functions
@@ -2343,6 +2537,7 @@
         // Load config on page load
         window.onload = function() {
             loadConfig();
+            loadSavedApiConfigs();
             // Initialize with one default system section
             loadPromptSections([]);
         };

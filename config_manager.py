@@ -56,3 +56,32 @@ class ConfigManager:
             config = config[k]
         config[keys[-1]] = value
         self.save_config()
+    
+    def save_api_config(self, name: str, api_key: str, base_url: str, model: str) -> None:
+        """Save an API configuration with a given name."""
+        if 'saved_api_configs' not in self.config:
+            self.config['saved_api_configs'] = {}
+        
+        self.config['saved_api_configs'][name] = {
+            'api_key': api_key,
+            'base_url': base_url,
+            'model': model
+        }
+        self.save_config()
+    
+    def get_api_configs(self) -> Dict[str, Any]:
+        """Get all saved API configurations."""
+        return self.config.get('saved_api_configs', {})
+    
+    def get_api_config(self, name: str) -> Dict[str, Any]:
+        """Get a specific saved API configuration."""
+        configs = self.get_api_configs()
+        return configs.get(name, {})
+    
+    def delete_api_config(self, name: str) -> bool:
+        """Delete a saved API configuration."""
+        if 'saved_api_configs' in self.config and name in self.config['saved_api_configs']:
+            del self.config['saved_api_configs'][name]
+            self.save_config()
+            return True
+        return False

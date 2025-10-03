@@ -134,6 +134,85 @@ class WebServer:
             except Exception as e:
                 return jsonify({"status": "error", "message": f"Failed to fetch models: {str(e)}"}), 400
         
+        @self.app.route('/api/api_configs', methods=['GET'])
+        def list_api_configs():
+            """List all saved API configurations."""
+            configs = self.config_manager.get_api_configs()
+            # Return configs with hidden API keys
+            configs_list = []
+            for name, config in configs.items():
+                configs_list.append({
+                    'name': name,
+                    'base_url': config.get('base_url', ''),
+                    'model': config.get('model', ''),
+                    'api_key': '***HIDDEN***'
+                })
+            return jsonify({"configs": configs_list})
+        
+        @self.app.route('/api/api_configs/<config_name>', methods=['GET'])
+        def get_api_config(config_name):
+            """Get a specific API configuration."""
+            config = self.config_manager.get_api_config(config_name)
+            if not config:
+                return jsonify({"error": "Configuration not found"}), 404
+            # Hide the API key
+            config_copy = config.copy()
+            config_copy['api_key'] = '***HIDDEN***'
+            return jsonify(config_copy)
+        
+        @self.app.route('/api/api_configs/<config_name>', methods=['POST'])
+        def save_api_config(config_name):
+            """Save an API configuration."""
+            try:
+                data = request.json
+                api_key = data.get('api_key')
+                base_url = data.get('base_url')
+                model = data.get('model')
+                
+                if not all([api_key, base_url, model]):
+                    return jsonify({"status": "error", "message": "Missing required fields"}), 400
+                
+                # Don't update if api_key is hidden placeholder
+                if api_key == '***HIDDEN***':
+                    # Get existing config and keep its api_key
+                    existing_config = self.config_manager.get_api_config(config_name)
+                    if existing_config:
+                        api_key = existing_config.get('api_key', '')
+                    else:
+                        return jsonify({"status": "error", "message": "Cannot create new config with hidden API key"}), 400
+                
+                self.config_manager.save_api_config(config_name, api_key, base_url, model)
+                return jsonify({"status": "success", "message": f"API configuration '{config_name}' saved"})
+            except Exception as e:
+                return jsonify({"status": "error", "message": str(e)}), 400
+        
+        @self.app.route('/api/api_configs/<config_name>', methods=['DELETE'])
+        def delete_api_config(config_name):
+            """Delete an API configuration."""
+            try:
+                if self.config_manager.delete_api_config(config_name):
+                    return jsonify({"status": "success", "message": f"API configuration '{config_name}' deleted"})
+                else:
+                    return jsonify({"status": "error", "message": "Configuration not found"}), 404
+            except Exception as e:
+                return jsonify({"status": "error", "message": str(e)}), 400
+        
+        @self.app.route('/api/api_configs/<config_name>/load', methods=['POST'])
+        def load_api_config(config_name):
+            """Load an API configuration to get the actual values (including API key)."""
+            try:
+                config = self.config_manager.get_api_config(config_name)
+                if not config:
+                    return jsonify({"status": "error", "message": "Configuration not found"}), 404
+                
+                # Return the full config including API key for loading into form
+                return jsonify({
+                    "status": "success",
+                    "config": config
+                })
+            except Exception as e:
+                return jsonify({"status": "error", "message": str(e)}), 400
+        
         @self.app.route('/api/presets', methods=['GET'])
         def list_presets():
             """List all presets."""
