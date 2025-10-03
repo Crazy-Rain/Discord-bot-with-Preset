@@ -971,6 +971,34 @@
             <h2>Server & Channel Configuration</h2>
             <p style="margin-bottom: 20px; color: #666;">Configure presets, API configs, and characters for each channel the bot is active in.</p>
             
+            <!-- Default Configuration Section -->
+            <div style="background: #e8f4f8; border: 2px solid #3498db; border-radius: 8px; padding: 20px; margin-bottom: 25px;">
+                <h3 style="margin-top: 0; color: #2c3e50; display: flex; align-items: center;">
+                    <span style="font-size: 1.5em; margin-right: 10px;">⚙️</span>
+                    Default Configuration
+                </h3>
+                <p style="color: #555; margin-bottom: 15px;">
+                    These are the default settings used when a channel doesn't have specific configuration. 
+                    These values come from the <strong>Configuration</strong> tab and update automatically when you save changes there.
+                </p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div>
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50;">Default Preset</label>
+                        <div id="default-preset-display" style="padding: 10px; background: white; border: 2px solid #ddd; border-radius: 5px; color: #555;">
+                            Loading...
+                        </div>
+                        <small style="color: #666; display: block; margin-top: 5px;">From Configuration → Default Preset</small>
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50;">Default API Config</label>
+                        <div id="default-api-display" style="padding: 10px; background: white; border: 2px solid #ddd; border-radius: 5px; color: #555;">
+                            Loading...
+                        </div>
+                        <small style="color: #666; display: block; margin-top: 5px;">From Configuration → OpenAI API Configuration</small>
+                    </div>
+                </div>
+            </div>
+            
             <button class="btn btn-primary" onclick="loadServersList()" style="margin-bottom: 20px;">🔄 Refresh Servers</button>
             
             <div id="servers-list"></div>
@@ -1202,6 +1230,11 @@
                 
                 const result = await response.json();
                 showMessage('config-message', result.message, result.status === 'success' ? 'success' : 'error');
+                
+                // Update the default config display on Servers/Channels tab if it's loaded
+                if (document.getElementById('default-preset-display')) {
+                    await loadDefaultConfig();
+                }
             } catch (error) {
                 showMessage('config-message', 'Error saving configuration: ' + error.message, 'error');
             }
@@ -2934,8 +2967,45 @@
             }
         }
         
+        async function loadDefaultConfig() {
+            try {
+                const response = await fetch('/api/config');
+                const config = await response.json();
+                
+                // Display default preset
+                const defaultPresetEl = document.getElementById('default-preset-display');
+                if (config.default_preset && config.default_preset.system_prompt) {
+                    // Show a preview of the system prompt
+                    const systemPrompt = config.default_preset.system_prompt;
+                    const preview = systemPrompt.length > 60 ? systemPrompt.substring(0, 60) + '...' : systemPrompt;
+                    defaultPresetEl.innerHTML = `<strong>Custom Preset:</strong> "${preview}"`;
+                } else {
+                    defaultPresetEl.innerHTML = '<strong>Default Preset</strong> (from Configuration tab)';
+                }
+                
+                // Display default API config
+                const defaultApiEl = document.getElementById('default-api-display');
+                if (config.openai_config) {
+                    const baseUrl = config.openai_config.base_url || 'https://api.openai.com/v1';
+                    const model = config.openai_config.model || 'gpt-3.5-turbo';
+                    // Shorten the URL for display
+                    const displayUrl = baseUrl.replace('https://', '').replace('/v1', '');
+                    defaultApiEl.innerHTML = `<strong>${displayUrl}</strong> - ${model}`;
+                } else {
+                    defaultApiEl.innerHTML = '<strong>OpenAI API</strong> (from Configuration tab)';
+                }
+            } catch (error) {
+                console.error('Error loading default config:', error);
+                document.getElementById('default-preset-display').innerHTML = 'Error loading';
+                document.getElementById('default-api-display').innerHTML = 'Error loading';
+            }
+        }
+        
         async function loadServersList() {
             try {
+                // Load default configuration first
+                await loadDefaultConfig();
+                
                 const response = await fetch('/api/servers');
                 const data = await response.json();
                 const servers = data.servers || [];
