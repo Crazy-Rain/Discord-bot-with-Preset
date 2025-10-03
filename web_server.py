@@ -660,31 +660,49 @@ class WebServer:
         
         @self.app.route('/api/servers', methods=['GET'])
         def get_servers():
-            """Get list of servers and channels the bot is connected to."""
+            """Get list of servers the bot is connected to (without channels)."""
             if not self.bot_instance:
                 return jsonify({"servers": []})
             
             servers = []
             for guild in self.bot_instance.guilds:
-                channels = []
-                for channel in guild.text_channels:
-                    # Get current configuration for this channel
-                    channel_config = self.config_manager.get(f'channel_configs.{channel.id}', {})
-                    channels.append({
-                        'id': str(channel.id),
-                        'name': channel.name,
-                        'preset': channel_config.get('preset', ''),
-                        'api_config': channel_config.get('api_config', ''),
-                        'character': channel_config.get('character', '')
-                    })
-                
                 servers.append({
                     'id': str(guild.id),
                     'name': guild.name,
-                    'channels': channels
+                    'channel_count': len(guild.text_channels)
                 })
             
             return jsonify({"servers": servers})
+        
+        @self.app.route('/api/servers/<server_id>/channels', methods=['GET'])
+        def get_server_channels(server_id):
+            """Get channels for a specific server."""
+            if not self.bot_instance:
+                return jsonify({"channels": []})
+            
+            # Find the guild
+            guild = None
+            for g in self.bot_instance.guilds:
+                if str(g.id) == server_id:
+                    guild = g
+                    break
+            
+            if not guild:
+                return jsonify({"error": "Server not found"}), 404
+            
+            channels = []
+            for channel in guild.text_channels:
+                # Get current configuration for this channel
+                channel_config = self.config_manager.get(f'channel_configs.{channel.id}', {})
+                channels.append({
+                    'id': str(channel.id),
+                    'name': channel.name,
+                    'preset': channel_config.get('preset', ''),
+                    'api_config': channel_config.get('api_config', ''),
+                    'character': channel_config.get('character', '')
+                })
+            
+            return jsonify({"channels": channels})
         
         @self.app.route('/api/channel_config/<channel_id>', methods=['POST'])
         def save_channel_config(channel_id):

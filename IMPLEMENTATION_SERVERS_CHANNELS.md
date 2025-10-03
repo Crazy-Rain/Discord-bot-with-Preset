@@ -7,12 +7,14 @@ Implemented a new **Servers/Channels** tab in the web configuration interface th
 
 ### 1. web_server.py
 **Added API Endpoints:**
-- `GET /api/servers` - Retrieves all connected Discord servers with their channels and current configurations
+- `GET /api/servers` - Retrieves all connected Discord servers (without channels for performance)
+- `GET /api/servers/<server_id>/channels` - Retrieves channels for a specific server (lazy loading)
 - `POST /api/channel_config/<channel_id>` - Saves configuration for a specific channel
 
 **Implementation Details:**
+- `/api/servers` returns server list with `id`, `name`, and `channel_count` (no channel details)
+- `/api/servers/<server_id>/channels` loads channels on-demand when a server is expanded
 - Accesses `bot_instance.guilds` to get list of connected servers
-- Iterates through `guild.text_channels` to get channel list
 - Retrieves saved config from `config_manager.get(f'channel_configs.{channel.id}')`
 - Saves config using `config_manager.set()` for persistence
 
@@ -20,15 +22,22 @@ Implemented a new **Servers/Channels** tab in the web configuration interface th
 **Added UI Components:**
 - New "Servers/Channels" tab button in navigation
 - Complete tab content section with server/channel hierarchy
+- **Lazy loading accordion**: Channels are loaded on-demand when server is expanded
+- **Accordion behavior**: Opening a server automatically closes other servers
 - Dynamic dropdown menus for each channel:
   - Preset selector (populated from presets)
   - API Config selector (populated from saved API configs)
   - Character selector (populated from character cards)
 - Save button per channel
 - Refresh button to reload server list
+- Loading state indicator while channels are being fetched
 
 **JavaScript Functions Added:**
-- `loadServersList()` - Fetches and displays servers/channels with current configs
+- `loadServersList()` - Fetches and displays servers (without channels initially)
+- `toggleServerChannels(serverId)` - Async function that implements:
+  - Accordion behavior (closes other servers when one is opened)
+  - Lazy loading (fetches channels only when server is expanded)
+  - Caching (channels loaded once per session)
 - `saveChannelConfig(channelId)` - Saves configuration for a specific channel
 - Updated `switchTab()` to handle the new 'servers' tab
 
@@ -73,6 +82,10 @@ Complete user documentation including:
 ✅ Individual save buttons per channel
 ✅ Success/error message display
 ✅ Refresh button for updated server list
+✅ **Lazy loading** - Channels load only when server is expanded (performance optimization)
+✅ **Accordion behavior** - Only one server expanded at a time (improved UX)
+✅ **Loading indicators** - Shows "Loading channels..." while fetching
+✅ **Caching** - Channels cached once loaded (no redundant API calls)
 
 ### Backend Features
 ✅ RESTful API endpoints
@@ -80,6 +93,8 @@ Complete user documentation including:
 ✅ Graceful handling when bot is not connected
 ✅ Support for empty/default values
 ✅ Automatic fallback to defaults when values are empty
+✅ **Separated endpoints** - `/api/servers` and `/api/servers/<id>/channels` for performance
+✅ **On-demand loading** - Channels fetched only when needed
 
 ## Testing
 
@@ -106,16 +121,29 @@ Complete user documentation including:
 
 ## How It Works
 
-### Data Flow
+### Data Flow (Updated with Lazy Loading)
 1. User navigates to Servers/Channels tab
 2. Frontend calls `GET /api/servers`
-3. Backend retrieves bot.guilds and iterates through channels
-4. Backend loads saved configs from config.json
-5. Frontend displays servers/channels with current configs
+3. Backend returns server list with `id`, `name`, and `channel_count` (NO channel data yet)
+4. Frontend displays server headers with channel counts
+5. **When user clicks a server to expand it:**
+   - Frontend closes any other open servers (accordion behavior)
+   - Checks if channels already loaded (cached)
+   - If not cached, shows "Loading channels..." message
+   - Calls `GET /api/servers/<server_id>/channels`
+   - Backend fetches channels and their configs for that specific server
+   - Frontend renders channels with dropdowns
+   - Marks channels as loaded (cached) for future toggles
 6. User selects values and clicks Save
 7. Frontend calls `POST /api/channel_config/<id>` with new values
 8. Backend saves to config.json using ConfigManager
 9. Success message displayed to user
+
+### Performance Benefits
+- **Reduced initial load time**: Server list loads instantly without waiting for all channels
+- **Lower bandwidth usage**: Channels loaded only when needed
+- **Better scalability**: Handles bots in many servers with many channels
+- **Improved UX**: Accordion behavior keeps interface clean and focused
 
 ### Configuration Priority
 For each channel, the bot will use:
