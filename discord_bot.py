@@ -219,7 +219,9 @@ class SwipeButtonView(discord.ui.View):
                 max_tokens=preset.get("max_response_length", preset.get("max_tokens", 2000)),
                 top_p=preset.get("top_p", 1.0),
                 frequency_penalty=preset.get("frequency_penalty", 0.0),
-                presence_penalty=preset.get("presence_penalty", 0.0)
+                presence_penalty=preset.get("presence_penalty", 0.0),
+                frequency_penalty_enabled=preset.get("frequency_penalty_enabled", True),
+                presence_penalty_enabled=preset.get("presence_penalty_enabled", True)
             )
             
             # Apply thinking filter
@@ -1018,7 +1020,9 @@ class DiscordBot(commands.Bot):
                         max_tokens=preset.get("max_response_length", preset.get("max_tokens", 2000)),
                         top_p=preset.get("top_p", 1.0),
                         frequency_penalty=preset.get("frequency_penalty", 0.0),
-                        presence_penalty=preset.get("presence_penalty", 0.0)
+                        presence_penalty=preset.get("presence_penalty", 0.0),
+                        frequency_penalty_enabled=preset.get("frequency_penalty_enabled", True),
+                        presence_penalty_enabled=preset.get("presence_penalty_enabled", True)
                     )
                 
                 # Apply thinking filter
@@ -1620,7 +1624,9 @@ Visit http://localhost:5000 to configure the bot via web interface.
                         max_tokens=preset.get("max_response_length", preset.get("max_tokens", 2000)),
                         top_p=preset.get("top_p", 1.0),
                         frequency_penalty=preset.get("frequency_penalty", 0.0),
-                        presence_penalty=preset.get("presence_penalty", 0.0)
+                        presence_penalty=preset.get("presence_penalty", 0.0),
+                        frequency_penalty_enabled=preset.get("frequency_penalty_enabled", True),
+                        presence_penalty_enabled=preset.get("presence_penalty_enabled", True)
                     )
                 
                 # Apply thinking filter

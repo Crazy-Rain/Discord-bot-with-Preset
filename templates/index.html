@@ -473,13 +473,21 @@
                     </div>
                     
                     <div class="slider-container">
-                        <label>Frequency Penalty: <span class="slider-value" id="freq-value">0.0</span></label>
+                        <label style="display: flex; align-items: center; gap: 10px;">
+                            <input type="checkbox" id="frequency-penalty-enabled" style="width: auto;" checked>
+                            <span>Frequency Penalty: <span class="slider-value" id="freq-value">0.0</span></span>
+                        </label>
                         <input type="range" id="frequency-penalty" min="0" max="2" step="0.01" value="0.0" oninput="updateSlider('freq', this.value)">
+                        <small style="color: #666; display: block; margin-top: 5px;">Enable to use frequency penalty (may not be supported by all models like Gemini)</small>
                     </div>
                     
                     <div class="slider-container">
-                        <label>Presence Penalty: <span class="slider-value" id="pres-value">0.0</span></label>
+                        <label style="display: flex; align-items: center; gap: 10px;">
+                            <input type="checkbox" id="presence-penalty-enabled" style="width: auto;" checked>
+                            <span>Presence Penalty: <span class="slider-value" id="pres-value">0.0</span></span>
+                        </label>
                         <input type="range" id="presence-penalty" min="0" max="2" step="0.01" value="0.0" oninput="updateSlider('pres', this.value)">
+                        <small style="color: #666; display: block; margin-top: 5px;">Enable to use presence penalty (may not be supported by all models like Gemini)</small>
                     </div>
                 </div>
             </div>
@@ -570,13 +578,21 @@
                 </div>
                 
                 <div class="slider-container">
-                    <label>Frequency Penalty: <span class="slider-value" id="preset-freq-value">0.0</span></label>
+                    <label style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" id="preset-frequency-penalty-enabled" style="width: auto;" checked>
+                        <span>Frequency Penalty: <span class="slider-value" id="preset-freq-value">0.0</span></span>
+                    </label>
                     <input type="range" id="preset-frequency-penalty" min="0" max="2" step="0.01" value="0.0" oninput="updateSlider('preset-freq', this.value)">
+                    <small style="color: #666; display: block; margin-top: 5px;">Enable to use frequency penalty (may not be supported by all models like Gemini)</small>
                 </div>
                 
                 <div class="slider-container">
-                    <label>Presence Penalty: <span class="slider-value" id="preset-pres-value">0.0</span></label>
+                    <label style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" id="preset-presence-penalty-enabled" style="width: auto;" checked>
+                        <span>Presence Penalty: <span class="slider-value" id="preset-pres-value">0.0</span></span>
+                    </label>
                     <input type="range" id="preset-presence-penalty" min="0" max="2" step="0.01" value="0.0" oninput="updateSlider('preset-pres', this.value)">
+                    <small style="color: #666; display: block; margin-top: 5px;">Enable to use presence penalty (may not be supported by all models like Gemini)</small>
                 </div>
             </div>
             
@@ -1028,6 +1044,8 @@
                 document.getElementById('top-p').value = preset.top_p || 1.0;
                 document.getElementById('frequency-penalty').value = preset.frequency_penalty || 0.0;
                 document.getElementById('presence-penalty').value = preset.presence_penalty || 0.0;
+                document.getElementById('frequency-penalty-enabled').checked = preset.frequency_penalty_enabled !== false;
+                document.getElementById('presence-penalty-enabled').checked = preset.presence_penalty_enabled !== false;
                 
                 updateSlider('temp', preset.temperature || 0.7);
                 updateSlider('tokens', preset.max_tokens || 2000);
@@ -1077,7 +1095,9 @@
                         max_response_length: parseInt(document.getElementById('max-response-length').value),
                         top_p: parseFloat(document.getElementById('top-p').value),
                         frequency_penalty: parseFloat(document.getElementById('frequency-penalty').value),
-                        presence_penalty: parseFloat(document.getElementById('presence-penalty').value)
+                        presence_penalty: parseFloat(document.getElementById('presence-penalty').value),
+                        frequency_penalty_enabled: document.getElementById('frequency-penalty-enabled').checked,
+                        presence_penalty_enabled: document.getElementById('presence-penalty-enabled').checked
                     }
                 };
                 
@@ -1362,6 +1382,8 @@
                 document.getElementById('preset-top-p').value = preset.top_p || 1.0;
                 document.getElementById('preset-frequency-penalty').value = preset.frequency_penalty || 0.0;
                 document.getElementById('preset-presence-penalty').value = preset.presence_penalty || 0.0;
+                document.getElementById('preset-frequency-penalty-enabled').checked = preset.frequency_penalty_enabled !== false;
+                document.getElementById('preset-presence-penalty-enabled').checked = preset.presence_penalty_enabled !== false;
                 document.getElementById('preset-prompt-format').value = preset.prompt_format || 'default';
                 document.getElementById('preset-character-position').value = preset.character_position || 'system';
                 document.getElementById('preset-include-examples').checked = preset.include_examples !== false;
@@ -1690,6 +1712,8 @@
                     top_p: parseFloat(document.getElementById('preset-top-p').value),
                     frequency_penalty: parseFloat(document.getElementById('preset-frequency-penalty').value),
                     presence_penalty: parseFloat(document.getElementById('preset-presence-penalty').value),
+                    frequency_penalty_enabled: document.getElementById('preset-frequency-penalty-enabled').checked,
+                    presence_penalty_enabled: document.getElementById('preset-presence-penalty-enabled').checked,
                     prompt_format: document.getElementById('preset-prompt-format').value,
                     character_position: document.getElementById('preset-character-position').value,
                     include_examples: document.getElementById('preset-include-examples').checked,
