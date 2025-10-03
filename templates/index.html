@@ -529,10 +529,47 @@
             
             <div class="slider-container">
                 <label>Auto Context Limit: <span class="slider-value" id="auto-context-value">50</span> messages</label>
-                <input type="range" id="auto-context-limit" min="10" max="8000" step="50" value="50" oninput="updateSlider('auto-context', this.value)">
+                <input type="range" id="auto-context-limit" min="10" max="8000" step="10" value="50" oninput="updateSlider('auto-context', this.value)">
                 <small style="color: #666; display: block; margin-top: 5px;">
                     Number of messages to automatically load from channel history. Higher values provide more context but take longer to load. Can also be set via Discord using !setcontext command.
                 </small>
+            </div>
+            
+            <!-- CP Tracking Section -->
+            <h3 style="margin-top: 30px;">Creation Points (CP) Tracking</h3>
+            <p style="color: #666; margin-bottom: 15px;">
+                Track Creation Points awarded by the AI and count responses. The system will automatically append CP totals and count to each response.
+            </p>
+            
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="cp-tracking-enabled" style="width: auto; margin-right: 8px;">
+                    Enable CP Tracking
+                </label>
+                <small style="color: #666; display: block; margin-top: 5px;">
+                    When enabled, the AI will be reminded to note Creation Points awarded for achievements/actions, and the system will track CP totals and response counts.
+                </small>
+            </div>
+            
+            <div id="cp-tracking-settings" style="margin-left: 20px; display: none;">
+                <div class="form-group">
+                    <label>CP Per 10 Responses:</label>
+                    <input type="number" id="cp-per-count" min="0" step="1" value="100">
+                    <small style="color: #666; display: block; margin-top: 5px;">
+                        Amount of CP to award automatically when the count reaches 10/10. Default: 100
+                    </small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Current CP Total:</label>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="number" id="cp-total-display" min="0" step="1" value="0" style="flex: 1;">
+                        <button class="btn btn-secondary" onclick="updateCPTotal()" style="white-space: nowrap;">Update CP Total</button>
+                    </div>
+                    <small style="color: #666; display: block; margin-top: 5px;">
+                        Manually edit the current CP total. Changes will be applied to the next response.
+                    </small>
+                </div>
             </div>
             
             <button class="btn btn-primary" onclick="saveConfig()">Save Configuration</button>
@@ -974,6 +1011,30 @@
             }
         }
         
+        // CP Tracking functions
+        function toggleCPTracking() {
+            const enabled = document.getElementById('cp-tracking-enabled').checked;
+            const settings = document.getElementById('cp-tracking-settings');
+            settings.style.display = enabled ? 'block' : 'none';
+        }
+        
+        async function updateCPTotal() {
+            try {
+                const cpTotal = parseInt(document.getElementById('cp-total-display').value) || 0;
+                
+                const response = await fetch('/api/cp_total', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ cp_total: cpTotal })
+                });
+                
+                const result = await response.json();
+                showMessage('config-message', result.message || 'CP Total updated', result.status === 'success' ? 'success' : 'error');
+            } catch (error) {
+                showMessage('config-message', 'Error updating CP Total: ' + error.message, 'error');
+            }
+        }
+        
         function clearAvatarUpload() {
             document.getElementById('character-avatar-file').value = '';
             document.getElementById('avatar-preview').style.display = 'none';
@@ -996,6 +1057,12 @@
                         reader.readAsDataURL(file);
                     }
                 });
+            }
+            
+            // CP Tracking toggle listener
+            const cpTrackingCheckbox = document.getElementById('cp-tracking-enabled');
+            if (cpTrackingCheckbox) {
+                cpTrackingCheckbox.addEventListener('change', toggleCPTracking);
             }
         });
         
@@ -1065,6 +1132,13 @@
                 document.getElementById('auto-context-limit').value = autoContextLimit;
                 updateSlider('auto-context', autoContextLimit);
                 
+                // Load CP tracking settings
+                const cpTracking = config.cp_tracking || {};
+                document.getElementById('cp-tracking-enabled').checked = cpTracking.enabled || false;
+                document.getElementById('cp-per-count').value = cpTracking.cp_per_count || 100;
+                document.getElementById('cp-total-display').value = cpTracking.cp_total || 0;
+                toggleCPTracking();
+                
                 showMessage('config-message', 'Configuration loaded', 'success');
             } catch (error) {
                 showMessage('config-message', 'Error loading configuration: ' + error.message, 'error');
@@ -1088,6 +1162,11 @@
                         end_tag: document.getElementById('thinking-end-tag').value
                     },
                     auto_context_limit: parseInt(document.getElementById('auto-context-limit').value),
+                    cp_tracking: {
+                        enabled: document.getElementById('cp-tracking-enabled').checked,
+                        cp_per_count: parseInt(document.getElementById('cp-per-count').value) || 100,
+                        cp_total: parseInt(document.getElementById('cp-total-display').value) || 0
+                    },
                     default_preset: {
                         prompt_sections: defaultPresetSections,
                         temperature: parseFloat(document.getElementById('temperature').value),

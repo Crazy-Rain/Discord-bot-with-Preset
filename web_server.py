@@ -632,6 +632,31 @@ class WebServer:
                 return jsonify({"status": "error", "message": "Failed to toggle lorebook"}), 500
             except Exception as e:
                 return jsonify({"status": "error", "message": str(e)}), 400
+        
+        @self.app.route('/api/cp_total', methods=['POST'])
+        def update_cp_total():
+            """Update CP Total manually."""
+            try:
+                data = request.json
+                cp_total = data.get('cp_total', 0)
+                
+                # Update CP total in config
+                if 'cp_tracking' not in self.config_manager.config:
+                    self.config_manager.config['cp_tracking'] = {}
+                self.config_manager.config['cp_tracking']['cp_total'] = cp_total
+                self.config_manager.save_config()
+                
+                # Update all channels in the bot if it's running
+                if self.bot_instance:
+                    for channel_id in self.bot_instance.cp_totals:
+                        self.bot_instance.cp_totals[channel_id] = cp_total
+                
+                return jsonify({
+                    "status": "success",
+                    "message": f"CP Total updated to {cp_total}"
+                })
+            except Exception as e:
+                return jsonify({"status": "error", "message": str(e)}), 400
     
     def run(self, host: str = "0.0.0.0", port: int = 5000, debug: bool = False):
         """Run the web server."""

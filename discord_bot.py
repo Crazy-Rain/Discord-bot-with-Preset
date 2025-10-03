@@ -149,26 +149,35 @@ class SwipeButtonView(discord.ui.View):
         # Apply thinking filter to the stored response
         full_response, filtered_response = self.bot.filter_thinking_tags(response)
         
+        # Recalculate CP for this swipe
+        self.bot.recalculate_cp_for_swipe(filtered_response, self.channel_id)
+        
+        # Append CP tracking info
+        filtered_response_with_cp = self.bot.append_cp_tracking(filtered_response, self.channel_id)
+        
+        # Store the response with CP info
+        self.bot.last_response_text[self.channel_id] = filtered_response_with_cp
+        
         # Update conversation history (with full response)
         self.bot.conversations[self.channel_id][-1] = {"role": "assistant", "content": full_response}
         
         alt_count = len(self.bot.response_alternatives[self.channel_id][-1])
         
         # Replace all messages (handles multi-page responses)
-        # Use filtered_response for what's actually sent to Discord
+        # Use filtered_response_with_cp for what's actually sent to Discord
         try:
             channel = interaction.channel
             if self.channel_id in self.bot.channel_characters:
                 # Replace webhook messages
                 character_data = self.bot.channel_characters[self.channel_id]
                 last_msg, new_ids = await self.bot.replace_as_character(
-                    channel, self.message_ids, filtered_response, character_data, view=self
+                    channel, self.message_ids, filtered_response_with_cp, character_data, view=self
                 )
                 # Update message IDs for next swipe
                 self.message_ids = new_ids
             else:
                 # Replace regular messages
-                new_ids = await replace_multi_page_message(channel, self.message_ids, filtered_response, view=self)
+                new_ids = await replace_multi_page_message(channel, self.message_ids, filtered_response_with_cp, view=self)
                 # Update message IDs for next swipe
                 self.message_ids = new_ids
             
@@ -227,6 +236,16 @@ class SwipeButtonView(discord.ui.View):
             # Apply thinking filter
             full_response, filtered_response = self.bot.filter_thinking_tags(response)
             
+            # Recalculate CP for this swipe (it's a new alternative)
+            # Don't increment count since it's not a new user message
+            self.bot.update_cp_tracking(filtered_response, self.channel_id, is_new_response=False)
+            
+            # Append CP tracking info
+            filtered_response_with_cp = self.bot.append_cp_tracking(filtered_response, self.channel_id)
+            
+            # Store the response with CP info
+            self.bot.last_response_text[self.channel_id] = filtered_response_with_cp
+            
             # Log full response to console if filtering is active
             thinking_config = self.bot.config_manager.get("thinking_filter", {})
             if thinking_config.get("enabled", False) and full_response != filtered_response:
@@ -237,7 +256,7 @@ class SwipeButtonView(discord.ui.View):
                 print(f"{'='*60}")
                 print(f"FILTERED RESPONSE (sent to Discord):")
                 print(f"{'='*60}")
-                print(filtered_response)
+                print(filtered_response_with_cp)
                 print(f"{'='*60}\n")
             
             # Add to alternatives (store full response)
@@ -257,18 +276,18 @@ class SwipeButtonView(discord.ui.View):
             current_idx = self.bot.current_alternative_index[self.channel_id]
             
             # Replace all messages (handles multi-page responses)
-            # Use filtered_response for what's actually sent to Discord
+            # Use filtered_response_with_cp for what's actually sent to Discord
             try:
                 channel = interaction.channel
                 if self.channel_id in self.bot.channel_characters:
                     character_data = self.bot.channel_characters[self.channel_id]
                     last_msg, new_ids = await self.bot.replace_as_character(
-                        channel, self.message_ids, filtered_response, character_data, view=self
+                        channel, self.message_ids, filtered_response_with_cp, character_data, view=self
                     )
                     # Update message IDs for next swipe
                     self.message_ids = new_ids
                 else:
-                    new_ids = await replace_multi_page_message(channel, self.message_ids, filtered_response, view=self)
+                    new_ids = await replace_multi_page_message(channel, self.message_ids, filtered_response_with_cp, view=self)
                     # Update message IDs for next swipe
                     self.message_ids = new_ids
                 
@@ -303,26 +322,35 @@ class SwipeButtonView(discord.ui.View):
         # Apply thinking filter to the stored response
         full_response, filtered_response = self.bot.filter_thinking_tags(response)
         
+        # Recalculate CP for this swipe
+        self.bot.recalculate_cp_for_swipe(filtered_response, self.channel_id)
+        
+        # Append CP tracking info
+        filtered_response_with_cp = self.bot.append_cp_tracking(filtered_response, self.channel_id)
+        
+        # Store the response with CP info
+        self.bot.last_response_text[self.channel_id] = filtered_response_with_cp
+        
         # Update conversation history (with full response)
         self.bot.conversations[self.channel_id][-1] = {"role": "assistant", "content": full_response}
         
         alt_count = len(self.bot.response_alternatives[self.channel_id][-1])
         
         # Replace all messages (handles multi-page responses)
-        # Use filtered_response for what's actually sent to Discord
+        # Use filtered_response_with_cp for what's actually sent to Discord
         try:
             channel = interaction.channel
             if self.channel_id in self.bot.channel_characters:
                 # Replace webhook messages
                 character_data = self.bot.channel_characters[self.channel_id]
                 last_msg, new_ids = await self.bot.replace_as_character(
-                    channel, self.message_ids, filtered_response, character_data, view=self
+                    channel, self.message_ids, filtered_response_with_cp, character_data, view=self
                 )
                 # Update message IDs for next swipe
                 self.message_ids = new_ids
             else:
                 # Replace regular messages
-                new_ids = await replace_multi_page_message(channel, self.message_ids, filtered_response, view=self)
+                new_ids = await replace_multi_page_message(channel, self.message_ids, filtered_response_with_cp, view=self)
                 # Update message IDs for next swipe
                 self.message_ids = new_ids
             
@@ -556,6 +584,12 @@ class DiscordBot(commands.Bot):
         self.auto_context_limit = config.get("auto_context_limit", 50)
         # Validate and clamp the limit
         self.auto_context_limit = max(50, min(5000, self.auto_context_limit))
+        
+        # CP Tracking - Track CP totals and counts per channel
+        self.cp_totals: Dict[int, int] = {}
+        self.cp_counts: Dict[int, int] = {}
+        # Store last response's raw text for CP extraction on swipe
+        self.last_response_text: Dict[int, str] = {}
         
         # Add commands
         self.add_bot_commands()
@@ -901,6 +935,131 @@ class DiscordBot(commands.Bot):
         
         return text, filtered_text
     
+    def extract_cp_from_response(self, response: str) -> int:
+        """Extract CP value from AI response.
+        
+        Looks for patterns like '+X CP', '+X cp', or 'X CP' in the response.
+        
+        Args:
+            response: The AI's response text
+            
+        Returns:
+            The CP value found, or 0 if none found
+        """
+        # Pattern to match +X CP or X CP (case insensitive)
+        pattern = r'\+?(\d+)\s*(?:CP|cp)'
+        matches = re.findall(pattern, response)
+        
+        if matches:
+            # Sum all CP values found in the response
+            total_cp = sum(int(cp) for cp in matches)
+            return total_cp
+        return 0
+    
+    def append_cp_tracking(self, response: str, channel_id: int) -> str:
+        """Append CP tracking information to response.
+        
+        Args:
+            response: The AI's response text
+            channel_id: The Discord channel ID
+            
+        Returns:
+            Response with CP tracking appended
+        """
+        cp_config = self.config_manager.get("cp_tracking", {})
+        if not cp_config.get("enabled", False):
+            return response
+        
+        cp_total = self.cp_totals.get(channel_id, cp_config.get("cp_total", 0))
+        cp_count = self.cp_counts.get(channel_id, 0)
+        
+        # Append tracking info
+        tracking_info = f"\n\n[CP Total: {cp_total}]\n[Count: {cp_count}/10]"
+        return response + tracking_info
+    
+    def update_cp_tracking(self, response: str, channel_id: int, is_new_response: bool = True) -> None:
+        """Update CP tracking based on response.
+        
+        Args:
+            response: The AI's response text (before appending tracking)
+            channel_id: The Discord channel ID
+            is_new_response: Whether this is a new response (vs a swipe)
+        """
+        cp_config = self.config_manager.get("cp_tracking", {})
+        if not cp_config.get("enabled", False):
+            return
+        
+        # Initialize if needed
+        if channel_id not in self.cp_totals:
+            self.cp_totals[channel_id] = cp_config.get("cp_total", 0)
+        if channel_id not in self.cp_counts:
+            self.cp_counts[channel_id] = 0
+        
+        # Extract CP from response
+        cp_from_response = self.extract_cp_from_response(response)
+        
+        # Update CP total with extracted CP
+        if cp_from_response > 0:
+            self.cp_totals[channel_id] += cp_from_response
+        
+        # Only increment count for new responses, not swipes
+        if is_new_response:
+            self.cp_counts[channel_id] += 1
+            
+            # Check if we reached 10
+            if self.cp_counts[channel_id] >= 10:
+                cp_per_count = cp_config.get("cp_per_count", 100)
+                self.cp_totals[channel_id] += cp_per_count
+                self.cp_counts[channel_id] = 1  # Reset to 1, not 0
+    
+    def recalculate_cp_for_swipe(self, response: str, channel_id: int) -> None:
+        """Recalculate CP total when swiping to a different response.
+        
+        This gets the base CP from the previous response (stored) and
+        adds any CP from the current response.
+        
+        Args:
+            response: The swiped response text
+            channel_id: The Discord channel ID
+        """
+        cp_config = self.config_manager.get("cp_tracking", {})
+        if not cp_config.get("enabled", False):
+            return
+        
+        # Get base CP from last response (before the current swipe set)
+        # We need to get CP total from before the current response alternatives
+        if channel_id in self.response_alternatives and len(self.response_alternatives[channel_id]) > 0:
+            # If we have alternatives, we should use the CP from before this set of alternatives
+            # For now, just recalculate from the swiped response
+            cp_from_response = self.extract_cp_from_response(response)
+            
+            # We need to track the "base" CP for each response set
+            # For simplicity, we'll get the previous response's CP total
+            # This is stored in the last_response_text
+            if channel_id in self.last_response_text:
+                # Extract old CP total from last response text
+                match = re.search(r'\[CP Total: (\d+)\]', self.last_response_text[channel_id])
+                if match:
+                    base_cp = int(match.group(1))
+                    # Set current to base + new CP
+                    self.cp_totals[channel_id] = base_cp + cp_from_response
+    
+    def get_cp_tracking_prompt(self) -> str:
+        """Get the system prompt for CP tracking if enabled.
+        
+        Returns:
+            The CP tracking prompt or empty string if disabled
+        """
+        cp_config = self.config_manager.get("cp_tracking", {})
+        if not cp_config.get("enabled", False):
+            return ""
+        
+        return (
+            "\n\nIMPORTANT: At the end of your response, make a note of any Creation Points (CP) "
+            "that would be awarded for achievements or actions carried out in your response. "
+            "Use the format '+X CP' where X is the amount awarded."
+        )
+    
     async def load_channel_history(self, channel, limit: int = 50) -> List[Dict[str, str]]:
         """Load recent !chat messages from channel history to build context.
         
@@ -1028,6 +1187,15 @@ class DiscordBot(commands.Bot):
                 # Apply thinking filter
                 full_response, filtered_response = self.filter_thinking_tags(response)
                 
+                # Update CP tracking (this is a new response, not a swipe)
+                self.update_cp_tracking(filtered_response, channel_id, is_new_response=True)
+                
+                # Append CP tracking info to the filtered response
+                filtered_response_with_cp = self.append_cp_tracking(filtered_response, channel_id)
+                
+                # Store the response with CP info for future reference
+                self.last_response_text[channel_id] = filtered_response_with_cp
+                
                 # Log full response to console if filtering is active
                 thinking_config = self.config_manager.get("thinking_filter", {})
                 if thinking_config.get("enabled", False) and full_response != filtered_response:
@@ -1038,7 +1206,7 @@ class DiscordBot(commands.Bot):
                     print(f"{'='*60}")
                     print(f"FILTERED RESPONSE (sent to Discord):")
                     print(f"{'='*60}")
-                    print(filtered_response)
+                    print(filtered_response_with_cp)
                     print(f"{'='*60}\n")
                 
                 # Update conversation history with full response (unfiltered)
@@ -1063,7 +1231,7 @@ class DiscordBot(commands.Bot):
                         self.response_alternatives[channel_id] = self.response_alternatives[channel_id][-10:]
                 
                 # Send response - use webhook if character is loaded for this channel
-                # Use filtered_response for what's actually sent to Discord
+                # Use filtered_response_with_cp for what's actually sent to Discord
                 if channel_id in self.channel_characters:
                     # Try to send via webhook with character's avatar
                     character_data = self.channel_characters[channel_id]
@@ -1071,7 +1239,7 @@ class DiscordBot(commands.Bot):
                     view = SwipeButtonView(self, channel_id)
                     last_msg, msg_ids = await self.send_as_character(
                         ctx.channel, 
-                        filtered_response, 
+                        filtered_response_with_cp, 
                         character_data,
                         view=view
                     )
@@ -1081,7 +1249,7 @@ class DiscordBot(commands.Bot):
                 else:
                     # No character loaded, send normal message - use embeds
                     view = SwipeButtonView(self, channel_id)
-                    last_msg, msg_ids = await send_long_message_with_view(ctx.channel, filtered_response, view=view)
+                    last_msg, msg_ids = await send_long_message_with_view(ctx.channel, filtered_response_with_cp, view=view)
                     # Update view with message IDs for multi-page swipe support
                     if msg_ids:
                         view.message_ids = msg_ids
@@ -1888,6 +2056,11 @@ FORMAT GUIDELINES:
                     if lorebook_section:
                         enhanced_content += "\n\n" + lorebook_section
                     
+                    # Add CP tracking prompt if enabled
+                    cp_prompt = self.get_cp_tracking_prompt()
+                    if cp_prompt:
+                        enhanced_content += cp_prompt
+                    
                     messages.append({"role": role, "content": enhanced_content})
                 else:
                     # User or assistant messages
@@ -1932,6 +2105,11 @@ FORMAT GUIDELINES:
             lorebook_section = self.lorebook_manager.get_system_prompt_section(user_message, current_character_name)
             if lorebook_section:
                 enhanced_system_prompt += "\n\n" + lorebook_section
+            
+            # Add CP tracking prompt if enabled
+            cp_prompt = self.get_cp_tracking_prompt()
+            if cp_prompt:
+                enhanced_system_prompt += cp_prompt
             
             # Add the system message
             if enhanced_system_prompt:
