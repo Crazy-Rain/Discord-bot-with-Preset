@@ -346,6 +346,38 @@
                 </div>
             </div>
             
+            <h3>Thinking Filter</h3>
+            <p style="color: #666; margin-bottom: 15px;">Filter out thinking/reasoning tags from responses before sending to Discord. The full response (with thinking tags) will still be logged to the console and stored in conversation history.</p>
+            
+            <div class="form-group">
+                <label style="display: flex; align-items: center; gap: 10px;">
+                    <input type="checkbox" id="thinking-filter-enabled" style="width: auto;">
+                    <span>Enable Thinking Filter</span>
+                </label>
+            </div>
+            
+            <div class="grid">
+                <div class="form-group">
+                    <label>Start Thinking Tag</label>
+                    <input type="text" id="thinking-start-tag" placeholder="<think>" value="<think>">
+                    <small style="color: #666; display: block; margin-top: 5px;">Tag that marks the beginning of thinking content</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>End Thinking Tag</label>
+                    <input type="text" id="thinking-end-tag" placeholder="</think>" value="</think>">
+                    <small style="color: #666; display: block; margin-top: 5px;">Tag that marks the end of thinking content</small>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Console Preview</label>
+                <textarea id="console-preview" readonly style="background: #f5f5f5; font-family: monospace; min-height: 150px; resize: vertical;" placeholder="Full responses (with thinking tags) will be shown here and logged to the console when filtering is enabled..."></textarea>
+                <small style="color: #666; display: block; margin-top: 5px;">
+                    This preview shows the full response before filtering. When filtering is enabled, the bot will log both the full response and filtered response to the console.
+                </small>
+            </div>
+            
             <button class="btn btn-primary" onclick="saveConfig()">Save Configuration</button>
             <button class="btn btn-secondary" onclick="loadConfig()">Reload</button>
         </div>
@@ -790,6 +822,12 @@
                 updateSlider('freq', preset.frequency_penalty || 0.0);
                 updateSlider('pres', preset.presence_penalty || 0.0);
                 
+                // Load thinking filter settings
+                const thinkingFilter = config.thinking_filter || {};
+                document.getElementById('thinking-filter-enabled').checked = thinkingFilter.enabled || false;
+                document.getElementById('thinking-start-tag').value = thinkingFilter.start_tag || '<think>';
+                document.getElementById('thinking-end-tag').value = thinkingFilter.end_tag || '</think>';
+                
                 showMessage('config-message', 'Configuration loaded', 'success');
             } catch (error) {
                 showMessage('config-message', 'Error loading configuration: ' + error.message, 'error');
@@ -804,6 +842,11 @@
                         api_key: document.getElementById('api-key').value,
                         base_url: document.getElementById('base-url').value,
                         model: document.getElementById('model').value
+                    },
+                    thinking_filter: {
+                        enabled: document.getElementById('thinking-filter-enabled').checked,
+                        start_tag: document.getElementById('thinking-start-tag').value,
+                        end_tag: document.getElementById('thinking-end-tag').value
                     },
                     default_preset: {
                         system_prompt: document.getElementById('system-prompt').value,
