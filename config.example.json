@@ -1,7 +1,6 @@
 {
   "discord_token": "YOUR_DISCORD_BOT_TOKEN",
   "openai_config": {
-    "api_key": "none",
     "base_url": "https://api.openai.com/v1",
     "model": "gpt-3.5-turbo"
   },
@@ -14,13 +13,14 @@
     "start_tag": "<think>",
     "end_tag": "</think>"
   },
+  "auto_context_limit": 50,
   "default_preset": {
+    "system_prompt": "You are a helpful AI assistant.",
     "temperature": 0.7,
-    "max_tokens": 2000,
+    "max_tokens": 2100,
     "max_response_length": 2000,
-    "top_p": 1.0,
-    "frequency_penalty": 0.0,
-    "presence_penalty": 0.0,
-    "system_prompt": "You are a helpful AI assistant."
+    "top_p": 1,
+    "frequency_penalty": 0,
+    "presence_penalty": 0
   }
 }

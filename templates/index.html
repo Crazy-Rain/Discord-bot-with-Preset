@@ -378,6 +378,17 @@
                 </small>
             </div>
             
+            <h3>Auto Context Loading</h3>
+            <p style="color: #666; margin-bottom: 15px;">Configure how many messages are automatically loaded from channel history when starting a new conversation. This provides context from previous messages even after bot restarts.</p>
+            
+            <div class="slider-container">
+                <label>Auto Context Limit: <span class="slider-value" id="auto-context-value">50</span> messages</label>
+                <input type="range" id="auto-context-limit" min="50" max="5000" step="50" value="50" oninput="updateSlider('auto-context', this.value)">
+                <small style="color: #666; display: block; margin-top: 5px;">
+                    Number of messages to automatically load from channel history. Higher values provide more context but take longer to load. Can also be set via Discord using !setcontext command.
+                </small>
+            </div>
+            
             <button class="btn btn-primary" onclick="saveConfig()">Save Configuration</button>
             <button class="btn btn-secondary" onclick="loadConfig()">Reload</button>
         </div>
@@ -828,6 +839,11 @@
                 document.getElementById('thinking-start-tag').value = thinkingFilter.start_tag || '<think>';
                 document.getElementById('thinking-end-tag').value = thinkingFilter.end_tag || '</think>';
                 
+                // Load auto context limit
+                const autoContextLimit = config.auto_context_limit || 50;
+                document.getElementById('auto-context-limit').value = autoContextLimit;
+                updateSlider('auto-context', autoContextLimit);
+                
                 showMessage('config-message', 'Configuration loaded', 'success');
             } catch (error) {
                 showMessage('config-message', 'Error loading configuration: ' + error.message, 'error');
@@ -848,6 +864,7 @@
                         start_tag: document.getElementById('thinking-start-tag').value,
                         end_tag: document.getElementById('thinking-end-tag').value
                     },
+                    auto_context_limit: parseInt(document.getElementById('auto-context-limit').value),
                     default_preset: {
                         system_prompt: document.getElementById('system-prompt').value,
                         temperature: parseFloat(document.getElementById('temperature').value),

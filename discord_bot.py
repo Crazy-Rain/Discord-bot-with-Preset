@@ -550,6 +550,11 @@ class DiscordBot(commands.Bot):
         # Cache webhooks per channel to avoid recreating them
         self.channel_webhooks: Dict[int, discord.Webhook] = {}
         
+        # Auto context limit for automatic history loading (default 50, range 50-5000)
+        self.auto_context_limit = config.get("auto_context_limit", 50)
+        # Validate and clamp the limit
+        self.auto_context_limit = max(50, min(5000, self.auto_context_limit))
+        
         # Add commands
         self.add_bot_commands()
     
@@ -981,7 +986,7 @@ class DiscordBot(commands.Bot):
             if not self.conversations[channel_id]:
                 history_messages, history_character_names = await self.load_channel_history(
                     ctx.channel, 
-                    limit=50  # Fetch up to 50 recent messages
+                    limit=self.auto_context_limit  # Use configurable auto context limit
                 )
                 self.conversations[channel_id] = history_messages
                 # Merge character names found in history
@@ -1142,6 +1147,36 @@ class DiscordBot(commands.Bot):
                     response += f"- No character names found"
                 
                 await ctx.send(response)
+        
+        @self.command(name="setcontext", help="Set automatic context limit (50-5000)")
+        async def setcontext(ctx, limit: int):
+            """Set the automatic context limit for loading channel history.
+            
+            This sets how many messages are automatically loaded from channel history
+            when starting a new conversation. The setting is saved permanently.
+            
+            Args:
+                limit: Number of messages to auto-load (min: 50, max: 5000)
+            """
+            # Validate the limit
+            if limit < 50:
+                await ctx.send(f"❌ Limit too low! Minimum is 50 messages.")
+                return
+            if limit > 5000:
+                await ctx.send(f"❌ Limit too high! Maximum is 5000 messages.")
+                return
+            
+            # Update the bot's auto context limit
+            self.auto_context_limit = limit
+            
+            # Save to config file
+            self.config_manager.set("auto_context_limit", limit)
+            
+            await ctx.send(
+                f"✅ Auto context limit set to **{limit}** messages!\n"
+                f"This will be used when automatically loading channel history.\n"
+                f"The setting has been saved to config and will persist across bot restarts."
+            )
         
         @self.command(name="preset", help="Load a preset")
         async def preset(ctx, preset_name: str):
@@ -1457,6 +1492,7 @@ class DiscordBot(commands.Bot):
 `!chat <message>` - Chat with the AI
 `!clear` - Clear conversation history and character names
 `!reload_history [limit]` - Reload conversation from channel history (default: 50 messages)
+`!setcontext <limit>` - Set auto context limit (50-5000, persists across restarts)
 `!preset <name>` - Load a preset
 `!presets` - List available presets
 `!character <name>` - Load a character card for this channel (uses webhooks)
@@ -1485,7 +1521,7 @@ Load different characters in different channels! When you load a character in a 
 Example: `!character luna` loads Luna for this channel only
 
 **Context & History:**
-The bot automatically loads recent !chat messages from the channel when starting a new conversation. This means past conversations persist even after bot restart. Use `!reload_history` to manually refresh the context from channel history.
+The bot automatically loads recent !chat messages from the channel when starting a new conversation. This means past conversations persist even after bot restart. Use `!reload_history` to manually refresh the context from channel history. You can also use `!setcontext <limit>` to change how many messages are automatically loaded (50-5000).
 
 **Character Name Feature:**
 You can identify yourself as a character by using the format:
@@ -1535,7 +1571,7 @@ Visit http://localhost:5000 to configure the bot via web interface.
             if not self.conversations[channel_id]:
                 history_messages, history_character_names = await self.load_channel_history(
                     ctx.channel, 
-                    limit=50
+                    limit=self.auto_context_limit  # Use configurable auto context limit
                 )
                 self.conversations[channel_id] = history_messages
                 for char_name in history_character_names:
