@@ -23,8 +23,15 @@ A feature-rich Discord bot with OpenAI-compatible API integration, preset manage
 - 📚 **Lorebook System** - Add world-building and lore information that's contextually included (like SillyTavern)
   - **NEW**: Manage multiple lorebooks, enable/disable them individually, and swap between settings!
 - 🔄 **Context Persistence** - Automatically loads channel history to maintain conversation context across bot restarts
-  - **NEW**: Configurable auto context limit (50-5000 messages) via `!setcontext` command or web UI
+  - **NEW**: Configurable auto context limit (10-8000 messages) via `!setcontext` command or web UI
+  - **NEW**: Slider step changed to 10 for finer control (was 50)
   - **NEW**: Setting persists across bot restarts
+- 🏆 **Creation Points (CP) Tracking** - Automatic point tracking system for achievements and progress
+  - **NEW**: AI automatically notes CP awards in responses
+  - **NEW**: Tracks CP totals and response counts per channel
+  - **NEW**: Configurable bonus CP every 10 responses
+  - **NEW**: Manual CP total adjustments via web UI
+  - **NEW**: Swipe-compatible (recalculates CP per alternative)
 - 🌐 **Web Configuration Interface** - Beautiful web UI to manage all settings, presets, characters, and lorebook
 - 💾 **Import/Export** - Full import/export functionality for presets, character cards, user characters, and lorebook
 - 🔄 **Swipe Functionality** - Generate and navigate through alternative AI responses (like SillyTavern)
@@ -419,7 +426,8 @@ Discord-bot-with-Preset/
 
 - **[API Configuration Guide](API_CONFIG_GUIDE.md)** - **NEW!** Save and manage multiple API configurations
 - **[SillyTavern Presets Guide](SILLYTAVERN_PRESETS_GUIDE.md)** - **NEW!** Complete guide to the advanced preset system
-- **[Auto Context Limit Guide](AUTO_CONTEXT_LIMIT.md)** - **NEW!** Configure automatic context loading (50-5000 messages)
+- **[Auto Context Limit Guide](AUTO_CONTEXT_LIMIT.md)** - **NEW!** Configure automatic context loading (10-8000 messages)
+- **[Creation Points (CP) Tracking Guide](CP_TRACKING_GUIDE.md)** - **NEW!** Automatic point tracking for achievements and progress
 - **[Context Management Guide](CONTEXT_MANAGEMENT.md)** - How the bot handles conversation history and channel context
 - **[Lorebook Guide](LOREBOOK_GUIDE.md)** - Complete guide to using the lorebook feature
 - **[User Characters Guide](USER_CHARACTERS_GUIDE.md)** - Guide for user character descriptions
