@@ -6,6 +6,9 @@ A feature-rich Discord bot with OpenAI-compatible API integration, preset manage
 
 - 🤖 **Discord Bot Integration** - Full-featured Discord bot with conversation history
 - 🔌 **Custom OpenAI-Compatible API** - Connect to any OpenAI-compatible endpoint (OpenAI, LM Studio, Ollama, Text Generation WebUI, etc.)
+  - **NEW**: Save and load multiple API configurations for quick switching between providers!
+  - **NEW**: Manage multiple proxies and models with a simple dropdown!
+  - **NEW**: Securely store API keys (hidden in UI, separate from bot settings)!
 - 🎨 **Advanced Preset System** - SillyTavern-style presets with proper role separation for optimal AI performance
   - **NEW**: Separate system, user, and assistant message roles
   - **NEW**: Character card integration with example dialogues
@@ -414,6 +417,7 @@ Discord-bot-with-Preset/
 
 ## 📚 Documentation
 
+- **[API Configuration Guide](API_CONFIG_GUIDE.md)** - **NEW!** Save and manage multiple API configurations
 - **[SillyTavern Presets Guide](SILLYTAVERN_PRESETS_GUIDE.md)** - **NEW!** Complete guide to the advanced preset system
 - **[Auto Context Limit Guide](AUTO_CONTEXT_LIMIT.md)** - **NEW!** Configure automatic context loading (50-5000 messages)
 - **[Context Management Guide](CONTEXT_MANAGEMENT.md)** - How the bot handles conversation history and channel context
