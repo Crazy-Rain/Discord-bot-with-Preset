@@ -118,11 +118,12 @@ def smart_split_text(text: str, max_length: int = 4096, prefer_length: int = 390
 class SwipeButtonView(discord.ui.View):
     """View with swipe navigation buttons."""
     
-    def __init__(self, bot, channel_id: int, message_id: int = None):
+    def __init__(self, bot, channel_id: int, message_id: int = None, message_ids: List[int] = None):
         super().__init__(timeout=None)  # No timeout for persistent buttons
         self.bot = bot
         self.channel_id = channel_id
-        self.message_id = message_id  # Store message ID for editing
+        self.message_id = message_id  # Store message ID for editing (deprecated, use message_ids)
+        self.message_ids = message_ids or []  # Store all message IDs for multi-page responses
     
     @discord.ui.button(label="◀ Swipe Left", style=discord.ButtonStyle.secondary, custom_id="swipe_left")
     async def swipe_left_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -150,19 +151,26 @@ class SwipeButtonView(discord.ui.View):
         
         alt_count = len(self.bot.response_alternatives[self.channel_id][-1])
         
-        # Edit the existing message instead of sending a new one
+        # Replace all messages (handles multi-page responses)
         try:
+            channel = interaction.channel
             if self.channel_id in self.bot.channel_characters:
-                # Edit webhook message
+                # Replace webhook messages
                 character_data = self.bot.channel_characters[self.channel_id]
-                await self.bot.edit_as_character(interaction.message, response, character_data, view=self)
+                last_msg, new_ids = await self.bot.replace_as_character(
+                    channel, self.message_ids, response, character_data, view=self
+                )
+                # Update message IDs for next swipe
+                self.message_ids = new_ids
             else:
-                # Edit regular message
-                await edit_long_message(interaction.message, response, view=self)
+                # Replace regular messages
+                new_ids = await replace_multi_page_message(channel, self.message_ids, response, view=self)
+                # Update message IDs for next swipe
+                self.message_ids = new_ids
             
             await interaction.followup.send(f"*Alternative {current_idx + 1}/{alt_count}*", ephemeral=True)
         except Exception as e:
-            await interaction.followup.send(f"Error editing message: {str(e)}", ephemeral=True)
+            await interaction.followup.send(f"Error updating message: {str(e)}", ephemeral=True)
     
     @discord.ui.button(label="🔄 Swipe", style=discord.ButtonStyle.primary, custom_id="swipe")
     async def swipe_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -226,17 +234,24 @@ class SwipeButtonView(discord.ui.View):
             alt_count = len(self.bot.response_alternatives[self.channel_id][-1])
             current_idx = self.bot.current_alternative_index[self.channel_id]
             
-            # Edit the existing message instead of sending a new one
+            # Replace all messages (handles multi-page responses)
             try:
+                channel = interaction.channel
                 if self.channel_id in self.bot.channel_characters:
                     character_data = self.bot.channel_characters[self.channel_id]
-                    await self.bot.edit_as_character(interaction.message, response, character_data, view=self)
+                    last_msg, new_ids = await self.bot.replace_as_character(
+                        channel, self.message_ids, response, character_data, view=self
+                    )
+                    # Update message IDs for next swipe
+                    self.message_ids = new_ids
                 else:
-                    await edit_long_message(interaction.message, response, view=self)
+                    new_ids = await replace_multi_page_message(channel, self.message_ids, response, view=self)
+                    # Update message IDs for next swipe
+                    self.message_ids = new_ids
                 
                 await interaction.followup.send(f"*Alternative {current_idx + 1}/{alt_count}*", ephemeral=True)
             except Exception as e:
-                await interaction.followup.send(f"Error editing message: {str(e)}", ephemeral=True)
+                await interaction.followup.send(f"Error updating message: {str(e)}", ephemeral=True)
         
         except Exception as e:
             await interaction.followup.send(f"Error generating alternative: {str(e)}", ephemeral=True)
@@ -267,49 +282,63 @@ class SwipeButtonView(discord.ui.View):
         
         alt_count = len(self.bot.response_alternatives[self.channel_id][-1])
         
-        # Edit the existing message instead of sending a new one
+        # Replace all messages (handles multi-page responses)
         try:
+            channel = interaction.channel
             if self.channel_id in self.bot.channel_characters:
-                # Edit webhook message
+                # Replace webhook messages
                 character_data = self.bot.channel_characters[self.channel_id]
-                await self.bot.edit_as_character(interaction.message, response, character_data, view=self)
+                last_msg, new_ids = await self.bot.replace_as_character(
+                    channel, self.message_ids, response, character_data, view=self
+                )
+                # Update message IDs for next swipe
+                self.message_ids = new_ids
             else:
-                # Edit regular message
-                await edit_long_message(interaction.message, response, view=self)
+                # Replace regular messages
+                new_ids = await replace_multi_page_message(channel, self.message_ids, response, view=self)
+                # Update message IDs for next swipe
+                self.message_ids = new_ids
             
             await interaction.followup.send(f"*Alternative {current_idx + 1}/{alt_count}*", ephemeral=True)
         except Exception as e:
-            await interaction.followup.send(f"Error editing message: {str(e)}", ephemeral=True)
+            await interaction.followup.send(f"Error updating message: {str(e)}", ephemeral=True)
     
     @discord.ui.button(label="🗑️ Delete", style=discord.ButtonStyle.danger, custom_id="delete")
     async def delete_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        """Delete the message."""
+        """Delete all pages of the message."""
         try:
-            await interaction.message.delete()
-        except:
-            await interaction.response.send_message("Failed to delete message.", ephemeral=True)
+            # Delete all pages
+            channel = interaction.channel
+            if self.channel_id in self.bot.channel_characters:
+                # Delete webhook messages
+                webhook = self.bot.channel_webhooks.get(self.channel_id)
+                if webhook:
+                    for msg_id in self.message_ids:
+                        try:
+                            await webhook.delete_message(msg_id)
+                        except:
+                            pass
+            else:
+                # Delete regular messages
+                for msg_id in self.message_ids:
+                    try:
+                        msg = await channel.fetch_message(msg_id)
+                        await msg.delete()
+                    except:
+                        pass
+            await interaction.response.send_message("Message deleted.", ephemeral=True)
+        except Exception as e:
+            await interaction.response.send_message(f"Failed to delete message: {str(e)}", ephemeral=True)
     
     @discord.ui.button(label="✅ Done", style=discord.ButtonStyle.success, custom_id="done")
     async def done_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        """Finish swiping and remove the buttons."""
+        """Finish swiping and remove the buttons from the last message."""
         try:
-            # Remove the buttons by editing the message without a view
-            if self.channel_id in self.bot.channel_characters:
-                # For webhook messages, we need to get the current content
-                current_embed = interaction.message.embeds[0] if interaction.message.embeds else None
-                if current_embed:
-                    character_data = self.bot.channel_characters[self.channel_id]
-                    await self.bot.edit_as_character(
-                        interaction.message,
-                        current_embed.description,
-                        character_data,
-                        view=None
-                    )
-            else:
-                # For regular messages
-                current_embed = interaction.message.embeds[0] if interaction.message.embeds else None
-                if current_embed:
-                    await edit_long_message(interaction.message, current_embed.description, view=None)
+            # Remove the buttons by editing only the last message (the one with buttons)
+            current_embed = interaction.message.embeds[0] if interaction.message.embeds else None
+            if current_embed:
+                # Edit just the message with buttons to remove the view
+                await interaction.message.edit(embed=current_embed, view=None)
             
             await interaction.response.send_message("Swipe session ended. Buttons removed.", ephemeral=True)
         except Exception as e:
@@ -357,8 +386,9 @@ async def send_long_message_with_view(channel, content: str, view: discord.ui.Vi
         view: Optional view with buttons to attach to the last message
         
     Returns:
-        The sent message object
+        Tuple of (last_message, list of all message IDs)
     """
+    message_ids = []
     if len(content) > 4096:
         # Use smart splitting to preserve markdown formatting
         chunks = smart_split_text(content, max_length=4096, prefer_length=3900)
@@ -371,13 +401,16 @@ async def send_long_message_with_view(channel, content: str, view: discord.ui.Vi
             # Only add view to the last chunk
             if i == len(chunks) - 1 and view:
                 last_message = await channel.send(embed=embed, view=view)
+                message_ids.append(last_message.id)
             else:
-                await channel.send(embed=embed)
-        return last_message
+                msg = await channel.send(embed=embed)
+                message_ids.append(msg.id)
+        return last_message, message_ids
     else:
         # Single embed for content under 4096 characters
         embed = discord.Embed(description=content, color=0x2b2d31)
-        return await channel.send(embed=embed, view=view)
+        last_message = await channel.send(embed=embed, view=view)
+        return last_message, [last_message.id]
 
 
 async def edit_long_message(message, content: str, view: discord.ui.View = None):
@@ -401,6 +434,54 @@ async def edit_long_message(message, content: str, view: discord.ui.View = None)
         # Single embed for content under 4096 characters
         embed = discord.Embed(description=content, color=0x2b2d31)
         await message.edit(embed=embed, view=view)
+
+
+async def replace_multi_page_message(channel, old_message_ids: List[int], content: str, view: discord.ui.View = None):
+    """Replace multi-page messages by deleting old ones and sending new ones.
+    
+    This is used when swiping through alternatives that may have different page counts.
+    
+    Args:
+        channel: Discord channel object
+        old_message_ids: List of message IDs to delete (all pages of the old response)
+        content: The new message content
+        view: Optional view with buttons to attach to the last message
+        
+    Returns:
+        List of new message IDs
+    """
+    # Delete old messages
+    for msg_id in old_message_ids:
+        try:
+            msg = await channel.fetch_message(msg_id)
+            await msg.delete()
+        except:
+            pass  # Message might already be deleted
+    
+    # Send new messages
+    new_message_ids = []
+    if len(content) > 4096:
+        # Use smart splitting to preserve markdown formatting
+        chunks = smart_split_text(content, max_length=4096, prefer_length=3900)
+        for i, chunk in enumerate(chunks):
+            embed = discord.Embed(description=chunk, color=0x2b2d31)
+            # Add page indicator if multiple chunks
+            if len(chunks) > 1:
+                embed.set_footer(text=f"Page {i+1}/{len(chunks)}")
+            # Only add view to the last chunk
+            if i == len(chunks) - 1 and view:
+                msg = await channel.send(embed=embed, view=view)
+                new_message_ids.append(msg.id)
+            else:
+                msg = await channel.send(embed=embed)
+                new_message_ids.append(msg.id)
+    else:
+        # Single embed for content under 4096 characters
+        embed = discord.Embed(description=content, color=0x2b2d31)
+        msg = await channel.send(embed=embed, view=view)
+        new_message_ids.append(msg.id)
+    
+    return new_message_ids
 
 
 class DiscordBot(commands.Bot):
@@ -560,11 +641,11 @@ class DiscordBot(commands.Bot):
             view: Optional view with buttons to attach to the last message
             
         Returns:
-            The sent message object if successful, None otherwise
+            Tuple of (last_message, list of all message IDs) if successful, (None, []) otherwise
         """
         webhook = await self.get_or_create_webhook(channel)
         if not webhook:
-            return None
+            return None, []
         
         try:
             # Get character name and avatar
@@ -585,6 +666,7 @@ class DiscordBot(commands.Bot):
             # Use embeds for better formatting and higher character limit (4096 vs 2000)
             # Split intelligently if content exceeds embed description limit
             last_message = None
+            message_ids = []
             if len(content) > 4096:
                 # Use smart splitting to preserve markdown formatting
                 chunks = smart_split_text(content, max_length=4096, prefer_length=3900)
@@ -600,11 +682,13 @@ class DiscordBot(commands.Bot):
                             view=view,
                             **webhook_params
                         )
+                        message_ids.append(last_message.id)
                     else:
-                        await webhook.send(
+                        msg = await webhook.send(
                             embed=embed,
                             **webhook_params
                         )
+                        message_ids.append(msg.id)
             else:
                 # Single embed for content under 4096 characters
                 embed = discord.Embed(description=content, color=0x2b2d31)
@@ -613,10 +697,11 @@ class DiscordBot(commands.Bot):
                     view=view,
                     **webhook_params
                 )
-            return last_message
+                message_ids.append(last_message.id)
+            return last_message, message_ids
         except Exception as e:
             print(f"Error sending webhook message: {e}")
-            return None
+            return None, []
     
     async def edit_as_character(
         self,
@@ -666,6 +751,45 @@ class DiscordBot(commands.Bot):
         except Exception as e:
             print(f"Error editing webhook message: {e}")
             return None
+    
+    async def replace_as_character(
+        self,
+        channel: discord.TextChannel,
+        old_message_ids: List[int],
+        content: str,
+        character_data: Dict[str, any],
+        view: discord.ui.View = None
+    ):
+        """Replace multi-page webhook messages by deleting old ones and sending new ones.
+        
+        This is used when swiping through alternatives that may have different page counts.
+        
+        Args:
+            channel: The channel containing the messages
+            old_message_ids: List of message IDs to delete (all pages of the old response)
+            content: The new message content
+            character_data: Character data including name and avatar_url
+            view: Optional view with buttons to attach to the last message
+            
+        Returns:
+            Tuple of (last_message, list of new message IDs)
+        """
+        webhook = self.channel_webhooks.get(channel.id)
+        if not webhook:
+            webhook = await self.get_or_create_webhook(channel)
+        
+        if not webhook:
+            return None, []
+        
+        # Delete old messages
+        for msg_id in old_message_ids:
+            try:
+                await webhook.delete_message(msg_id)
+            except:
+                pass  # Message might already be deleted
+        
+        # Send new messages using send_as_character
+        return await self.send_as_character(channel, content, character_data, view)
     
     def update_openai_config(self, api_key: str = None, base_url: str = None, model: str = None):
         """Update OpenAI client configuration dynamically.
@@ -855,27 +979,27 @@ class DiscordBot(commands.Bot):
                         self.response_alternatives[channel_id] = self.response_alternatives[channel_id][-10:]
                 
                 # Send response - use webhook if character is loaded for this channel
-                # Create swipe button view
-                view = SwipeButtonView(self, channel_id)
-                
                 if channel_id in self.channel_characters:
                     # Try to send via webhook with character's avatar
                     character_data = self.channel_characters[channel_id]
-                    webhook_sent = await self.send_as_character(
+                    # Create view first (will update message_ids after sending)
+                    view = SwipeButtonView(self, channel_id)
+                    last_msg, msg_ids = await self.send_as_character(
                         ctx.channel, 
                         response, 
                         character_data,
                         view=view
                     )
-                    if webhook_sent:
-                        # Message sent successfully via webhook
-                        pass
-                    else:
-                        # Fallback to normal message if webhook fails - use embeds
-                        await send_long_message(ctx, response, view=view)
+                    # Update view with message IDs for multi-page swipe support
+                    if msg_ids:
+                        view.message_ids = msg_ids
                 else:
                     # No character loaded, send normal message - use embeds
-                    await send_long_message(ctx, response, view=view)
+                    view = SwipeButtonView(self, channel_id)
+                    last_msg, msg_ids = await send_long_message_with_view(ctx.channel, response, view=view)
+                    # Update view with message IDs for multi-page swipe support
+                    if msg_ids:
+                        view.message_ids = msg_ids
             
             except Exception as e:
                 await ctx.send(f"Error: {str(e)}")
@@ -1405,24 +1529,26 @@ Visit http://localhost:5000 to configure the bot via web interface.
                 current_idx = self.current_alternative_index[channel_id]
                 
                 # Send response - use webhook if character is loaded for this channel
-                # Create swipe button view
-                view = SwipeButtonView(self, channel_id)
-                
                 if channel_id in self.channel_characters:
                     # Try to send via webhook with character's avatar
                     character_data = self.channel_characters[channel_id]
-                    webhook_sent = await self.send_as_character(
+                    view = SwipeButtonView(self, channel_id)
+                    last_msg, msg_ids = await self.send_as_character(
                         ctx.channel, 
                         response, 
                         character_data,
                         view=view
                     )
-                    if not webhook_sent:
-                        # Fallback to normal message if webhook fails - use embeds
-                        await send_long_message(ctx, response, view=view)
+                    # Update view with message IDs for multi-page swipe support
+                    if msg_ids:
+                        view.message_ids = msg_ids
                 else:
                     # No character loaded, send normal message - use embeds
-                    await send_long_message(ctx, response, view=view)
+                    view = SwipeButtonView(self, channel_id)
+                    last_msg, msg_ids = await send_long_message_with_view(ctx.channel, response, view=view)
+                    # Update view with message IDs for multi-page swipe support
+                    if msg_ids:
+                        view.message_ids = msg_ids
                 
                 await ctx.send(f"*Alternative {current_idx + 1}/{alt_count}*")
             
@@ -1456,24 +1582,26 @@ Visit http://localhost:5000 to configure the bot via web interface.
             alt_count = len(self.response_alternatives[channel_id][-1])
             
             # Send response - use webhook if character is loaded for this channel
-            # Create swipe button view
-            view = SwipeButtonView(self, channel_id)
-            
             if channel_id in self.channel_characters:
                 # Try to send via webhook with character's avatar
                 character_data = self.channel_characters[channel_id]
-                webhook_sent = await self.send_as_character(
+                view = SwipeButtonView(self, channel_id)
+                last_msg, msg_ids = await self.send_as_character(
                     ctx.channel, 
                     response, 
                     character_data,
                     view=view
                 )
-                if not webhook_sent:
-                    # Fallback to normal message if webhook fails - use embeds
-                    await send_long_message(ctx, response, view=view)
+                # Update view with message IDs for multi-page swipe support
+                if msg_ids:
+                    view.message_ids = msg_ids
             else:
                 # No character loaded, send normal message - use embeds
-                await send_long_message(ctx, response, view=view)
+                view = SwipeButtonView(self, channel_id)
+                last_msg, msg_ids = await send_long_message_with_view(ctx.channel, response, view=view)
+                # Update view with message IDs for multi-page swipe support
+                if msg_ids:
+                    view.message_ids = msg_ids
             
             await ctx.send(f"*Alternative {current_idx + 1}/{alt_count}*")
         
@@ -1521,7 +1649,11 @@ Visit http://localhost:5000 to configure the bot via web interface.
                     await send_long_message(ctx, response, view=view)
             else:
                 # No character loaded, send normal message - use embeds
-                await send_long_message(ctx, response, view=view)
+                view = SwipeButtonView(self, channel_id)
+                last_msg, msg_ids = await send_long_message_with_view(ctx.channel, response, view=view)
+                # Update view with message IDs for multi-page swipe support
+                if msg_ids:
+                    view.message_ids = msg_ids
             
             await ctx.send(f"*Alternative {current_idx + 1}/{alt_count}*")
     
