@@ -30,9 +30,9 @@
       "character": "luna"
     },
     "123457": {
-      "preset": "",
+      "preset": "analytical",
       "api_config": "",
-      "character": ""
+      "character": "sherlock"
     },
     "234567": {
       "preset": "sillytavern_style",
