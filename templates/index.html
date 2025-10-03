@@ -2921,6 +2921,19 @@
         }
         
         // Server/Channel configuration functions
+        function toggleServerChannels(serverId) {
+            const content = document.getElementById(`server-content-${serverId}`);
+            const icon = document.getElementById(`server-icon-${serverId}`);
+            
+            if (content.classList.contains('open')) {
+                content.classList.remove('open');
+                icon.classList.remove('open');
+            } else {
+                content.classList.add('open');
+                icon.classList.add('open');
+            }
+        }
+        
         async function loadServersList() {
             try {
                 const response = await fetch('/api/servers');
@@ -2949,19 +2962,17 @@
                 const charactersData = await charactersResponse.json();
                 const characters = charactersData.characters || [];
                 
-                servers.forEach(server => {
+                servers.forEach((server, index) => {
                     const serverSection = document.createElement('div');
-                    serverSection.style.cssText = 'background: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px;';
+                    serverSection.style.cssText = 'margin-bottom: 15px;';
                     
-                    let serverHtml = `
-                        <h3 style="margin-top: 0; color: #2c3e50;">🖥️ ${server.name}</h3>
-                    `;
+                    let channelsHtml = '';
                     
                     if (server.channels.length === 0) {
-                        serverHtml += '<p style="color: #666;">No text channels found.</p>';
+                        channelsHtml = '<p style="color: #666; padding: 15px;">No text channels found.</p>';
                     } else {
                         server.channels.forEach(channel => {
-                            serverHtml += `
+                            channelsHtml += `
                                 <div style="background: white; padding: 15px; border-radius: 5px; margin-bottom: 10px; border-left: 4px solid #667eea;">
                                     <h4 style="margin-top: 0; color: #34495e;"># ${channel.name}</h4>
                                     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 10px;">
@@ -2993,7 +3004,18 @@
                         });
                     }
                     
-                    serverSection.innerHTML = serverHtml;
+                    serverSection.innerHTML = `
+                        <div class="collapsible-header" onclick="toggleServerChannels('${server.id}')" style="display: flex; justify-content: space-between; align-items: center;">
+                            <h3 style="margin: 0;">🖥️ ${server.name}</h3>
+                            <span class="collapsible-icon" id="server-icon-${server.id}">▼</span>
+                        </div>
+                        <div class="collapsible-content" id="server-content-${server.id}" style="background: #f5f5f5; padding: 0; border-radius: 0 0 8px 8px;">
+                            <div style="padding: 20px;">
+                                ${channelsHtml}
+                            </div>
+                        </div>
+                    `;
+                    
                     listEl.appendChild(serverSection);
                 });
                 
