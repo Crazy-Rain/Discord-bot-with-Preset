@@ -2986,68 +2986,152 @@
             // Show loading state
             channelsContainer.innerHTML = '<p style="color: #666;">Loading channels...</p>';
             
+            // Load channels with pagination (default to page 1)
+            await loadServerChannelsPage(serverId, 1);
+        }
+        
+        async function loadServerChannelsPage(serverId, page = 1, search = '') {
+            const channelsContainer = document.getElementById(`server-channels-${serverId}`);
+            
             try {
-                // Load preset, API config, and character options
-                const presetsResponse = await fetch('/api/presets');
-                const presetsData = await presetsResponse.json();
-                const presets = presetsData.presets || [];
+                // Load preset, API config, and character options (cache these)
+                if (!window.channelConfigOptions) {
+                    const presetsResponse = await fetch('/api/presets');
+                    const presetsData = await presetsResponse.json();
+                    const presets = presetsData.presets || [];
+                    
+                    const apiConfigsResponse = await fetch('/api/api_configs');
+                    const apiConfigsData = await apiConfigsResponse.json();
+                    const apiConfigs = apiConfigsData.configs || [];
+                    
+                    const charactersResponse = await fetch('/api/characters');
+                    const charactersData = await charactersResponse.json();
+                    const characters = charactersData.characters || [];
+                    
+                    window.channelConfigOptions = { presets, apiConfigs, characters };
+                }
                 
-                const apiConfigsResponse = await fetch('/api/api_configs');
-                const apiConfigsData = await apiConfigsResponse.json();
-                const apiConfigs = apiConfigsData.configs || [];
+                const { presets, apiConfigs, characters } = window.channelConfigOptions;
                 
-                const charactersResponse = await fetch('/api/characters');
-                const charactersData = await charactersResponse.json();
-                const characters = charactersData.characters || [];
+                // Fetch channels for this server with pagination
+                const url = new URL(`/api/servers/${serverId}/channels`, window.location.origin);
+                url.searchParams.set('page', page);
+                url.searchParams.set('per_page', 100);
+                if (search) {
+                    url.searchParams.set('search', search);
+                }
                 
-                // Fetch channels for this server
-                const response = await fetch(`/api/servers/${serverId}/channels`);
+                const response = await fetch(url);
                 const data = await response.json();
                 const channels = data.channels || [];
+                const total = data.total || 0;
+                const currentPage = data.page || 1;
+                const totalPages = data.total_pages || 1;
+                const perPage = data.per_page || 100;
                 
-                if (channels.length === 0) {
+                if (total === 0) {
                     channelsContainer.innerHTML = '<p style="color: #666;">No text channels found.</p>';
-                } else {
-                    let channelsHtml = '';
-                    channels.forEach(channel => {
-                        channelsHtml += `
-                            <div style="background: white; padding: 15px; border-radius: 5px; margin-bottom: 10px; border-left: 4px solid #667eea;">
-                                <h4 style="margin-top: 0; color: #34495e;"># ${channel.name}</h4>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 10px;">
-                                    <div>
-                                        <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #2c3e50;">Preset</label>
-                                        <select id="preset-${channel.id}" style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 5px;">
-                                            <option value="">Default Preset</option>
-                                            ${presets.map(p => `<option value="${p}" ${channel.preset === p ? 'selected' : ''}>${p}</option>`).join('')}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #2c3e50;">API Config</label>
-                                        <select id="api-${channel.id}" style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 5px;">
-                                            <option value="">Default API Config</option>
-                                            ${apiConfigs.map(cfg => `<option value="${cfg.name}" ${channel.api_config === cfg.name ? 'selected' : ''}>${cfg.display || cfg.name}</option>`).join('')}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #2c3e50;">Character</label>
-                                        <select id="character-${channel.id}" style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 5px;">
-                                            <option value="">No Character</option>
-                                            ${characters.map(c => `<option value="${c}" ${channel.character === c ? 'selected' : ''}>${c}</option>`).join('')}
-                                        </select>
-                                    </div>
-                                </div>
-                                <button class="btn btn-primary btn-sm" onclick="saveChannelConfig('${channel.id}')">💾 Save Configuration</button>
-                            </div>
-                        `;
-                    });
-                    channelsContainer.innerHTML = channelsHtml;
+                    return;
                 }
+                
+                // Build pagination info and search bar
+                let headerHtml = `
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 15px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <div style="font-weight: 600; color: #2c3e50;">
+                                📋 Total Channels: ${total} ${search ? `(filtered)` : ''}
+                            </div>
+                            <div>
+                                <input 
+                                    type="text" 
+                                    id="channel-search-${serverId}" 
+                                    placeholder="🔍 Search channels..."
+                                    value="${search}"
+                                    style="padding: 8px 12px; border: 2px solid #ddd; border-radius: 5px; width: 250px;"
+                                    onkeyup="if(event.key === 'Enter') searchServerChannels('${serverId}')"
+                                />
+                                <button 
+                                    onclick="searchServerChannels('${serverId}')" 
+                                    style="padding: 8px 15px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer; margin-left: 5px;"
+                                >
+                                    Search
+                                </button>
+                            </div>
+                        </div>`;
+                
+                // Add pagination controls if needed
+                if (totalPages > 1) {
+                    headerHtml += `
+                        <div style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 10px;">
+                            <button 
+                                onclick="loadServerChannelsPage('${serverId}', ${currentPage - 1}, '${search}')"
+                                ${currentPage === 1 ? 'disabled' : ''}
+                                style="padding: 6px 12px; background: ${currentPage === 1 ? '#ccc' : '#667eea'}; color: white; border: none; border-radius: 5px; cursor: ${currentPage === 1 ? 'not-allowed' : 'pointer'};"
+                            >
+                                ◀ Previous
+                            </button>
+                            <span style="color: #666;">
+                                Page ${currentPage} of ${totalPages} (${(currentPage - 1) * perPage + 1}-${Math.min(currentPage * perPage, total)} of ${total})
+                            </span>
+                            <button 
+                                onclick="loadServerChannelsPage('${serverId}', ${currentPage + 1}, '${search}')"
+                                ${currentPage === totalPages ? 'disabled' : ''}
+                                style="padding: 6px 12px; background: ${currentPage === totalPages ? '#ccc' : '#667eea'}; color: white; border: none; border-radius: 5px; cursor: ${currentPage === totalPages ? 'not-allowed' : 'pointer'};"
+                            >
+                                Next ▶
+                            </button>
+                        </div>`;
+                }
+                
+                headerHtml += `</div>`;
+                
+                // Build channels HTML
+                let channelsHtml = '';
+                channels.forEach(channel => {
+                    channelsHtml += `
+                        <div style="background: white; padding: 15px; border-radius: 5px; margin-bottom: 10px; border-left: 4px solid #667eea;">
+                            <h4 style="margin-top: 0; color: #34495e;"># ${channel.name}</h4>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 10px;">
+                                <div>
+                                    <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #2c3e50;">Preset</label>
+                                    <select id="preset-${channel.id}" style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 5px;">
+                                        <option value="">Default Preset</option>
+                                        ${presets.map(p => `<option value="${p}" ${channel.preset === p ? 'selected' : ''}>${p}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #2c3e50;">API Config</label>
+                                    <select id="api-${channel.id}" style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 5px;">
+                                        <option value="">Default API Config</option>
+                                        ${apiConfigs.map(cfg => `<option value="${cfg.name}" ${channel.api_config === cfg.name ? 'selected' : ''}>${cfg.display || cfg.name}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #2c3e50;">Character</label>
+                                    <select id="character-${channel.id}" style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 5px;">
+                                        <option value="">No Character</option>
+                                        ${characters.map(c => `<option value="${c}" ${channel.character === c ? 'selected' : ''}>${c}</option>`).join('')}
+                                    </select>
+                                </div>
+                            </div>
+                            <button class="btn btn-primary btn-sm" onclick="saveChannelConfig('${channel.id}')">💾 Save Configuration</button>
+                        </div>
+                    `;
+                });
+                
+                channelsContainer.innerHTML = headerHtml + channelsHtml;
                 
                 // Mark as loaded
                 channelsContainer.dataset.loaded = 'true';
             } catch (error) {
                 channelsContainer.innerHTML = `<p style="color: #d9534f;">Error loading channels: ${error.message}</p>`;
             }
+        }
+        
+        function searchServerChannels(serverId) {
+            const searchInput = document.getElementById(`channel-search-${serverId}`);
+            const searchTerm = searchInput ? searchInput.value : '';
+            loadServerChannelsPage(serverId, 1, searchTerm);
         }
         
         async function loadDefaultConfig() {
@@ -3106,9 +3190,12 @@
                     const serverSection = document.createElement('div');
                     serverSection.style.cssText = 'margin-bottom: 15px;';
                     
+                    // Safely get channel count, default to 0 if not present
+                    const channelCount = server.channel_count || 0;
+                    
                     serverSection.innerHTML = `
                         <div class="collapsible-header" onclick="toggleServerChannels('${server.id}')" style="display: flex; justify-content: space-between; align-items: center;">
-                            <h3 style="margin: 0;">🖥️ ${server.name} <span style="font-size: 0.8em; color: #666;">(${server.channel_count} channels)</span></h3>
+                            <h3 style="margin: 0;">🖥️ ${server.name} <span style="font-size: 0.8em; color: #666;">(${channelCount} channels)</span></h3>
                             <span class="collapsible-icon" id="server-icon-${server.id}">▼</span>
                         </div>
                         <div class="collapsible-content" id="server-content-${server.id}" style="background: #f5f5f5; padding: 0; border-radius: 0 0 8px 8px;">
