@@ -657,6 +657,55 @@ class WebServer:
                 })
             except Exception as e:
                 return jsonify({"status": "error", "message": str(e)}), 400
+        
+        @self.app.route('/api/servers', methods=['GET'])
+        def get_servers():
+            """Get list of servers and channels the bot is connected to."""
+            if not self.bot_instance:
+                return jsonify({"servers": []})
+            
+            servers = []
+            for guild in self.bot_instance.guilds:
+                channels = []
+                for channel in guild.text_channels:
+                    # Get current configuration for this channel
+                    channel_config = self.config_manager.get(f'channel_configs.{channel.id}', {})
+                    channels.append({
+                        'id': str(channel.id),
+                        'name': channel.name,
+                        'preset': channel_config.get('preset', ''),
+                        'api_config': channel_config.get('api_config', ''),
+                        'character': channel_config.get('character', '')
+                    })
+                
+                servers.append({
+                    'id': str(guild.id),
+                    'name': guild.name,
+                    'channels': channels
+                })
+            
+            return jsonify({"servers": servers})
+        
+        @self.app.route('/api/channel_config/<channel_id>', methods=['POST'])
+        def save_channel_config(channel_id):
+            """Save configuration for a specific channel."""
+            try:
+                data = request.json
+                preset = data.get('preset', '')
+                api_config = data.get('api_config', '')
+                character = data.get('character', '')
+                
+                # Save to config
+                self.config_manager.set(f'channel_configs.{channel_id}.preset', preset)
+                self.config_manager.set(f'channel_configs.{channel_id}.api_config', api_config)
+                self.config_manager.set(f'channel_configs.{channel_id}.character', character)
+                
+                return jsonify({
+                    "status": "success",
+                    "message": f"Channel configuration saved"
+                })
+            except Exception as e:
+                return jsonify({"status": "error", "message": str(e)}), 400
     
     def run(self, host: str = "0.0.0.0", port: int = 5000, debug: bool = False):
         """Run the web server."""

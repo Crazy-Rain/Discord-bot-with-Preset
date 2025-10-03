@@ -367,6 +367,7 @@
             <button class="tab" onclick="switchTab('characters')">Characters</button>
             <button class="tab" onclick="switchTab('user_characters')">User Characters</button>
             <button class="tab" onclick="switchTab('lorebook')">Lorebook</button>
+            <button class="tab" onclick="switchTab('servers')">Servers/Channels</button>
         </div>
         
         <!-- Configuration Tab -->
@@ -963,6 +964,17 @@
             <h3 style="margin-top: 30px;">Lorebook Entries</h3>
             <div id="lorebook-list"></div>
         </div>
+        
+        <!-- Servers/Channels Tab -->
+        <div id="servers" class="tab-content">
+            <div id="servers-message" class="message"></div>
+            <h2>Server & Channel Configuration</h2>
+            <p style="margin-bottom: 20px; color: #666;">Configure presets, API configs, and characters for each channel the bot is active in.</p>
+            
+            <button class="btn btn-primary" onclick="loadServersList()" style="margin-bottom: 20px;">🔄 Refresh Servers</button>
+            
+            <div id="servers-list"></div>
+        </div>
     </div>
     
     <script>
@@ -985,6 +997,8 @@
                 loadUserCharactersList();
             } else if (tabName === 'lorebook') {
                 loadLorebookList();
+            } else if (tabName === 'servers') {
+                loadServersList();
             }
         }
         
@@ -2903,6 +2917,112 @@
                 });
             } catch (error) {
                 console.error('Error loading characters:', error);
+            }
+        }
+        
+        // Server/Channel configuration functions
+        async function loadServersList() {
+            try {
+                const response = await fetch('/api/servers');
+                const data = await response.json();
+                const servers = data.servers || [];
+                
+                const listEl = document.getElementById('servers-list');
+                
+                if (servers.length === 0) {
+                    listEl.innerHTML = '<p style="color: #666;">No servers connected. Make sure the bot is running and connected to Discord.</p>';
+                    return;
+                }
+                
+                listEl.innerHTML = '';
+                
+                // Load preset, API config, and character options
+                const presetsResponse = await fetch('/api/presets');
+                const presetsData = await presetsResponse.json();
+                const presets = presetsData.presets || [];
+                
+                const apiConfigsResponse = await fetch('/api/api_configs');
+                const apiConfigsData = await apiConfigsResponse.json();
+                const apiConfigs = apiConfigsData.configs || [];
+                
+                const charactersResponse = await fetch('/api/characters');
+                const charactersData = await charactersResponse.json();
+                const characters = charactersData.characters || [];
+                
+                servers.forEach(server => {
+                    const serverSection = document.createElement('div');
+                    serverSection.style.cssText = 'background: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px;';
+                    
+                    let serverHtml = `
+                        <h3 style="margin-top: 0; color: #2c3e50;">🖥️ ${server.name}</h3>
+                    `;
+                    
+                    if (server.channels.length === 0) {
+                        serverHtml += '<p style="color: #666;">No text channels found.</p>';
+                    } else {
+                        server.channels.forEach(channel => {
+                            serverHtml += `
+                                <div style="background: white; padding: 15px; border-radius: 5px; margin-bottom: 10px; border-left: 4px solid #667eea;">
+                                    <h4 style="margin-top: 0; color: #34495e;"># ${channel.name}</h4>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 10px;">
+                                        <div>
+                                            <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #2c3e50;">Preset</label>
+                                            <select id="preset-${channel.id}" style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 5px;">
+                                                <option value="">Default Preset</option>
+                                                ${presets.map(p => `<option value="${p}" ${channel.preset === p ? 'selected' : ''}>${p}</option>`).join('')}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #2c3e50;">API Config</label>
+                                            <select id="api-${channel.id}" style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 5px;">
+                                                <option value="">Default API Config</option>
+                                                ${apiConfigs.map(cfg => `<option value="${cfg.name}" ${channel.api_config === cfg.name ? 'selected' : ''}>${cfg.display || cfg.name}</option>`).join('')}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #2c3e50;">Character</label>
+                                            <select id="character-${channel.id}" style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 5px;">
+                                                <option value="">No Character</option>
+                                                ${characters.map(c => `<option value="${c}" ${channel.character === c ? 'selected' : ''}>${c}</option>`).join('')}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-primary btn-sm" onclick="saveChannelConfig('${channel.id}')">💾 Save Configuration</button>
+                                </div>
+                            `;
+                        });
+                    }
+                    
+                    serverSection.innerHTML = serverHtml;
+                    listEl.appendChild(serverSection);
+                });
+                
+                showMessage('servers-message', `Loaded ${servers.length} server(s) with ${servers.reduce((sum, s) => sum + s.channels.length, 0)} channel(s)`, 'success');
+            } catch (error) {
+                showMessage('servers-message', 'Error loading servers: ' + error.message, 'error');
+            }
+        }
+        
+        async function saveChannelConfig(channelId) {
+            try {
+                const preset = document.getElementById(`preset-${channelId}`).value;
+                const apiConfig = document.getElementById(`api-${channelId}`).value;
+                const character = document.getElementById(`character-${channelId}`).value;
+                
+                const response = await fetch(`/api/channel_config/${channelId}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        preset: preset,
+                        api_config: apiConfig,
+                        character: character
+                    })
+                });
+                
+                const result = await response.json();
+                showMessage('servers-message', result.message, result.status === 'success' ? 'success' : 'error');
+            } catch (error) {
+                showMessage('servers-message', 'Error saving channel configuration: ' + error.message, 'error');
             }
         }
         
