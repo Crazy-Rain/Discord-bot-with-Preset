@@ -1731,18 +1731,20 @@ Visit http://localhost:5000 to configure the bot via web interface.
             if channel_id in self.channel_characters:
                 # Try to send via webhook with character's avatar
                 character_data = self.channel_characters[channel_id]
-                webhook_sent = await self.send_as_character(
+                last_msg, msg_ids = await self.send_as_character(
                     ctx.channel, 
                     response, 
                     character_data,
                     view=view
                 )
-                if not webhook_sent:
+                if not last_msg:
                     # Fallback to normal message if webhook fails - use embeds
-                    await send_long_message(ctx, response, view=view)
+                    last_msg, msg_ids = await send_long_message_with_view(ctx.channel, response, view=view)
+                # Update view with message IDs for multi-page swipe support
+                if msg_ids:
+                    view.message_ids = msg_ids
             else:
                 # No character loaded, send normal message - use embeds
-                view = SwipeButtonView(self, channel_id)
                 last_msg, msg_ids = await send_long_message_with_view(ctx.channel, response, view=view)
                 # Update view with message IDs for multi-page swipe support
                 if msg_ids:
