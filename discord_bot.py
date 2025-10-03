@@ -1833,23 +1833,34 @@ Visit http://localhost:5000 to configure the bot via web interface.
             preset
         )
         
-        # 1. Add main system prompt
-        system_prompt = char_format.get('system_prompt', '')
-        if not system_prompt:
-            system_prompt = preset.get('system_prompt', 'You are a helpful AI assistant.')
-        
-        # Build enhanced system prompt with character context
-        enhanced_system_prompt = system_prompt
-        
-        # Add character system info if present
-        char_system = char_format.get('character_system', '')
-        if char_system:
-            enhanced_system_prompt += '\n\n' + char_system
-        
-        # Add user character tracking info if needed
-        if self.character_names.get(channel_id):
-            character_list = ", ".join(self.character_names[channel_id])
-            enhanced_system_prompt += f"""
+        # Check if preset uses new prompt_sections format
+        if 'prompt_sections' in preset and preset['prompt_sections']:
+            # Use new multi-section format
+            sections = preset['prompt_sections']
+            # Sort by order
+            sections = sorted(sections, key=lambda x: x.get('order', 0))
+            
+            for section in sections:
+                if not section.get('enabled', True):
+                    continue
+                
+                role = section.get('role', 'system')
+                content = section.get('content', '')
+                
+                # Process placeholders and add context for system messages
+                if role == 'system':
+                    # Build enhanced system prompt with character context
+                    enhanced_content = content
+                    
+                    # Add character system info if present
+                    char_system = char_format.get('character_system', '')
+                    if char_system:
+                        enhanced_content += '\n\n' + char_system
+                    
+                    # Add user character tracking info if needed
+                    if self.character_names.get(channel_id):
+                        character_list = ", ".join(self.character_names[channel_id])
+                        enhanced_content += f"""
 
 IMPORTANT: In this conversation, users will identify themselves as characters by prefixing their messages with 'CharacterName:'. The following character names are being used by users: {character_list}. You should NEVER pretend to be these characters or respond as if you are them. You are a separate entity having a conversation with these characters.
 
@@ -1857,24 +1868,68 @@ FORMAT GUIDELINES:
 - Text in "quotes" represents spoken dialogue by the character
 - Text in *asterisks* represents actions performed by the character
 - Text without quotes or asterisks is descriptive text or additional context"""
+                        
+                        # Add user character descriptions
+                        user_char_section = self.user_characters_manager.get_system_prompt_section(
+                            self.character_names[channel_id]
+                        )
+                        if user_char_section:
+                            enhanced_content += user_char_section
+                    
+                    # Add lorebook entries
+                    current_character_name = character_data.get("name") if character_data else None
+                    lorebook_section = self.lorebook_manager.get_system_prompt_section(user_message, current_character_name)
+                    if lorebook_section:
+                        enhanced_content += "\n\n" + lorebook_section
+                    
+                    messages.append({"role": role, "content": enhanced_content})
+                else:
+                    # User or assistant messages
+                    messages.append({"role": role, "content": content})
+        else:
+            # Backward compatibility: use old system_prompt format
+            # 1. Add main system prompt
+            system_prompt = char_format.get('system_prompt', '')
+            if not system_prompt:
+                system_prompt = preset.get('system_prompt', 'You are a helpful AI assistant.')
             
-            # Add user character descriptions
-            user_char_section = self.user_characters_manager.get_system_prompt_section(
-                self.character_names[channel_id]
-            )
-            if user_char_section:
-                enhanced_system_prompt += user_char_section
-        
-        # Add lorebook entries
-        # Pass current character name to filter character-linked lorebooks
-        current_character_name = character_data.get("name") if character_data else None
-        lorebook_section = self.lorebook_manager.get_system_prompt_section(user_message, current_character_name)
-        if lorebook_section:
-            enhanced_system_prompt += "\n\n" + lorebook_section
-        
-        # Add the system message
-        if enhanced_system_prompt:
-            messages.append({"role": "system", "content": enhanced_system_prompt})
+            # Build enhanced system prompt with character context
+            enhanced_system_prompt = system_prompt
+            
+            # Add character system info if present
+            char_system = char_format.get('character_system', '')
+            if char_system:
+                enhanced_system_prompt += '\n\n' + char_system
+            
+            # Add user character tracking info if needed
+            if self.character_names.get(channel_id):
+                character_list = ", ".join(self.character_names[channel_id])
+                enhanced_system_prompt += f"""
+
+IMPORTANT: In this conversation, users will identify themselves as characters by prefixing their messages with 'CharacterName:'. The following character names are being used by users: {character_list}. You should NEVER pretend to be these characters or respond as if you are them. You are a separate entity having a conversation with these characters.
+
+FORMAT GUIDELINES:
+- Text in "quotes" represents spoken dialogue by the character
+- Text in *asterisks* represents actions performed by the character
+- Text without quotes or asterisks is descriptive text or additional context"""
+                
+                # Add user character descriptions
+                user_char_section = self.user_characters_manager.get_system_prompt_section(
+                    self.character_names[channel_id]
+                )
+                if user_char_section:
+                    enhanced_system_prompt += user_char_section
+            
+            # Add lorebook entries
+            # Pass current character name to filter character-linked lorebooks
+            current_character_name = character_data.get("name") if character_data else None
+            lorebook_section = self.lorebook_manager.get_system_prompt_section(user_message, current_character_name)
+            if lorebook_section:
+                enhanced_system_prompt += "\n\n" + lorebook_section
+            
+            # Add the system message
+            if enhanced_system_prompt:
+                messages.append({"role": "system", "content": enhanced_system_prompt})
         
         # 2. Add example dialogues from character card (if configured in preset)
         example_dialogues = char_format.get('example_dialogues', [])
