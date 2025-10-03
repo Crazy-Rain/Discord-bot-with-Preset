@@ -22,5 +22,22 @@
     "top_p": 1,
     "frequency_penalty": 0,
     "presence_penalty": 0
+  },
+  "channel_configs": {
+    "123456": {
+      "preset": "creative",
+      "api_config": "my_api",
+      "character": "luna"
+    },
+    "123457": {
+      "preset": "",
+      "api_config": "",
+      "character": ""
+    },
+    "234567": {
+      "preset": "sillytavern_style",
+      "api_config": "",
+      "character": "aria"
+    }
   }
 }
