@@ -886,6 +886,25 @@ class DiscordBot(commands.Bot):
         )
         print(f"Updated OpenAI configuration - Model: {model}, Base URL: {base_url}")
 
+    def get_openai_client_for_channel(self, channel_id: int):
+        """Get the appropriate OpenAI client for a channel (with channel-specific config if set)."""
+        # Check for channel-specific API config
+        api_config_name = self.config_manager.get(f'channel_configs.{channel_id}.api_config', '')
+        
+        if api_config_name:
+            # Load the API config
+            api_config = self.config_manager.get_api_config(api_config_name)
+            if api_config:
+                # Create a temporary client with channel-specific config
+                from openai_client import OpenAIClient
+                return OpenAIClient(
+                    api_key=api_config.get('api_key', ''),
+                    base_url=api_config.get('base_url', 'https://api.openai.com/v1'),
+                    model=api_config.get('model', 'gpt-3.5-turbo')
+                )
+        
+        # Return default client
+        return self.openai_client
     
     def parse_character_message(self, message: str) -> Tuple[Optional[str], str]:
         """Parse a message for character name format: 'CharacterName:message'.
@@ -1167,13 +1186,23 @@ class DiscordBot(commands.Bot):
             # SillyTavern-style presets with proper role separation
             messages = self.build_chat_messages(channel_id, actual_message, character_name)
             
-            # Get preset parameters
-            preset = self.preset_manager.get_current_preset()
+            # Get preset parameters (check channel-specific first)
+            channel_preset_name = self.config_manager.get(f'channel_configs.{channel_id}.preset', '')
+            if channel_preset_name:
+                try:
+                    preset = self.preset_manager.get_preset(channel_preset_name)
+                except:
+                    preset = self.preset_manager.get_current_preset()
+            else:
+                preset = self.preset_manager.get_current_preset()
+            
+            # Get appropriate OpenAI client (channel-specific or default)
+            openai_client = self.get_openai_client_for_channel(channel_id)
             
             try:
                 async with ctx.typing():
                     # Generate response
-                    response = await self.openai_client.chat_completion(
+                    response = await openai_client.chat_completion(
                         messages=messages,
                         temperature=preset.get("temperature", 0.7),
                         max_tokens=preset.get("max_response_length", preset.get("max_tokens", 2000)),
@@ -1350,14 +1379,20 @@ class DiscordBot(commands.Bot):
                 f"The setting has been saved to config and will persist across bot restarts."
             )
         
-        @self.command(name="preset", help="Load a preset")
+        @self.command(name="preset", help="Load a preset for this channel")
         async def preset(ctx, preset_name: str):
-            """Load a preset by name."""
+            """Load a preset by name for this channel."""
             try:
+                # Verify preset exists
                 self.preset_manager.load_preset(preset_name)
-                await ctx.send(f"Loaded preset: {preset_name}")
+                
+                # Save to channel config
+                channel_id = ctx.channel.id
+                self.config_manager.set(f'channel_configs.{channel_id}.preset', preset_name)
+                
+                await ctx.send(f"✅ Loaded preset **{preset_name}** for this channel!\nThis setting has been saved and will persist across bot restarts.")
             except FileNotFoundError:
-                await ctx.send(f"Preset not found: {preset_name}")
+                await ctx.send(f"❌ Preset not found: {preset_name}\nUse `!presets` to see available presets.")
         
         @self.command(name="presets", help="List available presets")
         async def presets(ctx):
@@ -1383,6 +1418,9 @@ class DiscordBot(commands.Bot):
                 # Store character data for this channel
                 self.channel_characters[channel_id] = character_data
                 
+                # Save to channel config
+                self.config_manager.set(f'channel_configs.{channel_id}.character', character_name)
+                
                 display_name = character_data.get('name', character_name)
                 avatar_url = character_data.get('avatar_url')
                 
@@ -1390,12 +1428,14 @@ class DiscordBot(commands.Bot):
                 if avatar_url:
                     await ctx.send(
                         f"✨ Loaded character **{display_name}** for this channel!\n"
-                        f"The bot will now respond with {display_name}'s avatar and name using webhooks."
+                        f"The bot will now respond with {display_name}'s avatar and name using webhooks.\n"
+                        f"This setting has been saved and will persist across bot restarts."
                     )
                 else:
                     await ctx.send(
                         f"✨ Loaded character **{display_name}** for this channel!\n"
-                        f"Note: No avatar URL set for this character. Set one to see the character's avatar."
+                        f"Note: No avatar URL set for this character. Set one to see the character's avatar.\n"
+                        f"This setting has been saved and will persist across bot restarts."
                     )
                 
                 # Clear conversation when switching characters
@@ -1403,7 +1443,7 @@ class DiscordBot(commands.Bot):
                     self.conversations[channel_id] = []
                     
             except FileNotFoundError:
-                await ctx.send(f"Character not found: {character_name}")
+                await ctx.send(f"❌ Character not found: {character_name}\nUse `!characters` to see available characters.")
             except Exception as e:
                 await ctx.send(f"Error loading character: {str(e)}")
         
@@ -1429,7 +1469,11 @@ class DiscordBot(commands.Bot):
             if channel_id in self.channel_characters:
                 character_name = self.channel_characters[channel_id].get('name', 'Unknown')
                 del self.channel_characters[channel_id]
-                await ctx.send(f"✨ Unloaded character **{character_name}** from this channel. Bot will now respond normally.")
+                
+                # Clear from channel config
+                self.config_manager.set(f'channel_configs.{channel_id}.character', '')
+                
+                await ctx.send(f"✨ Unloaded character **{character_name}** from this channel. Bot will now respond normally.\nThis change has been saved.")
             else:
                 await ctx.send("No character is currently loaded for this channel.")
         
@@ -1783,10 +1827,23 @@ Visit http://localhost:5000 to configure the bot via web interface.
             # Get preset parameters
             preset = self.preset_manager.get_current_preset()
             
+            # Get preset parameters (check channel-specific first)
+            channel_preset_name = self.config_manager.get(f'channel_configs.{channel_id}.preset', '')
+            if channel_preset_name:
+                try:
+                    preset = self.preset_manager.get_preset(channel_preset_name)
+                except:
+                    preset = self.preset_manager.get_current_preset()
+            else:
+                preset = self.preset_manager.get_current_preset()
+            
+            # Get appropriate OpenAI client (channel-specific or default)
+            openai_client = self.get_openai_client_for_channel(channel_id)
+            
             try:
                 async with ctx.typing():
                     # Generate alternative response
-                    response = await self.openai_client.chat_completion(
+                    response = await openai_client.chat_completion(
                         messages=messages,
                         temperature=preset.get("temperature", 0.7),
                         max_tokens=preset.get("max_response_length", preset.get("max_tokens", 2000)),
@@ -1992,7 +2049,17 @@ Visit http://localhost:5000 to configure the bot via web interface.
             List of message dicts with 'role' and 'content' keys
         """
         messages = []
-        preset = self.preset_manager.get_current_preset()
+        
+        # Check for channel-specific preset first
+        channel_preset_name = self.config_manager.get(f'channel_configs.{channel_id}.preset', '')
+        if channel_preset_name:
+            try:
+                preset = self.preset_manager.get_preset(channel_preset_name)
+            except:
+                # Fall back to current preset if channel preset fails
+                preset = self.preset_manager.get_current_preset()
+        else:
+            preset = self.preset_manager.get_current_preset()
         
         # Get character data if loaded for this channel
         character_data = None
@@ -2136,6 +2203,23 @@ FORMAT GUIDELINES:
     async def on_ready(self):
         """Called when bot is ready."""
         print(f"Bot is ready! Logged in as {self.user}")
+        
+        # Load channel configurations from config
+        channel_configs = self.config_manager.get('channel_configs', {})
+        if channel_configs:
+            print(f"Loading {len(channel_configs)} channel configuration(s)...")
+            for channel_id_str, config in channel_configs.items():
+                channel_id = int(channel_id_str)
+                
+                # Load character if configured
+                character_name = config.get('character', '')
+                if character_name:
+                    try:
+                        character_data = self.character_manager.load_character(character_name)
+                        self.channel_characters[channel_id] = character_data
+                        print(f"  Loaded character '{character_name}' for channel {channel_id}")
+                    except Exception as e:
+                        print(f"  Failed to load character '{character_name}' for channel {channel_id}: {e}")
         
         # Set bot name and avatar to character if a character is loaded
         current_char = self.character_manager.get_current_character()
