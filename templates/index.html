@@ -3166,37 +3166,63 @@
                 
                 // Display default preset
                 const defaultPresetEl = document.getElementById('default-preset-display');
-                if (config.default_preset && config.default_preset.system_prompt) {
-                    // Show a preview of the system prompt
-                    const systemPrompt = config.default_preset.system_prompt;
-                    const preview = systemPrompt.length > 60 ? systemPrompt.substring(0, 60) + '...' : systemPrompt;
-                    defaultPresetEl.innerHTML = `<strong>Custom Preset:</strong> "${preview}"`;
-                } else {
-                    defaultPresetEl.innerHTML = '<strong>Default Preset</strong> (from Configuration tab)';
+                if (defaultPresetEl) {
+                    if (config.default_preset) {
+                        // Handle new prompt_sections structure
+                        if (config.default_preset.prompt_sections && config.default_preset.prompt_sections.length > 0) {
+                            const firstSection = config.default_preset.prompt_sections[0];
+                            const systemPrompt = firstSection.content || '';
+                            const preview = systemPrompt.length > 60 ? systemPrompt.substring(0, 60) + '...' : systemPrompt;
+                            defaultPresetEl.innerHTML = `<strong>Custom Preset:</strong> "${preview}"`;
+                        }
+                        // Handle old system_prompt structure for backward compatibility
+                        else if (config.default_preset.system_prompt) {
+                            const systemPrompt = config.default_preset.system_prompt;
+                            const preview = systemPrompt.length > 60 ? systemPrompt.substring(0, 60) + '...' : systemPrompt;
+                            defaultPresetEl.innerHTML = `<strong>Custom Preset:</strong> "${preview}"`;
+                        } else {
+                            defaultPresetEl.innerHTML = '<strong>Default Preset</strong> (from Configuration tab)';
+                        }
+                    } else {
+                        defaultPresetEl.innerHTML = '<strong>Default Preset</strong> (from Configuration tab)';
+                    }
                 }
                 
                 // Display default API config
                 const defaultApiEl = document.getElementById('default-api-display');
-                if (config.openai_config) {
-                    const baseUrl = config.openai_config.base_url || 'https://api.openai.com/v1';
-                    const model = config.openai_config.model || 'gpt-3.5-turbo';
-                    // Shorten the URL for display
-                    const displayUrl = baseUrl.replace('https://', '').replace('/v1', '');
-                    defaultApiEl.innerHTML = `<strong>${displayUrl}</strong> - ${model}`;
-                } else {
-                    defaultApiEl.innerHTML = '<strong>OpenAI API</strong> (from Configuration tab)';
+                if (defaultApiEl) {
+                    if (config.openai_config) {
+                        const baseUrl = config.openai_config.base_url || 'https://api.openai.com/v1';
+                        const model = config.openai_config.model || 'gpt-3.5-turbo';
+                        // Shorten the URL for display
+                        const displayUrl = baseUrl.replace('https://', '').replace('/v1', '');
+                        defaultApiEl.innerHTML = `<strong>${displayUrl}</strong> - ${model}`;
+                    } else {
+                        defaultApiEl.innerHTML = '<strong>OpenAI API</strong> (from Configuration tab)';
+                    }
                 }
             } catch (error) {
                 console.error('Error loading default config:', error);
-                document.getElementById('default-preset-display').innerHTML = 'Error loading';
-                document.getElementById('default-api-display').innerHTML = 'Error loading';
+                // Safely update elements only if they exist
+                const defaultPresetEl = document.getElementById('default-preset-display');
+                if (defaultPresetEl) {
+                    defaultPresetEl.innerHTML = 'Error loading';
+                }
+                const defaultApiEl = document.getElementById('default-api-display');
+                if (defaultApiEl) {
+                    defaultApiEl.innerHTML = 'Error loading';
+                }
             }
         }
         
         async function loadServersList() {
             try {
-                // Load default configuration first
-                await loadDefaultConfig();
+                // Load default configuration first (don't let errors block server loading)
+                try {
+                    await loadDefaultConfig();
+                } catch (configError) {
+                    console.error('Error loading default config (non-fatal):', configError);
+                }
                 
                 const response = await fetch('/api/servers');
                 const data = await response.json();
