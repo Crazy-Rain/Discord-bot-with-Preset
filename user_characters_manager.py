@@ -30,7 +30,7 @@ class UserCharactersManager:
         with open(storage_path, "w") as f:
             json.dump(self.user_characters, f, indent=2)
     
-    def add_or_update_character(self, name: str, description: str, sheet: str = "", sheet_enabled: bool = False) -> None:
+    def add_or_update_character(self, name: str, description: str, sheet: str = None, sheet_enabled: bool = None) -> None:
         """Add or update a user character."""
         # Preserve existing sheet data if not provided
         existing_char = self.user_characters.get(name, {})
