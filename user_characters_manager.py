@@ -30,11 +30,15 @@ class UserCharactersManager:
         with open(storage_path, "w") as f:
             json.dump(self.user_characters, f, indent=2)
     
-    def add_or_update_character(self, name: str, description: str) -> None:
+    def add_or_update_character(self, name: str, description: str, sheet: str = None, sheet_enabled: bool = None) -> None:
         """Add or update a user character."""
+        # Preserve existing sheet data if not provided
+        existing_char = self.user_characters.get(name, {})
         self.user_characters[name] = {
             "name": name,
-            "description": description
+            "description": description,
+            "sheet": sheet if sheet is not None else existing_char.get("sheet", ""),
+            "sheet_enabled": sheet_enabled if sheet is not None else existing_char.get("sheet_enabled", False)
         }
         self.save_all_user_characters()
     
@@ -68,6 +72,40 @@ class UserCharactersManager:
         self.user_characters.update(imported)
         self.save_all_user_characters()
     
+    def update_character_sheet(self, name: str, sheet: str) -> bool:
+        """Update a character's sheet.
+        
+        Args:
+            name: Character name
+            sheet: Character sheet content
+            
+        Returns:
+            True if successful, False if character doesn't exist
+        """
+        if name not in self.user_characters:
+            return False
+        
+        self.user_characters[name]['sheet'] = sheet
+        self.save_all_user_characters()
+        return True
+    
+    def set_sheet_enabled(self, name: str, enabled: bool) -> bool:
+        """Enable or disable a character's sheet.
+        
+        Args:
+            name: Character name
+            enabled: Whether to enable the sheet
+            
+        Returns:
+            True if successful, False if character doesn't exist
+        """
+        if name not in self.user_characters:
+            return False
+        
+        self.user_characters[name]['sheet_enabled'] = enabled
+        self.save_all_user_characters()
+        return True
+    
     def get_system_prompt_section(self, character_names: List[str]) -> str:
         """Generate system prompt section for specific user characters.
         
@@ -91,7 +129,17 @@ class UserCharactersManager:
             char_data = self.user_characters[name]
             section = f"""[{name} Description]
 Name: {name}
-Description: {char_data['description']}
+Description: {char_data['description']}"""
+            
+            # Add character sheet if enabled
+            if char_data.get('sheet_enabled', False) and char_data.get('sheet', '').strip():
+                section += f"""
+[sheet]
+This is a sheet of {name}'s Abilities and Perks. Always take them into account when considering what {name} is able to do.
+{char_data['sheet']}
+[/sheet]"""
+            
+            section += f"""
 Note: This is a User Character, for referencing when {name} is doing something, In scene, or needing to be referenced in some manner. Do not Act, or Write for this Character, they are only for the Human to Act/Write/Play as.
 [/{name} Description]"""
             sections.append(section)

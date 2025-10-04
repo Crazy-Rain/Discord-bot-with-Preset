@@ -792,6 +792,20 @@
                 <textarea id="user-character-description" placeholder="A brave warrior with long red hair, green eyes, wearing silver armor. Known for her courage and compassion..." rows="5"></textarea>
             </div>
             
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="user-character-sheet-enabled"> 
+                    Enable Character Sheet
+                </label>
+                <p style="font-size: 0.9em; color: #666; margin: 5px 0;">When enabled, the character sheet will be sent to the AI along with the description.</p>
+            </div>
+            
+            <div class="form-group">
+                <label>Character Sheet (Abilities and Perks)</label>
+                <textarea id="user-character-sheet" placeholder="Abilities: Flight, Super Strength&#10;Perks: Enhanced Reflexes, Night Vision&#10;Special Powers: Energy Manipulation" rows="5"></textarea>
+                <p style="font-size: 0.9em; color: #666; margin: 5px 0;">List any unusual abilities or perks this character has. This will be included in a [sheet][/sheet] block when enabled.</p>
+            </div>
+            
             <button class="btn btn-primary" onclick="saveUserCharacter()">Save User Character</button>
             <button class="btn btn-secondary" onclick="loadUserCharacter()">Load User Character</button>
             <button class="btn btn-success" onclick="exportUserCharacters()">Export All</button>
@@ -2150,10 +2164,13 @@
                         charData.description.substring(0, 150) + '...' : 
                         charData.description;
                     
+                    const sheetBadge = charData.sheet_enabled && charData.sheet ? 
+                        '<span style="background: #10b981; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.8em; margin-left: 10px;">Sheet Enabled</span>' : '';
+                    
                     item.innerHTML = `
                         <div style="display: flex; justify-content: space-between; align-items: start;">
                             <div style="flex: 1;">
-                                <strong style="font-size: 1.1em; color: #2c3e50;">${name}</strong>
+                                <strong style="font-size: 1.1em; color: #2c3e50;">${name}</strong>${sheetBadge}
                                 <p style="margin: 5px 0 0 0; color: #666;">${description}</p>
                             </div>
                             <div style="display: flex; gap: 5px;">
@@ -2172,6 +2189,8 @@
         async function saveUserCharacter() {
             const name = document.getElementById('user-character-name').value;
             const description = document.getElementById('user-character-description').value;
+            const sheet = document.getElementById('user-character-sheet').value;
+            const sheet_enabled = document.getElementById('user-character-sheet-enabled').checked;
             
             if (!name || !description) {
                 showMessage('user-characters-message', 'Please enter both name and description', 'error');
@@ -2182,7 +2201,7 @@
                 const response = await fetch(`/api/user_characters/${name}`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({description})
+                    body: JSON.stringify({description, sheet, sheet_enabled})
                 });
                 
                 const result = await response.json();
@@ -2192,6 +2211,8 @@
                 // Clear form
                 document.getElementById('user-character-name').value = '';
                 document.getElementById('user-character-description').value = '';
+                document.getElementById('user-character-sheet').value = '';
+                document.getElementById('user-character-sheet-enabled').checked = false;
             } catch (error) {
                 showMessage('user-characters-message', 'Error saving user character: ' + error.message, 'error');
             }
@@ -2215,6 +2236,8 @@
                 const charData = await response.json();
                 document.getElementById('user-character-name').value = charData.name;
                 document.getElementById('user-character-description').value = charData.description;
+                document.getElementById('user-character-sheet').value = charData.sheet || '';
+                document.getElementById('user-character-sheet-enabled').checked = charData.sheet_enabled || false;
                 showMessage('user-characters-message', 'User character loaded', 'success');
             } catch (error) {
                 showMessage('user-characters-message', 'Error loading user character: ' + error.message, 'error');
@@ -2228,6 +2251,8 @@
                 
                 document.getElementById('user-character-name').value = charData.name;
                 document.getElementById('user-character-description').value = charData.description;
+                document.getElementById('user-character-sheet').value = charData.sheet || '';
+                document.getElementById('user-character-sheet-enabled').checked = charData.sheet_enabled || false;
                 
                 // Scroll to form
                 document.getElementById('user-character-name').scrollIntoView({ behavior: 'smooth' });

@@ -399,7 +399,11 @@ class WebServer:
             try:
                 data = request.json
                 description = data.get('description', '')
-                self.user_characters_manager.add_or_update_character(character_name, description)
+                sheet = data.get('sheet', '')
+                sheet_enabled = data.get('sheet_enabled', False)
+                self.user_characters_manager.add_or_update_character(
+                    character_name, description, sheet, sheet_enabled
+                )
                 return jsonify({"status": "success", "message": f"User character '{character_name}' saved"})
             except Exception as e:
                 return jsonify({"status": "error", "message": str(e)}), 400
