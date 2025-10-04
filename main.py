@@ -26,7 +26,6 @@ def run_web_server(config_manager: ConfigManager):
 async def run_discord_bot(config_manager: ConfigManager):
     """Run the Discord bot with automatic reconnection."""
     global bot_instance, shutdown_flag
-    bot_instance = DiscordBot(config_manager)
     token = config_manager.get("discord_token")
     
     if not token or token == "YOUR_DISCORD_BOT_TOKEN":
