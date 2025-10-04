@@ -845,10 +845,16 @@ class DiscordBot(commands.Bot):
         )
         print(f"Updated OpenAI configuration - Model: {model}, Base URL: {base_url}")
 
-    def get_openai_client_for_channel(self, channel_id: int):
-        """Get the appropriate OpenAI client for a channel (with channel-specific config if set)."""
-        # Check for channel-specific API config
+    def get_openai_client_for_channel(self, channel_id: int, server_id: int = None):
+        """Get the appropriate OpenAI client for a channel (with channel or server-specific config if set)."""
+        # Priority: channel config > server config > default
+        
+        # Check for channel-specific API config first
         api_config_name = self.config_manager.get(f'channel_configs.{channel_id}.api_config', '')
+        
+        # If no channel config and server_id provided, check server config
+        if not api_config_name and server_id:
+            api_config_name = self.config_manager.get(f'server_configs.{server_id}.api_config', '')
         
         if api_config_name:
             # Load the API config
@@ -864,6 +870,39 @@ class DiscordBot(commands.Bot):
         
         # Return default client
         return self.openai_client
+    
+    def get_preset_for_channel(self, channel_id: int, server_id: int = None):
+        """Get the appropriate preset for a channel (with channel or server-specific config if set)."""
+        # Priority: channel config > server config > default
+        
+        # Check for channel-specific preset first
+        preset_name = self.config_manager.get(f'channel_configs.{channel_id}.preset', '')
+        
+        # If no channel config and server_id provided, check server config
+        if not preset_name and server_id:
+            preset_name = self.config_manager.get(f'server_configs.{server_id}.preset', '')
+        
+        if preset_name:
+            try:
+                return self.preset_manager.get_preset(preset_name)
+            except:
+                pass
+        
+        # Return default preset
+        return self.preset_manager.get_current_preset()
+    
+    def get_character_for_channel(self, channel_id: int, server_id: int = None):
+        """Get the appropriate character for a channel (with channel or server-specific config if set)."""
+        # Priority: channel config > server config > default (None)
+        
+        # Check for channel-specific character first
+        character_name = self.config_manager.get(f'channel_configs.{channel_id}.character', '')
+        
+        # If no channel config and server_id provided, check server config
+        if not character_name and server_id:
+            character_name = self.config_manager.get(f'server_configs.{server_id}.character', '')
+        
+        return character_name if character_name else None
     
     def parse_character_message(self, message: str) -> Tuple[Optional[str], str]:
         """Parse a message for character name format: 'CharacterName:message'.
@@ -1113,6 +1152,7 @@ class DiscordBot(commands.Bot):
         async def chat(ctx, *, message: str):
             """Chat with the AI using current preset and character."""
             channel_id = ctx.channel.id
+            server_id = ctx.guild.id if ctx.guild else None
             
             # Initialize conversation history if needed
             if channel_id not in self.conversations:
@@ -1143,20 +1183,13 @@ class DiscordBot(commands.Bot):
             
             # Build messages using the new formatting system that supports
             # SillyTavern-style presets with proper role separation
-            messages = self.build_chat_messages(channel_id, actual_message, character_name)
+            messages = self.build_chat_messages(channel_id, actual_message, character_name, server_id)
             
-            # Get preset parameters (check channel-specific first)
-            channel_preset_name = self.config_manager.get(f'channel_configs.{channel_id}.preset', '')
-            if channel_preset_name:
-                try:
-                    preset = self.preset_manager.get_preset(channel_preset_name)
-                except:
-                    preset = self.preset_manager.get_current_preset()
-            else:
-                preset = self.preset_manager.get_current_preset()
+            # Get preset parameters (check channel-specific first, then server-specific, then default)
+            preset = self.get_preset_for_channel(channel_id, server_id)
             
-            # Get appropriate OpenAI client (channel-specific or default)
-            openai_client = self.get_openai_client_for_channel(channel_id)
+            # Get appropriate OpenAI client (channel-specific, server-specific, or default)
+            openai_client = self.get_openai_client_for_channel(channel_id, server_id)
             
             try:
                 async with ctx.typing():
@@ -1777,6 +1810,7 @@ Visit http://localhost:5000 to configure the bot via web interface.
         async def swipe(ctx):
             """Generate an alternative response to the last user message."""
             channel_id = ctx.channel.id
+            server_id = ctx.guild.id if ctx.guild else None
             
             # Initialize if needed
             if channel_id not in self.conversations:
@@ -1820,26 +1854,16 @@ Visit http://localhost:5000 to configure the bot via web interface.
             # Build messages using the new system (it will include everything up to last user msg)
             # Extract just the message content without character prefix for build_chat_messages
             _, clean_message = self.parse_character_message(last_user_msg)
-            messages = self.build_chat_messages(channel_id, clean_message, last_user_character)
+            messages = self.build_chat_messages(channel_id, clean_message, last_user_character, server_id)
             
             # Restore the last assistant message (we'll update it with the new response)
             self.conversations[channel_id].append(last_assistant_msg)
             
-            # Get preset parameters
-            preset = self.preset_manager.get_current_preset()
+            # Get preset parameters (check channel-specific first, then server-specific, then default)
+            preset = self.get_preset_for_channel(channel_id, server_id)
             
-            # Get preset parameters (check channel-specific first)
-            channel_preset_name = self.config_manager.get(f'channel_configs.{channel_id}.preset', '')
-            if channel_preset_name:
-                try:
-                    preset = self.preset_manager.get_preset(channel_preset_name)
-                except:
-                    preset = self.preset_manager.get_current_preset()
-            else:
-                preset = self.preset_manager.get_current_preset()
-            
-            # Get appropriate OpenAI client (channel-specific or default)
-            openai_client = self.get_openai_client_for_channel(channel_id)
+            # Get appropriate OpenAI client (channel-specific, server-specific, or default)
+            openai_client = self.get_openai_client_for_channel(channel_id, server_id)
             
             try:
                 async with ctx.typing():
@@ -2035,7 +2059,8 @@ Visit http://localhost:5000 to configure the bot via web interface.
         self, 
         channel_id: int, 
         user_message: str, 
-        character_name: Optional[str] = None
+        character_name: Optional[str] = None,
+        server_id: int = None
     ) -> List[Dict[str, str]]:
         """
         Build the message list for chat completion with proper role separation.
@@ -2045,22 +2070,15 @@ Visit http://localhost:5000 to configure the bot via web interface.
             channel_id: Channel ID for conversation history
             user_message: The user's message content
             character_name: Optional character name if user is roleplaying
+            server_id: Optional server ID to check for server-level config
         
         Returns:
             List of message dicts with 'role' and 'content' keys
         """
         messages = []
         
-        # Check for channel-specific preset first
-        channel_preset_name = self.config_manager.get(f'channel_configs.{channel_id}.preset', '')
-        if channel_preset_name:
-            try:
-                preset = self.preset_manager.get_preset(channel_preset_name)
-            except:
-                # Fall back to current preset if channel preset fails
-                preset = self.preset_manager.get_current_preset()
-        else:
-            preset = self.preset_manager.get_current_preset()
+        # Get preset (check channel-specific first, then server-specific, then default)
+        preset = self.get_preset_for_channel(channel_id, server_id)
         
         # Get character data if loaded for this channel
         character_data = None

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Server Configuration UI - Preview</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 5px solid #667eea;
+        }
+        .server-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 5px solid #667eea;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .server-title {
+            margin-top: 0;
+            color: #34495e;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .config-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .config-item label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        .config-item select {
+            width: 100%;
+            padding: 8px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .btn:hover {
+            background: #5568d3;
+        }
+        .info-box {
+            background: #e8f4f8;
+            border: 2px solid #3498db;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .badge {
+            font-size: 0.8em;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Server Configuration</h1>
+        <p>Configure presets, API configs, and characters for each server. These settings apply to all channels in the server. Channel-specific configurations set via Discord commands (!preset, !character) will override server settings.</p>
+    </div>
+
+    <div class="info-box">
+        <h3 style="margin-top: 0;">⚙️ Default Configuration</h3>
+        <p>These are the default settings used when a server doesn't have specific configuration.</p>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div>
+                <strong>Default Preset:</strong> Custom Preset (from Configuration tab)
+            </div>
+            <div>
+                <strong>Default API Config:</strong> OpenAI API (from Configuration tab)
+            </div>
+        </div>
+    </div>
+
+    <button class="btn">🔄 Refresh Servers</button>
+    
+    <br><br>
+
+    <!-- Server 1 -->
+    <div class="server-card">
+        <h3 class="server-title">
+            🖥️ My Discord Server 
+            <span class="badge">(42 channels)</span>
+        </h3>
+        <div class="config-grid">
+            <div class="config-item">
+                <label>Preset</label>
+                <select>
+                    <option value="">Default Preset</option>
+                    <option value="creative" selected>creative</option>
+                    <option value="analytical">analytical</option>
+                    <option value="roleplay">roleplay</option>
+                </select>
+            </div>
+            <div class="config-item">
+                <label>API Config</label>
+                <select>
+                    <option value="" selected>Default API Config</option>
+                    <option value="openai_gpt4">OpenAI GPT-4</option>
+                    <option value="local_ollama">Local Ollama</option>
+                </select>
+            </div>
+            <div class="config-item">
+                <label>Character</label>
+                <select>
+                    <option value="">No Character</option>
+                    <option value="luna" selected>luna</option>
+                    <option value="aria">aria</option>
+                    <option value="sherlock">sherlock</option>
+                </select>
+            </div>
+        </div>
+        <button class="btn">💾 Save Configuration</button>
+    </div>
+
+    <!-- Server 2 -->
+    <div class="server-card">
+        <h3 class="server-title">
+            🖥️ Roleplay Community 
+            <span class="badge">(15 channels)</span>
+        </h3>
+        <div class="config-grid">
+            <div class="config-item">
+                <label>Preset</label>
+                <select>
+                    <option value="">Default Preset</option>
+                    <option value="creative">creative</option>
+                    <option value="analytical">analytical</option>
+                    <option value="roleplay" selected>roleplay</option>
+                </select>
+            </div>
+            <div class="config-item">
+                <label>API Config</label>
+                <select>
+                    <option value="" selected>Default API Config</option>
+                    <option value="openai_gpt4">OpenAI GPT-4</option>
+                    <option value="local_ollama">Local Ollama</option>
+                </select>
+            </div>
+            <div class="config-item">
+                <label>Character</label>
+                <select>
+                    <option value="" selected>No Character</option>
+                    <option value="luna">luna</option>
+                    <option value="aria">aria</option>
+                    <option value="sherlock">sherlock</option>
+                </select>
+            </div>
+        </div>
+        <button class="btn">💾 Save Configuration</button>
+    </div>
+
+    <!-- Server 3 -->
+    <div class="server-card">
+        <h3 class="server-title">
+            🖥️ Tech Support Server 
+            <span class="badge">(8 channels)</span>
+        </h3>
+        <div class="config-grid">
+            <div class="config-item">
+                <label>Preset</label>
+                <select>
+                    <option value="">Default Preset</option>
+                    <option value="creative">creative</option>
+                    <option value="analytical" selected>analytical</option>
+                    <option value="roleplay">roleplay</option>
+                </select>
+            </div>
+            <div class="config-item">
+                <label>API Config</label>
+                <select>
+                    <option value="">Default API Config</option>
+                    <option value="openai_gpt4" selected>OpenAI GPT-4</option>
+                    <option value="local_ollama">Local Ollama</option>
+                </select>
+            </div>
+            <div class="config-item">
+                <label>Character</label>
+                <select>
+                    <option value="" selected>No Character</option>
+                    <option value="luna">luna</option>
+                    <option value="aria">aria</option>
+                    <option value="sherlock">sherlock</option>
+                </select>
+            </div>
+        </div>
+        <button class="btn">💾 Save Configuration</button>
+    </div>
+
+    <div style="margin-top: 40px; padding: 20px; background: #fff3cd; border: 2px solid #ffc107; border-radius: 8px;">
+        <h3 style="margin-top: 0;">💡 Pro Tip</h3>
+        <p>Need different settings for a specific channel? Use Discord commands:</p>
+        <ul>
+            <li><code>!preset analytical</code> - Override preset for current channel</li>
+            <li><code>!character sherlock</code> - Override character for current channel</li>
+        </ul>
+        <p>These will override the server-level configuration for that channel only.</p>
+    </div>
+</body>
+</html>

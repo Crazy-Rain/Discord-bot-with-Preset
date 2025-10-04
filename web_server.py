@@ -673,10 +673,17 @@ class WebServer:
                 try:
                     # Safely get text_channels count
                     channel_count = len(guild.text_channels) if hasattr(guild, 'text_channels') and guild.text_channels is not None else 0
+                    
+                    # Get server configuration
+                    server_config = self.config_manager.get(f'server_configs.{guild.id}', {})
+                    
                     servers.append({
                         'id': str(guild.id),
                         'name': guild.name,
-                        'channel_count': channel_count
+                        'channel_count': channel_count,
+                        'preset': server_config.get('preset', ''),
+                        'api_config': server_config.get('api_config', ''),
+                        'character': server_config.get('character', '')
                     })
                 except Exception as e:
                     # If there's any error getting guild info, skip it but log the issue
@@ -746,6 +753,27 @@ class WebServer:
                 "per_page": per_page,
                 "total_pages": (total_channels + per_page - 1) // per_page if per_page > 0 else 0
             })
+        
+        @self.app.route('/api/server_config/<server_id>', methods=['POST'])
+        def save_server_config(server_id):
+            """Save configuration for a specific server."""
+            try:
+                data = request.json
+                preset = data.get('preset', '')
+                api_config = data.get('api_config', '')
+                character = data.get('character', '')
+                
+                # Save to config
+                self.config_manager.set(f'server_configs.{server_id}.preset', preset)
+                self.config_manager.set(f'server_configs.{server_id}.api_config', api_config)
+                self.config_manager.set(f'server_configs.{server_id}.character', character)
+                
+                return jsonify({
+                    "status": "success",
+                    "message": f"Server configuration saved"
+                })
+            except Exception as e:
+                return jsonify({"status": "error", "message": str(e)}), 400
         
         @self.app.route('/api/channel_config/<channel_id>', methods=['POST'])
         def save_channel_config(channel_id):
