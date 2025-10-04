@@ -982,8 +982,8 @@
         <!-- Servers/Channels Tab -->
         <div id="servers" class="tab-content">
             <div id="servers-message" class="message"></div>
-            <h2>Server & Channel Configuration</h2>
-            <p style="margin-bottom: 20px; color: #666;">Configure presets, API configs, and characters for each channel the bot is active in.</p>
+            <h2>Server Configuration</h2>
+            <p style="margin-bottom: 20px; color: #666;">Configure presets, API configs, and characters for each server the bot is active in. These settings apply to all channels in the server. Channel-specific configurations set via Discord commands (!preset, !character) will override server settings.</p>
             
             <!-- Default Configuration Section -->
             <div style="background: #e8f4f8; border: 2px solid #3498db; border-radius: 8px; padding: 20px; margin-bottom: 25px;">
@@ -2978,7 +2978,9 @@
             }
         }
         
-        // Server/Channel configuration functions
+        // Server/Channel configuration functions (DEPRECATED - now using per-server config)
+        // Kept for backward compatibility with Discord commands
+        /*
         async function toggleServerChannels(serverId) {
             const content = document.getElementById(`server-content-${serverId}`);
             const icon = document.getElementById(`server-icon-${serverId}`);
@@ -3158,6 +3160,7 @@
             const searchTerm = searchInput ? searchInput.value : '';
             loadServerChannelsPage(serverId, 1, searchTerm);
         }
+        */
         
         async function loadDefaultConfig() {
             try {
@@ -3235,25 +3238,54 @@
                     return;
                 }
                 
+                // Load config options once (presets, API configs, characters)
+                const presetsResponse = await fetch('/api/presets');
+                const presetsData = await presetsResponse.json();
+                const presets = presetsData.presets || [];
+                
+                const apiConfigsResponse = await fetch('/api/api_configs');
+                const apiConfigsData = await apiConfigsResponse.json();
+                const apiConfigs = apiConfigsData.configs || [];
+                
+                const charactersResponse = await fetch('/api/characters');
+                const charactersData = await charactersResponse.json();
+                const characters = charactersData.characters || [];
+                
                 listEl.innerHTML = '';
                 
                 servers.forEach((server) => {
                     const serverSection = document.createElement('div');
-                    serverSection.style.cssText = 'margin-bottom: 15px;';
+                    serverSection.style.cssText = 'margin-bottom: 15px; background: white; padding: 20px; border-radius: 8px; border-left: 5px solid #667eea;';
                     
                     // Safely get channel count, default to 0 if not present
                     const channelCount = server.channel_count || 0;
                     
                     serverSection.innerHTML = `
-                        <div class="collapsible-header" onclick="toggleServerChannels('${server.id}')" style="display: flex; justify-content: space-between; align-items: center;">
-                            <h3 style="margin: 0;">🖥️ ${server.name} <span style="font-size: 0.8em; color: #666;">(${channelCount} channels)</span></h3>
-                            <span class="collapsible-icon" id="server-icon-${server.id}">▼</span>
-                        </div>
-                        <div class="collapsible-content" id="server-content-${server.id}" style="background: #f5f5f5; padding: 0; border-radius: 0 0 8px 8px;">
-                            <div id="server-channels-${server.id}" style="padding: 20px;">
-                                <!-- Channels will be loaded here when expanded -->
+                        <h3 style="margin-top: 0; color: #34495e;">🖥️ ${server.name} <span style="font-size: 0.8em; color: #666;">(${channelCount} channels)</span></h3>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 10px;">
+                            <div>
+                                <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #2c3e50;">Preset</label>
+                                <select id="preset-${server.id}" style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 5px;">
+                                    <option value="">Default Preset</option>
+                                    ${presets.map(p => `<option value="${p}" ${server.preset === p ? 'selected' : ''}>${p}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #2c3e50;">API Config</label>
+                                <select id="api-${server.id}" style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 5px;">
+                                    <option value="">Default API Config</option>
+                                    ${apiConfigs.map(cfg => `<option value="${cfg.name}" ${server.api_config === cfg.name ? 'selected' : ''}>${cfg.display || cfg.name}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #2c3e50;">Character</label>
+                                <select id="character-${server.id}" style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 5px;">
+                                    <option value="">No Character</option>
+                                    ${characters.map(c => `<option value="${c}" ${server.character === c ? 'selected' : ''}>${c}</option>`).join('')}
+                                </select>
                             </div>
                         </div>
+                        <button class="btn btn-primary btn-sm" onclick="saveServerConfig('${server.id}')">💾 Save Configuration</button>
                     `;
                     
                     listEl.appendChild(serverSection);
@@ -3265,13 +3297,13 @@
             }
         }
         
-        async function saveChannelConfig(channelId) {
+        async function saveServerConfig(serverId) {
             try {
-                const preset = document.getElementById(`preset-${channelId}`).value;
-                const apiConfig = document.getElementById(`api-${channelId}`).value;
-                const character = document.getElementById(`character-${channelId}`).value;
+                const preset = document.getElementById(`preset-${serverId}`).value;
+                const apiConfig = document.getElementById(`api-${serverId}`).value;
+                const character = document.getElementById(`character-${serverId}`).value;
                 
-                const response = await fetch(`/api/channel_config/${channelId}`, {
+                const response = await fetch(`/api/server_config/${serverId}`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
@@ -3284,7 +3316,7 @@
                 const result = await response.json();
                 showMessage('servers-message', result.message, result.status === 'success' ? 'success' : 'error');
             } catch (error) {
-                showMessage('servers-message', 'Error saving channel configuration: ' + error.message, 'error');
+                showMessage('servers-message', 'Error saving server configuration: ' + error.message, 'error');
             }
         }
         

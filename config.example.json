@@ -34,6 +34,13 @@
     "frequency_penalty_enabled": true,
     "presence_penalty_enabled": true
   },
+  "server_configs": {
+    "987654321": {
+      "preset": "creative",
+      "api_config": "my_api",
+      "character": "luna"
+    }
+  },
   "channel_configs": {
     "123456": {
       "preset": "creative",
