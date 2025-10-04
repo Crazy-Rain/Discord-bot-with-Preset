@@ -41,6 +41,12 @@ async def run_discord_bot(config_manager: ConfigManager):
     
     while not shutdown_flag and retry_count < max_retries:
         try:
+            # Create a fresh bot instance for each connection attempt
+            # (cannot reuse a bot instance after it has been started/closed)
+            if retry_count > 0 or bot_instance.is_closed():
+                print("🔄 Creating fresh bot instance for reconnection...")
+                bot_instance = DiscordBot(config_manager)
+            
             await bot_instance.start(token)
             # If we get here, bot stopped normally
             break
@@ -52,6 +58,12 @@ async def run_discord_bot(config_manager: ConfigManager):
             if retry_count < max_retries and not shutdown_flag:
                 print(f"❌ Bot connection error: {e}")
                 print(f"🔄 Retrying in {retry_delay} seconds... (Attempt {retry_count}/{max_retries})")
+                # Close the failed bot instance before retrying
+                if bot_instance and not bot_instance.is_closed():
+                    try:
+                        await bot_instance.close()
+                    except:
+                        pass
                 await asyncio.sleep(retry_delay)
                 # Increase retry delay exponentially (up to 30 seconds)
                 retry_delay = min(retry_delay * 2, 30)
