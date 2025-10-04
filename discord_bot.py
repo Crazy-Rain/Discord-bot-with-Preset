@@ -4,6 +4,7 @@ from discord.ext import commands
 from typing import Dict, List, Optional, Tuple
 import re
 import aiohttp
+import asyncio
 import os
 from config_manager import ConfigManager
 from preset_manager import PresetManager
@@ -113,6 +114,50 @@ def smart_split_text(text: str, max_length: int = 4096, prefer_length: int = 390
         remaining = remaining[split_point:]
     
     return chunks
+
+
+class PersistentTyping:
+    """Context manager that maintains typing indicator for long operations.
+    
+    Discord's typing indicator expires after 10 seconds. This class refreshes
+    it every 8 seconds to maintain a persistent typing indicator during long
+    AI responses or operations.
+    """
+    
+    def __init__(self, channel):
+        self.channel = channel
+        self.task = None
+        self.active = False
+    
+    async def _keep_typing(self):
+        """Periodically trigger typing indicator."""
+        while self.active:
+            try:
+                await self.channel.trigger_typing()
+                # Wait 8 seconds before refreshing (typing lasts 10 seconds)
+                await asyncio.sleep(8)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                # If there's an error, stop the loop
+                print(f"Error maintaining typing indicator: {e}")
+                break
+    
+    async def __aenter__(self):
+        """Start the persistent typing indicator."""
+        self.active = True
+        self.task = asyncio.create_task(self._keep_typing())
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Stop the persistent typing indicator."""
+        self.active = False
+        if self.task:
+            self.task.cancel()
+            try:
+                await self.task
+            except asyncio.CancelledError:
+                pass
 
 
 class SwipeButtonView(discord.ui.View):
@@ -1192,7 +1237,7 @@ class DiscordBot(commands.Bot):
             openai_client = self.get_openai_client_for_channel(channel_id, server_id)
             
             try:
-                async with ctx.typing():
+                async with PersistentTyping(ctx.channel):
                     # Generate response
                     response = await openai_client.chat_completion(
                         messages=messages,
@@ -1309,7 +1354,7 @@ class DiscordBot(commands.Bot):
             # Limit the maximum to prevent excessive API calls
             limit = min(limit, 100)
             
-            async with ctx.typing():
+            async with PersistentTyping(ctx.channel):
                 # Clear current conversation
                 self.conversations[channel_id] = []
                 self.character_names[channel_id] = []
@@ -1536,7 +1581,7 @@ class DiscordBot(commands.Bot):
                     )
                     return
                 
-                async with ctx.typing():
+                async with PersistentTyping(ctx.channel):
                     # Download the image
                     image_bytes = await attachment.read()
                     
@@ -1866,7 +1911,7 @@ Visit http://localhost:5000 to configure the bot via web interface.
             openai_client = self.get_openai_client_for_channel(channel_id, server_id)
             
             try:
-                async with ctx.typing():
+                async with PersistentTyping(ctx.channel):
                     # Generate alternative response
                     response = await openai_client.chat_completion(
                         messages=messages,
