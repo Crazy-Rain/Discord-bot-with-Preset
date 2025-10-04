@@ -1580,6 +1580,14 @@ class DiscordBot(commands.Bot):
             char_data = self.user_characters_manager.get_character(character_name)
             if char_data:
                 response = f"**{char_data['name']}**\n{char_data['description']}"
+                
+                # Show sheet if it exists
+                sheet = char_data.get('sheet', '')
+                sheet_enabled = char_data.get('sheet_enabled', False)
+                if sheet:
+                    status = "Enabled" if sheet_enabled else "Disabled"
+                    response += f"\n\n**Character Sheet ({status}):**\n{sheet}"
+                
                 await ctx.send(response)
             else:
                 await ctx.send(f"User character not found: {character_name}")
@@ -1589,6 +1597,40 @@ class DiscordBot(commands.Bot):
             """Delete a saved user character."""
             if self.user_characters_manager.delete_character(character_name):
                 await ctx.send(f"Deleted user character: {character_name}")
+            else:
+                await ctx.send(f"User character not found: {character_name}")
+        
+        @self.command(name="set_sheet", help="Set a character sheet for a user character")
+        async def set_sheet(ctx, character_name: str, *, sheet_content: str):
+            """Set character sheet for a user character.
+            
+            Usage: !set_sheet <Character Name> <Sheet Content>
+            Example: !set_sheet Alice Abilities: Flight, Super Strength. Perks: Enhanced Reflexes.
+            """
+            if self.user_characters_manager.update_character_sheet(character_name, sheet_content):
+                await ctx.send(f"Character sheet set for: {character_name}")
+            else:
+                await ctx.send(f"User character not found: {character_name}")
+        
+        @self.command(name="enable_sheet", help="Enable character sheet for a user character")
+        async def enable_sheet(ctx, character_name: str):
+            """Enable character sheet for a user character.
+            
+            Usage: !enable_sheet <Character Name>
+            """
+            if self.user_characters_manager.set_sheet_enabled(character_name, True):
+                await ctx.send(f"Character sheet enabled for: {character_name}")
+            else:
+                await ctx.send(f"User character not found: {character_name}")
+        
+        @self.command(name="disable_sheet", help="Disable character sheet for a user character")
+        async def disable_sheet(ctx, character_name: str):
+            """Disable character sheet for a user character.
+            
+            Usage: !disable_sheet <Character Name>
+            """
+            if self.user_characters_manager.set_sheet_enabled(character_name, False):
+                await ctx.send(f"Character sheet disabled for: {character_name}")
             else:
                 await ctx.send(f"User character not found: {character_name}")
         
