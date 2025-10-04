@@ -41,11 +41,13 @@ async def run_discord_bot(config_manager: ConfigManager):
     
     while not shutdown_flag and retry_count < max_retries:
         try:
-            # Create a fresh bot instance for each connection attempt
+            # Always create a fresh bot instance for each connection attempt
             # (cannot reuse a bot instance after it has been started/closed)
-            if retry_count > 0 or bot_instance.is_closed():
+            if retry_count == 0:
+                print("🔄 Creating bot instance for initial connection...")
+            else:
                 print("🔄 Creating fresh bot instance for reconnection...")
-                bot_instance = DiscordBot(config_manager)
+            bot_instance = DiscordBot(config_manager)
             
             await bot_instance.start(token)
             # If we get here, bot stopped normally
@@ -97,7 +99,8 @@ def main():
     # Load configuration
     config_manager = ConfigManager()
     
-    # Initialize bot instance early (before web server starts)
+    # Initialize bot instance placeholder (web server will access via global)
+    # The actual connection will use fresh instances created in run_discord_bot()
     bot_instance = DiscordBot(config_manager)
     
     # Start web server in a separate thread

@@ -14,13 +14,19 @@ class WebServer:
     def __init__(self, config_manager: ConfigManager, bot_instance=None):
         self.app = Flask(__name__)
         self.config_manager = config_manager
-        self.bot_instance = bot_instance
+        self._bot_instance_ref = bot_instance  # Keep for backward compatibility
         self.preset_manager = PresetManager()
         self.character_manager = CharacterManager()
         self.user_characters_manager = UserCharactersManager()
         self.lorebook_manager = LorebookManager()
         
         self.setup_routes()
+    
+    @property
+    def bot_instance(self):
+        """Get the current bot instance from main module."""
+        import main
+        return main.bot_instance
     
     def setup_routes(self):
         """Setup Flask routes."""
