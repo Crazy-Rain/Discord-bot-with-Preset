@@ -2,12 +2,16 @@
 import asyncio
 import threading
 import time
+import signal
+import sys
 from config_manager import ConfigManager
 from discord_bot import DiscordBot
 from web_server import WebServer
 
 # Global bot instance that web server can access
 bot_instance = None
+# Global flag for graceful shutdown
+shutdown_flag = False
 
 def run_web_server(config_manager: ConfigManager):
     """Run the web server in a separate thread."""
@@ -20,8 +24,8 @@ def run_web_server(config_manager: ConfigManager):
     )
 
 async def run_discord_bot(config_manager: ConfigManager):
-    """Run the Discord bot."""
-    global bot_instance
+    """Run the Discord bot with automatic reconnection."""
+    global bot_instance, shutdown_flag
     bot_instance = DiscordBot(config_manager)
     token = config_manager.get("discord_token")
     
@@ -31,13 +35,50 @@ async def run_discord_bot(config_manager: ConfigManager):
         print("You can also configure the bot at http://localhost:5000")
         return
     
-    try:
-        await bot_instance.start(token)
-    except Exception as e:
-        print(f"Error starting Discord bot: {e}")
+    # Run bot with automatic reconnection on connection errors
+    max_retries = 5
+    retry_count = 0
+    retry_delay = 5  # seconds
+    
+    while not shutdown_flag and retry_count < max_retries:
+        try:
+            await bot_instance.start(token)
+            # If we get here, bot stopped normally
+            break
+        except KeyboardInterrupt:
+            # Handle graceful shutdown
+            break
+        except Exception as e:
+            retry_count += 1
+            if retry_count < max_retries and not shutdown_flag:
+                print(f"❌ Bot connection error: {e}")
+                print(f"🔄 Retrying in {retry_delay} seconds... (Attempt {retry_count}/{max_retries})")
+                await asyncio.sleep(retry_delay)
+                # Increase retry delay exponentially (up to 30 seconds)
+                retry_delay = min(retry_delay * 2, 30)
+            else:
+                print(f"❌ Bot failed to connect after {max_retries} attempts: {e}")
+                raise
+    
+    # Ensure proper cleanup
+    if bot_instance and not bot_instance.is_closed():
+        await bot_instance.close()
+
+def signal_handler(signum, frame):
+    """Handle shutdown signals gracefully."""
+    global shutdown_flag
+    print("\n\n👋 Shutdown signal received. Cleaning up...")
+    shutdown_flag = True
+    sys.exit(0)
 
 def main():
     """Main function to run both web server and Discord bot."""
+    global bot_instance, shutdown_flag
+    
+    # Register signal handlers for graceful shutdown
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    
     print("=" * 60)
     print("Discord Bot with OpenAI Integration and Preset System")
     print("=" * 60)
@@ -46,7 +87,6 @@ def main():
     config_manager = ConfigManager()
     
     # Initialize bot instance early (before web server starts)
-    global bot_instance
     bot_instance = DiscordBot(config_manager)
     
     # Start web server in a separate thread
@@ -77,16 +117,28 @@ def main():
         print("You can also configure the bot at http://localhost:5000")
         # Keep the web server running even if bot can't start
         try:
-            while True:
+            while not shutdown_flag:
                 time.sleep(1)
         except KeyboardInterrupt:
             print("\n\n👋 Shutting down...")
         return
     
     try:
-        asyncio.run(bot_instance.start(token))
+        # Run bot with reconnection handling
+        asyncio.run(run_discord_bot(config_manager))
     except KeyboardInterrupt:
         print("\n\n👋 Shutting down...")
+    finally:
+        # Ensure bot is properly closed
+        if bot_instance and not bot_instance.is_closed():
+            try:
+                # Use a new event loop for cleanup if the main one is closed
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                loop.run_until_complete(bot_instance.close())
+                loop.close()
+            except Exception as e:
+                print(f"Error during cleanup: {e}")
 
 if __name__ == "__main__":
     main()

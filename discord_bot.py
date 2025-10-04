@@ -2179,3 +2179,17 @@ FORMAT GUIDELINES:
                         print(f"  Loaded character '{character_name}' for channel {channel_id}")
                     except Exception as e:
                         print(f"  Failed to load character '{character_name}' for channel {channel_id}: {e}")
+    
+    async def on_disconnect(self):
+        """Called when bot disconnects from Discord."""
+        print("⚠️  Bot disconnected from Discord. Attempting to reconnect...")
+    
+    async def on_resume(self):
+        """Called when bot resumes connection to Discord."""
+        print("✅ Bot reconnected to Discord successfully!")
+    
+    async def on_error(self, event_method: str, *args, **kwargs):
+        """Called when an error occurs in an event handler."""
+        import traceback
+        print(f"❌ Error in {event_method}:")
+        print(traceback.format_exc())
