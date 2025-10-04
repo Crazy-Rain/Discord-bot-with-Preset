@@ -1,50 +1,69 @@
 # Server/Channel Configuration Feature - Implementation Summary
 
 ## Overview
-Implemented a new **Servers/Channels** tab in the web configuration interface that allows per-channel customization of bot settings including Preset, API Config, and Character selection.
+Implemented a new **Servers/Channels** tab in the web configuration interface that allows **per-server** customization of bot settings including Preset, API Config, and Character selection. Channel-specific configurations can still be set via Discord commands and will override server settings.
+
+## Recent Update (Per-Server Configuration)
+**Changed from per-channel to per-server configuration** to simplify management:
+- Web UI now shows server-level configuration (one config per server)
+- Channel-specific configs are still supported via Discord commands (`!preset`, `!character`)
+- Configuration priority: Channel config > Server config > Default config
+- Conversation history remains per-channel (unchanged)
 
 ## Files Modified
 
 ### 1. web_server.py
-**Added API Endpoints:**
-- `GET /api/servers` - Retrieves all connected Discord servers (without channels for performance)
-- `GET /api/servers/<server_id>/channels` - Retrieves channels for a specific server (lazy loading)
-- `POST /api/channel_config/<channel_id>` - Saves configuration for a specific channel
+**Added/Updated API Endpoints:**
+- `GET /api/servers` - Retrieves all connected Discord servers with server-level configs
+- `POST /api/server_config/<server_id>` - Saves configuration for a specific server
+- `POST /api/channel_config/<channel_id>` - Saves configuration for a specific channel (via Discord commands)
+- ~~`GET /api/servers/<server_id>/channels`~~ - Deprecated (channels no longer shown in web UI)
 
 **Implementation Details:**
-- `/api/servers` returns server list with `id`, `name`, and `channel_count` (no channel details)
-- `/api/servers/<server_id>/channels` loads channels on-demand when a server is expanded
+- `/api/servers` returns server list with `id`, `name`, `channel_count`, and server configs (`preset`, `api_config`, `character`)
 - Accesses `bot_instance.guilds` to get list of connected servers
-- Retrieves saved config from `config_manager.get(f'channel_configs.{channel.id}')`
-- Saves config using `config_manager.set()` for persistence
+- Retrieves saved config from `config_manager.get(f'server_configs.{guild.id}')`
+- Saves server config using `config_manager.set()` for persistence
 
 ### 2. templates/index.html
-**Added UI Components:**
-- New "Servers/Channels" tab button in navigation
-- Complete tab content section with server/channel hierarchy
-- **Lazy loading accordion**: Channels are loaded on-demand when server is expanded
-- **Accordion behavior**: Opening a server automatically closes other servers
-- Dynamic dropdown menus for each channel:
-  - Preset selector (populated from presets)
-  - API Config selector (populated from saved API configs)
-  - Character selector (populated from character cards)
-- Save button per channel
-- Refresh button to reload server list
-- Loading state indicator while channels are being fetched
+**Updated UI Components:**
+- "Servers/Channels" tab now shows **server-level configuration** (simplified from per-channel)
+- Each server displays:
+  - Server name and channel count
+  - Three dropdown menus (Preset, API Config, Character)
+  - Save button to apply configuration to entire server
+- Removed per-channel dropdowns and accordion behavior
+- Commented out old channel loading functions for reference
 
-**JavaScript Functions Added:**
-- `loadServersList()` - Fetches and displays servers (without channels initially)
-- `toggleServerChannels(serverId)` - Async function that implements:
-  - Accordion behavior (closes other servers when one is opened)
-  - Lazy loading (fetches channels only when server is expanded)
-  - Caching (channels loaded once per session)
-- `saveChannelConfig(channelId)` - Saves configuration for a specific channel
-- Updated `switchTab()` to handle the new 'servers' tab
+**JavaScript Functions Updated:**
+- `loadServersList()` - Fetches servers and displays server-level config dropdowns
+- `saveServerConfig(serverId)` - Saves configuration for entire server
+- ~~`toggleServerChannels(serverId)`~~ - Deprecated (no longer used)
+- ~~`loadServerChannelsPage()`~~ - Deprecated (no longer used)
+- ~~`saveChannelConfig(channelId)`~~ - Deprecated in web UI (still used by Discord commands)
 
-### 3. config.example.json
+### 3. discord_bot.py
+**Added Helper Functions:**
+- `get_preset_for_channel(channel_id, server_id)` - Gets preset with priority: channel > server > default
+- `get_character_for_channel(channel_id, server_id)` - Gets character with priority: channel > server > default
+- Updated `get_openai_client_for_channel(channel_id, server_id)` - Now checks server config
+- Updated `build_chat_messages(channel_id, user_message, character_name, server_id)` - Now accepts server_id
+
+**Updated Commands:**
+- `!chat` - Now passes server_id to use server-level config when channel config not set
+- `!swipe` - Now passes server_id to use server-level config when channel config not set
+
+### 4. config.example.json
 **Added Configuration Storage:**
 ```json
 {
+  "server_configs": {
+    "987654321": {
+      "preset": "creative",
+      "api_config": "my_api",
+      "character": "luna"
+    }
+  },
   "channel_configs": {
     "123456": {
       "preset": "creative",
@@ -121,23 +140,45 @@ Complete user documentation including:
 
 ## How It Works
 
-### Data Flow (Updated with Lazy Loading)
+### Configuration Priority System
+The bot uses a three-tier priority system when determining configuration:
+
+1. **Channel-specific config** (highest priority)
+   - Set via Discord commands: `!preset <name>`, `!character <name>`
+   - Stored in `channel_configs.{channel_id}`
+   - Overrides server and default configs
+
+2. **Server-level config** (medium priority)
+   - Set via web interface (Servers/Channels tab)
+   - Stored in `server_configs.{server_id}`
+   - Used when no channel-specific config exists
+   - Applies to all channels in the server
+
+3. **Default/global config** (lowest priority)
+   - Set via web interface (Configuration tab)
+   - Stored in `default_preset` and global `openai_config`
+   - Used when no server or channel config exists
+
+### Data Flow
 1. User navigates to Servers/Channels tab
 2. Frontend calls `GET /api/servers`
-3. Backend returns server list with `id`, `name`, and `channel_count` (NO channel data yet)
-4. Frontend displays server headers with channel counts
-5. **When user clicks a server to expand it:**
-   - Frontend closes any other open servers (accordion behavior)
-   - Checks if channels already loaded (cached)
-   - If not cached, shows "Loading channels..." message
-   - Calls `GET /api/servers/<server_id>/channels`
-   - Backend fetches channels and their configs for that specific server
-   - Frontend renders channels with dropdowns
-   - Marks channels as loaded (cached) for future toggles
-6. User selects values and clicks Save
-7. Frontend calls `POST /api/channel_config/<id>` with new values
-8. Backend saves to config.json using ConfigManager
-9. Success message displayed to user
+3. Backend returns server list with current server configs
+4. Frontend displays server cards with dropdowns pre-filled
+5. User selects values and clicks Save
+6. Frontend calls `POST /api/server_config/<server_id>` with new values
+7. Backend saves to `server_configs.{server_id}` in config.json
+8. Success message displayed to user
+
+### Message Processing Flow
+1. User sends `!chat` command in Discord
+2. Bot extracts `channel_id` and `server_id` from context
+3. Bot checks for config in this order:
+   - `channel_configs.{channel_id}.preset` (from Discord commands)
+   - `server_configs.{server_id}.preset` (from web UI)
+   - `default_preset` (global config)
+4. Same process for API config and character
+5. Bot generates response using selected configuration
+6. **Conversation history stored per channel** (separate from config)
 
 ### Performance Benefits
 - **Reduced initial load time**: Server list loads instantly without waiting for all channels
