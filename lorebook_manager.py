@@ -313,7 +313,8 @@ class LorebookManager:
             # Include if it's a global lorebook OR if it matches the current character
             # Global: linked_chars is None or empty list
             # Character-specific: character_name is in linked_chars list
-            if not linked_chars or (character_name and character_name in linked_chars):
+            # Note: character_name can be None, empty string "", or a non-empty string
+            if not linked_chars or (character_name is not None and character_name in linked_chars):
                 if self.debug_logging:
                     print(f"[LOREBOOK] Including lorebook '{lorebook_name}' (linked_chars: {linked_chars})")
                 lorebook_entries = lorebook.get("entries", {})

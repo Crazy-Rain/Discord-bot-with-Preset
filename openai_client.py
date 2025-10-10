@@ -115,14 +115,77 @@ class OpenAIClient:
             
             response = self.client.chat.completions.create(**request_params)
             
+            # Safely access response choices with validation
+            if not hasattr(response, 'choices') or not response.choices:
+                raise Exception(
+                    "API returned an invalid response structure (missing 'choices'). "
+                    "This may indicate a proxy or API configuration issue. "
+                    "Please check your API endpoint and model settings."
+                )
+            
+            if not hasattr(response.choices[0], 'message') or not hasattr(response.choices[0].message, 'content'):
+                raise Exception(
+                    "API returned an invalid response structure (missing message content). "
+                    "This may indicate a proxy or API configuration issue. "
+                    "Please check your API endpoint and model settings."
+                )
+            
             return response.choices[0].message.content
         except Exception as e:
             # Provide more helpful error message for API key issues
             error_msg = str(e)
-            if "401" in error_msg or "invalid_api_key" in error_msg or "Incorrect API key" in error_msg:
+            # Check for authentication/token errors with broader pattern matching
+            if any(pattern in error_msg.lower() for pattern in [
+                "401", "invalid_api_key", "incorrect api key", "invalid api key", "invalid token", 
+                "invalid_request_error", "authentication", "unauthorized"
+            ]):
                 raise Exception(
-                    f"API authentication failed. Please verify your API key is correct. "
+                    f"API authentication failed. Please verify your API key/token is correct. "
                     f"You can update it via the web interface at http://localhost:5000. "
+                    f"Note: If using a proxy (like anas-proxy.xyz), ensure:\n"
+                    f"1. Your API key/token is valid for that specific proxy\n"
+                    f"2. The proxy URL is correct (should end with /v1)\n"
+                    f"3. The proxy service is currently accessible\n"
+                    f"Original error: {error_msg}"
+                )
+            # Provide helpful message for context length/token limit errors
+            elif any(pattern in error_msg.lower() for pattern in [
+                "context_length_exceeded", "maximum context length", "context window",
+                "too many tokens", "token limit", "reduce the length"
+            ]):
+                raise Exception(
+                    f"Message too long - exceeded context window limit. "
+                    f"The combined length of your message, conversation history, and system prompts exceeded the model's token limit. "
+                    f"Please try:\n"
+                    f"1. Sending a shorter message\n"
+                    f"2. Using !clear to clear conversation history\n"
+                    f"3. Reducing the auto context limit with !setcontext (current messages loaded from history)\n"
+                    f"Original error: {error_msg}"
+                )
+            # Provide helpful message for Google AI proxy errors (specific pattern)
+            elif "googleAIBlockingResponseHandler" in error_msg or "Cannot read properties of undefined" in error_msg:
+                raise Exception(
+                    f"Google AI proxy error - likely content filtering or response parsing issue. "
+                    f"This often happens when:\n"
+                    f"1. Your message contains content that triggers safety filters\n"
+                    f"2. The message format (e.g., with newlines or special characters) causes parsing issues\n"
+                    f"3. The proxy cannot parse the API response correctly\n"
+                    f"Try:\n"
+                    f"- Rewording your message\n"
+                    f"- Removing extra line breaks or special formatting\n"
+                    f"- Using a different API endpoint/proxy if available\n"
+                    f"Original error: {error_msg}"
+                )
+            # Provide helpful message for server errors
+            elif "500" in error_msg or "Internal server error" in error_msg:
+                raise Exception(
+                    f"API server error (500). This is typically a problem with the API provider or proxy. "
+                    f"Possible causes:\n"
+                    f"1. Your API endpoint is not accessible or incorrect\n"
+                    f"2. The model name is invalid for your API provider\n"
+                    f"3. Your proxy (if using one) has a configuration issue\n"
+                    f"4. Your message may be too long (try a shorter message or use !clear to reset history)\n"
+                    f"5. Content filtering - your message may contain blocked content (try rewording)\n"
                     f"Original error: {error_msg}"
                 )
             raise Exception(f"Error calling OpenAI-compatible API: {error_msg}")
