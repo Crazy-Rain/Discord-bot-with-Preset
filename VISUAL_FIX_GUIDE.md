@@ -70,19 +70,34 @@ Error: Error calling OpenAI-compatible API: Error code: 500 - {'error': 'Interna
 
 **Problem:** Confusing error message with no guidance on how to fix it.
 
+**Additional Issue:** When users sent very long messages, they got this same confusing error because the total context (message + history + system prompts + lorebook) exceeded the model's token limit.
+
 ### After the Fix
 
-Now users see:
+Now users see **context-aware error messages**:
+
+#### For Context Length Errors:
 ```
-API server error (500). This is typically a problem with the API provider or proxy. 
-Please check:
-1. Your API endpoint is correct and accessible
-2. The model name is valid for your API provider
-3. Your proxy (if using one) is configured correctly
-Original error: Error code: 500 - {'error': 'Internal server error', ...}
+Message too long - exceeded context window limit.
+The combined length of your message, conversation history, and system prompts exceeded the model's token limit.
+Please try:
+1. Sending a shorter message
+2. Using !clear to clear conversation history
+3. Reducing the auto context limit with !setcontext (current messages loaded from history)
+Original error: [details]
 ```
 
-**Improvement:** Clear, actionable guidance on what to check.
+#### For 500 Server Errors:
+```
+API server error (500). Possible causes:
+1. Your API endpoint is not accessible or incorrect
+2. The model name is invalid for your API provider
+3. Your proxy (if using one) has a configuration issue
+4. Your message may be too long (try a shorter message or use !clear to reset history)
+Original error: [details]
+```
+
+**Improvement:** Clear, actionable guidance tailored to the error type.
 
 Additionally, the code now validates the response structure before accessing it:
 ```python

@@ -2,26 +2,42 @@
 
 ## Issues Addressed
 
-### 1. OpenAI API 500 Error with Confusing Error Message
+### 1. OpenAI API Errors with Confusing Messages
 
-**Problem**: Users were getting confusing error messages when the OpenAI-compatible API returned a 500 server error:
+**Problem**: Users were getting confusing error messages when the OpenAI-compatible API returned errors:
+
+**Original 500 error:**
 ```
 Error: Error calling OpenAI-compatible API: Error code: 500 - {'error': 'Internal server error', 'proxy_note': "Error while executing proxy response middleware: googleAIBlockingResponseHandler (Cannot read properties of undefined (reading '0'))"}
 ```
 
-**Root Cause**: The error message from the API proxy was being passed through without additional context, making it difficult for users to understand what went wrong and how to fix it.
+**Additional Issue Discovered**: Users also reported errors when sending very long messages with `!chat`. This was typically due to exceeding the model's context window (total tokens from user message + conversation history + system prompts + lorebook entries).
+
+**Root Causes**: 
+1. The error message from the API proxy was being passed through without additional context
+2. No validation of API response structure before accessing `response.choices[0]`
+3. No specific handling for context length/token limit errors
+4. Generic error handling without guidance for different error types
 
 **Fix Applied**:
 1. Added defensive validation of the API response structure before accessing `response.choices[0]`
-2. Added specific error handling for 500 server errors with helpful troubleshooting steps
-3. Improved error messages to guide users on what to check
+2. Added specific error handling for context length/token limit errors with helpful solutions
+3. Updated 500 error handler to include context length as a possible cause
+4. Improved error messages to guide users on what to check
 
 **Code Changes** (`openai_client.py`):
 - Added checks for `response.choices` existence and content
-- Added dedicated 500 error handler with actionable troubleshooting steps:
-  - Check API endpoint is correct and accessible
-  - Verify model name is valid for the API provider
-  - Ensure proxy (if used) is configured correctly
+- Added dedicated context length error handler that detects patterns like:
+  - "context_length_exceeded"
+  - "maximum context length"
+  - "too many tokens"
+  - "token limit"
+  - "reduce the length"
+- Context length errors now provide actionable steps:
+  - Send a shorter message
+  - Use `!clear` to clear conversation history
+  - Use `!setcontext` to reduce auto context limit
+- Updated 500 error handler to include message length as a possible cause
 
 ### 2. Lorebook Constant Entries Not Being Pulled
 

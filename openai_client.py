@@ -140,14 +140,29 @@ class OpenAIClient:
                     f"You can update it via the web interface at http://localhost:5000. "
                     f"Original error: {error_msg}"
                 )
+            # Provide helpful message for context length/token limit errors
+            elif any(pattern in error_msg.lower() for pattern in [
+                "context_length_exceeded", "maximum context length", "context window",
+                "too many tokens", "token limit", "reduce the length"
+            ]):
+                raise Exception(
+                    f"Message too long - exceeded context window limit. "
+                    f"The combined length of your message, conversation history, and system prompts exceeded the model's token limit. "
+                    f"Please try:\n"
+                    f"1. Sending a shorter message\n"
+                    f"2. Using !clear to clear conversation history\n"
+                    f"3. Reducing the auto context limit with !setcontext (current messages loaded from history)\n"
+                    f"Original error: {error_msg}"
+                )
             # Provide helpful message for server errors
             elif "500" in error_msg or "Internal server error" in error_msg:
                 raise Exception(
                     f"API server error (500). This is typically a problem with the API provider or proxy. "
-                    f"Please check:\n"
-                    f"1. Your API endpoint is correct and accessible\n"
-                    f"2. The model name is valid for your API provider\n"
-                    f"3. Your proxy (if using one) is configured correctly\n"
+                    f"Possible causes:\n"
+                    f"1. Your API endpoint is not accessible or incorrect\n"
+                    f"2. The model name is invalid for your API provider\n"
+                    f"3. Your proxy (if using one) has a configuration issue\n"
+                    f"4. Your message may be too long (try a shorter message or use !clear to reset history)\n"
                     f"Original error: {error_msg}"
                 )
             raise Exception(f"Error calling OpenAI-compatible API: {error_msg}")
