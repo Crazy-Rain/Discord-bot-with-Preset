@@ -1028,7 +1028,12 @@
             tabs.forEach(tab => tab.classList.remove('active'));
             contents.forEach(content => content.classList.remove('active'));
             
-            event.target.classList.add('active');
+            // Find and activate the clicked tab button by matching onclick attribute
+            tabs.forEach(tab => {
+                if (tab.getAttribute('onclick') && tab.getAttribute('onclick').includes(`'${tabName}'`)) {
+                    tab.classList.add('active');
+                }
+            });
             document.getElementById(tabName).classList.add('active');
             
             if (tabName === 'presets') {
@@ -3220,7 +3225,7 @@
         
         
         async function loadConfigFileSettings() {
-            """Load and display server/channel configs from config file."""
+            // Load and display server/channel configs from config file.
             try {
                 const response = await fetch('/api/all_configs');
                 const data = await response.json();
