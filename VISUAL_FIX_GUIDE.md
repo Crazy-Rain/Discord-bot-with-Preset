@@ -76,6 +76,19 @@ Error: Error calling OpenAI-compatible API: Error code: 500 - {'error': 'Interna
 
 Now users see **context-aware error messages**:
 
+#### For Google AI Proxy Errors (NEW):
+```
+Google AI proxy error - likely content filtering or response parsing issue.
+This often happens when:
+1. Your message contains content that triggers safety filters
+2. The message format (e.g., with newlines or special characters) causes parsing issues
+3. The proxy cannot parse the API response correctly
+Try:
+- Rewording your message
+- Removing extra line breaks or special formatting
+- Using a different API endpoint/proxy if available
+```
+
 #### For Context Length Errors:
 ```
 Message too long - exceeded context window limit.
@@ -94,6 +107,7 @@ API server error (500). Possible causes:
 2. The model name is invalid for your API provider
 3. Your proxy (if using one) has a configuration issue
 4. Your message may be too long (try a shorter message or use !clear to reset history)
+5. Content filtering - your message may contain blocked content (try rewording)
 Original error: [details]
 ```
 
