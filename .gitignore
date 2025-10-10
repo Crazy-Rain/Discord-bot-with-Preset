@@ -56,7 +56,8 @@ presets/*
 !presets/uncensored_roleplay.json
 
 # Character avatars (uploaded images)
-character_avatars/
+character_avatars/*
+!character_avatars/.gitkeep
 
 # Lorebook runtime files (auto-generated)
 lorebook/lorebook.json

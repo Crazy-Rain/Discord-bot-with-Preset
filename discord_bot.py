@@ -639,6 +639,18 @@ class DiscordBot(commands.Bot):
         # Add commands
         self.add_bot_commands()
     
+    def get_web_server_url(self) -> str:
+        """Get the web server URL from config."""
+        web_config = self.config_manager.get("web_server", {})
+        host = web_config.get("host", "0.0.0.0")
+        port = web_config.get("port", 5000)
+        
+        # If host is 0.0.0.0, use localhost for the URL
+        if host == "0.0.0.0":
+            host = "localhost"
+        
+        return f"http://{host}:{port}"
+    
     async def get_or_create_webhook(self, channel: discord.TextChannel) -> Optional[discord.Webhook]:
         """Get existing webhook for channel or create a new one.
         
@@ -728,9 +740,9 @@ class DiscordBot(commands.Bot):
                 'wait': True
             }
             
-            # Only include avatar_url if it's a valid non-empty string
-            # Discord webhooks ignore empty strings and fall back to webhook defaults
-            if avatar_url and avatar_url.strip():
+            # Only include avatar_url if it's a valid HTTP/HTTPS URL
+            # Discord webhooks don't support base64 data URLs
+            if avatar_url and avatar_url.strip() and (avatar_url.startswith('http://') or avatar_url.startswith('https://')):
                 webhook_params['avatar_url'] = avatar_url
             
             # Use embeds for better formatting and higher character limit (4096 vs 2000)
@@ -1532,7 +1544,8 @@ class DiscordBot(commands.Bot):
             
             The image will be:
             - Validated for size (max 10MB) and format
-            - Converted to base64 data URL
+            - Saved to the character_avatars directory
+            - Accessible via HTTP URL for Discord webhooks
             - Saved to the character's avatar_url field
             
             Example: !image luna (with luna.png attached)
@@ -1585,19 +1598,7 @@ class DiscordBot(commands.Bot):
                     # Download the image
                     image_bytes = await attachment.read()
                     
-                    # Convert to base64 data URL
-                    import base64
-                    base64_data = base64.b64encode(image_bytes).decode('utf-8')
-                    mime_type = f"image/{file_ext if file_ext != 'jpg' else 'jpeg'}"
-                    data_url = f"data:{mime_type};base64,{base64_data}"
-                    
-                    # Update character's avatar_url
-                    character_data['avatar_url'] = data_url
-                    
-                    # Save the updated character
-                    self.character_manager.save_character(character_name, character_data)
-                    
-                    # Also save the image file to character_avatars directory for reference
+                    # Save the image file to character_avatars directory
                     avatars_dir = 'character_avatars'
                     if not os.path.exists(avatars_dir):
                         os.makedirs(avatars_dir)
@@ -1605,6 +1606,16 @@ class DiscordBot(commands.Bot):
                     filepath = os.path.join(avatars_dir, f"{character_name}.{file_ext}")
                     with open(filepath, 'wb') as f:
                         f.write(image_bytes)
+                    
+                    # Create HTTP URL for the avatar
+                    web_server_url = self.get_web_server_url()
+                    avatar_url = f"{web_server_url}/character_avatars/{character_name}.{file_ext}"
+                    
+                    # Update character's avatar_url
+                    character_data['avatar_url'] = avatar_url
+                    
+                    # Save the updated character
+                    self.character_manager.save_character(character_name, character_data)
                     
                     # If this character is loaded in this channel, update the channel's character data
                     channel_id = ctx.channel.id
@@ -1617,7 +1628,7 @@ class DiscordBot(commands.Bot):
                         f"✅ Successfully updated avatar for **{character_data.get('name', character_name)}**!\n"
                         f"📁 Image: `{attachment.filename}` ({size_kb:.1f} KB)\n"
                         f"💾 Saved to: `{filepath}`\n"
-                        f"🎨 Avatar converted to base64 data URL and stored in character card.\n\n"
+                        f"🌐 Avatar URL: `{avatar_url}`\n\n"
                         f"The new avatar will be used when this character is loaded with `!character {character_name}`"
                     )
                     
