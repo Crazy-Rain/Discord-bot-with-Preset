@@ -3218,6 +3218,236 @@
             }
         }
         
+        
+        async function loadConfigFileSettings() {
+            """Load and display server/channel configs from config file."""
+            try {
+                const response = await fetch('/api/all_configs');
+                const data = await response.json();
+                
+                const servers = data.servers || [];
+                const channels = data.channels || [];
+                
+                // Load config options
+                const presetsResponse = await fetch('/api/presets');
+                const presetsData = await presetsResponse.json();
+                const presets = presetsData.presets || [];
+                
+                const apiConfigsResponse = await fetch('/api/api_configs');
+                const apiConfigsData = await apiConfigsResponse.json();
+                const apiConfigs = apiConfigsData.configs || [];
+                
+                const charactersResponse = await fetch('/api/characters');
+                const charactersData = await charactersResponse.json();
+                const characters = charactersData.characters || [];
+                
+                const listEl = document.getElementById('servers-list');
+                listEl.innerHTML = '';
+                
+                // Show warning
+                const warning = document.createElement('div');
+                warning.style.cssText = 'background: #fff3cd; border: 2px solid #ffc107; border-radius: 8px; padding: 15px; margin-bottom: 20px;';
+                warning.innerHTML = `
+                    <h3 style="margin-top: 0; color: #856404;">⚠️ Editing Config File Settings</h3>
+                    <p style="color: #856404; margin-bottom: 0;">
+                        These are server and channel configurations saved in your config.json file. 
+                        Server/channel names are only available when the bot is connected to Discord.
+                        <strong>IDs shown below are Discord server/channel IDs.</strong>
+                    </p>
+                `;
+                listEl.appendChild(warning);
+                
+                // Show server configs
+                if (servers.length > 0) {
+                    const serversHeader = document.createElement('h3');
+                    serversHeader.textContent = '🖥️ Server Configurations';
+                    serversHeader.style.marginTop = '20px';
+                    listEl.appendChild(serversHeader);
+                    
+                    servers.forEach((server) => {
+                        const serverSection = document.createElement('div');
+                        serverSection.style.cssText = 'margin-bottom: 15px; background: white; padding: 20px; border-radius: 8px; border-left: 5px solid #667eea;';
+                        
+                        serverSection.innerHTML = `
+                            <h4 style="margin-top: 0; color: #34495e;">Server ID: ${server.id}</h4>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 10px;">
+                                <div>
+                                    <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #2c3e50;">Preset</label>
+                                    <select id="preset-${server.id}" style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 5px;">
+                                        <option value="">Default Preset</option>
+                                        ${presets.map(p => `<option value="${p}" ${server.preset === p ? 'selected' : ''}>${p}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #2c3e50;">API Config</label>
+                                    <select id="api-config-${server.id}" style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 5px;">
+                                        <option value="">Default API Config</option>
+                                        ${apiConfigs.map(c => `<option value="${c.name}" ${server.api_config === c.name ? 'selected' : ''}>${c.name}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #2c3e50;">Character</label>
+                                    <select id="character-${server.id}" style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 5px;">
+                                        <option value="">Default Character</option>
+                                        ${characters.map(c => `<option value="${c}" ${server.character === c ? 'selected' : ''}>${c}</option>`).join('')}
+                                    </select>
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 10px;">
+                                <button class="btn btn-primary" onclick="saveServerConfigFromFile('${server.id}')">💾 Save</button>
+                                <button class="btn btn-danger" onclick="deleteServerConfigFromFile('${server.id}')">🗑️ Delete</button>
+                            </div>
+                        `;
+                        listEl.appendChild(serverSection);
+                    });
+                }
+                
+                // Show channel configs
+                if (channels.length > 0) {
+                    const channelsHeader = document.createElement('h3');
+                    channelsHeader.textContent = '💬 Channel Configurations';
+                    channelsHeader.style.marginTop = '20px';
+                    listEl.appendChild(channelsHeader);
+                    
+                    channels.forEach((channel) => {
+                        const channelSection = document.createElement('div');
+                        channelSection.style.cssText = 'margin-bottom: 15px; background: white; padding: 20px; border-radius: 8px; border-left: 5px solid #764ba2;';
+                        
+                        channelSection.innerHTML = `
+                            <h4 style="margin-top: 0; color: #34495e;">Channel ID: ${channel.id}</h4>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 10px;">
+                                <div>
+                                    <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #2c3e50;">Preset</label>
+                                    <select id="preset-channel-${channel.id}" style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 5px;">
+                                        <option value="">Default Preset</option>
+                                        ${presets.map(p => `<option value="${p}" ${channel.preset === p ? 'selected' : ''}>${p}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #2c3e50;">API Config</label>
+                                    <select id="api-config-channel-${channel.id}" style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 5px;">
+                                        <option value="">Default API Config</option>
+                                        ${apiConfigs.map(c => `<option value="${c.name}" ${channel.api_config === c.name ? 'selected' : ''}>${c.name}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #2c3e50;">Character</label>
+                                    <select id="character-channel-${channel.id}" style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 5px;">
+                                        <option value="">Default Character</option>
+                                        ${characters.map(c => `<option value="${c}" ${channel.character === c ? 'selected' : ''}>${c}</option>`).join('')}
+                                    </select>
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 10px;">
+                                <button class="btn btn-primary" onclick="saveChannelConfigFromFile('${channel.id}')">💾 Save</button>
+                                <button class="btn btn-danger" onclick="deleteChannelConfigFromFile('${channel.id}')">🗑️ Delete</button>
+                            </div>
+                        `;
+                        listEl.appendChild(channelSection);
+                    });
+                }
+                
+                if (servers.length === 0 && channels.length === 0) {
+                    const noConfigs = document.createElement('p');
+                    noConfigs.style.color = '#666';
+                    noConfigs.textContent = 'No server or channel configurations found in config file.';
+                    listEl.appendChild(noConfigs);
+                }
+                
+                // Add back button
+                const backBtn = document.createElement('button');
+                backBtn.className = 'btn btn-secondary';
+                backBtn.textContent = '← Back to Servers List';
+                backBtn.onclick = loadServersList;
+                backBtn.style.marginTop = '20px';
+                listEl.appendChild(backBtn);
+                
+            } catch (error) {
+                console.error('Error loading config file settings:', error);
+                showMessage('servers-message', 'Error loading config file settings: ' + error.message, 'error');
+            }
+        }
+        
+        async function saveServerConfigFromFile(serverId) {
+            const preset = document.getElementById(`preset-${serverId}`).value;
+            const apiConfig = document.getElementById(`api-config-${serverId}`).value;
+            const character = document.getElementById(`character-${serverId}`).value;
+            
+            try {
+                const response = await fetch(`/api/server_config/${serverId}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ preset, api_config: apiConfig, character })
+                });
+                
+                const result = await response.json();
+                showMessage('servers-message', result.message, result.status === 'success' ? 'success' : 'error');
+            } catch (error) {
+                showMessage('servers-message', 'Error saving: ' + error.message, 'error');
+            }
+        }
+        
+        async function saveChannelConfigFromFile(channelId) {
+            const preset = document.getElementById(`preset-channel-${channelId}`).value;
+            const apiConfig = document.getElementById(`api-config-channel-${channelId}`).value;
+            const character = document.getElementById(`character-channel-${channelId}`).value;
+            
+            try {
+                const response = await fetch(`/api/channel_config/${channelId}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ preset, api_config: apiConfig, character })
+                });
+                
+                const result = await response.json();
+                showMessage('servers-message', result.message, result.status === 'success' ? 'success' : 'error');
+            } catch (error) {
+                showMessage('servers-message', 'Error saving: ' + error.message, 'error');
+            }
+        }
+        
+        async function deleteServerConfigFromFile(serverId) {
+            if (!confirm(`Delete configuration for server ${serverId}?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/server_config/${serverId}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                showMessage('servers-message', result.message, result.status === 'success' ? 'success' : 'error');
+                
+                if (result.status === 'success') {
+                    loadConfigFileSettings(); // Reload the list
+                }
+            } catch (error) {
+                showMessage('servers-message', 'Error deleting: ' + error.message, 'error');
+            }
+        }
+        
+        async function deleteChannelConfigFromFile(channelId) {
+            if (!confirm(`Delete configuration for channel ${channelId}?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/channel_config/${channelId}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                showMessage('servers-message', result.message, result.status === 'success' ? 'success' : 'error');
+                
+                if (result.status === 'success') {
+                    loadConfigFileSettings(); // Reload the list
+                }
+            } catch (error) {
+                showMessage('servers-message', 'Error deleting: ' + error.message, 'error');
+            }
+        }
+        
         async function loadServersList() {
             try {
                 // Load default configuration first (don't let errors block server loading)
@@ -3234,7 +3464,19 @@
                 const listEl = document.getElementById('servers-list');
                 
                 if (servers.length === 0) {
-                    listEl.innerHTML = '<p style="color: #666;">No servers connected. Make sure the bot is running and connected to Discord.</p>';
+                    // Bot not connected - show configs from config file instead
+                    listEl.innerHTML = `
+                        <div style="background: #fff3cd; border: 2px solid #ffc107; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+                            <h3 style="margin-top: 0; color: #856404;">⚠️ Bot Not Connected to Discord</h3>
+                            <p style="color: #856404;">
+                                The bot is not currently connected to Discord, so server and channel names are not available. 
+                                However, you can still manage configurations saved in your config file.
+                            </p>
+                            <button class="btn btn-primary" onclick="loadConfigFileSettings()" style="margin-top: 10px;">
+                                📁 View/Edit Config File Settings
+                            </button>
+                        </div>
+                    `;
                     return;
                 }
                 

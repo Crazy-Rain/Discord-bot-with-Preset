@@ -802,6 +802,84 @@ class WebServer:
             except Exception as e:
                 return jsonify({"status": "error", "message": str(e)}), 400
         
+        @self.app.route('/api/all_configs', methods=['GET'])
+        def get_all_configs():
+            """Get all server and channel configurations from config file (not just connected servers)."""
+            try:
+                server_configs = self.config_manager.get('server_configs', {})
+                channel_configs = self.config_manager.get('channel_configs', {})
+                
+                # Format server configs
+                servers = []
+                for server_id, config in server_configs.items():
+                    servers.append({
+                        'id': server_id,
+                        'name': f'Server {server_id}',  # We don't have the name unless bot is connected
+                        'preset': config.get('preset', ''),
+                        'api_config': config.get('api_config', ''),
+                        'character': config.get('character', ''),
+                        'from_config': True  # Flag to indicate this is from config, not Discord
+                    })
+                
+                # Format channel configs
+                channels = []
+                for channel_id, config in channel_configs.items():
+                    channels.append({
+                        'id': channel_id,
+                        'name': f'Channel {channel_id}',  # We don't have the name unless bot is connected
+                        'preset': config.get('preset', ''),
+                        'api_config': config.get('api_config', ''),
+                        'character': config.get('character', ''),
+                        'from_config': True  # Flag to indicate this is from config, not Discord
+                    })
+                
+                return jsonify({
+                    'servers': servers,
+                    'channels': channels
+                })
+            except Exception as e:
+                return jsonify({"status": "error", "message": str(e)}), 400
+        
+        @self.app.route('/api/server_config/<server_id>', methods=['DELETE'])
+        def delete_server_config(server_id):
+            """Delete configuration for a specific server."""
+            try:
+                server_configs = self.config_manager.get('server_configs', {})
+                if server_id in server_configs:
+                    del server_configs[server_id]
+                    self.config_manager.set('server_configs', server_configs)
+                    return jsonify({
+                        "status": "success",
+                        "message": f"Server configuration deleted"
+                    })
+                else:
+                    return jsonify({
+                        "status": "error",
+                        "message": f"Server {server_id} not found in configuration"
+                    }), 404
+            except Exception as e:
+                return jsonify({"status": "error", "message": str(e)}), 400
+        
+        @self.app.route('/api/channel_config/<channel_id>', methods=['DELETE'])
+        def delete_channel_config(channel_id):
+            """Delete configuration for a specific channel."""
+            try:
+                channel_configs = self.config_manager.get('channel_configs', {})
+                if channel_id in channel_configs:
+                    del channel_configs[channel_id]
+                    self.config_manager.set('channel_configs', channel_configs)
+                    return jsonify({
+                        "status": "success",
+                        "message": f"Channel configuration deleted"
+                    })
+                else:
+                    return jsonify({
+                        "status": "error",
+                        "message": f"Channel {channel_id} not found in configuration"
+                    }), 404
+            except Exception as e:
+                return jsonify({"status": "error", "message": str(e)}), 400
+        
         @self.app.route('/character_avatars/<filename>')
         def serve_character_avatar(filename):
             """Serve character avatar images."""
