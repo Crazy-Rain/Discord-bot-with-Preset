@@ -115,6 +115,21 @@ class OpenAIClient:
             
             response = self.client.chat.completions.create(**request_params)
             
+            # Safely access response choices with validation
+            if not hasattr(response, 'choices') or not response.choices:
+                raise Exception(
+                    "API returned an invalid response structure (missing 'choices'). "
+                    "This may indicate a proxy or API configuration issue. "
+                    "Please check your API endpoint and model settings."
+                )
+            
+            if not hasattr(response.choices[0], 'message') or not hasattr(response.choices[0].message, 'content'):
+                raise Exception(
+                    "API returned an invalid response structure (missing message content). "
+                    "This may indicate a proxy or API configuration issue. "
+                    "Please check your API endpoint and model settings."
+                )
+            
             return response.choices[0].message.content
         except Exception as e:
             # Provide more helpful error message for API key issues
@@ -123,6 +138,16 @@ class OpenAIClient:
                 raise Exception(
                     f"API authentication failed. Please verify your API key is correct. "
                     f"You can update it via the web interface at http://localhost:5000. "
+                    f"Original error: {error_msg}"
+                )
+            # Provide helpful message for server errors
+            elif "500" in error_msg or "Internal server error" in error_msg:
+                raise Exception(
+                    f"API server error (500). This is typically a problem with the API provider or proxy. "
+                    f"Please check:\n"
+                    f"1. Your API endpoint is correct and accessible\n"
+                    f"2. The model name is valid for your API provider\n"
+                    f"3. Your proxy (if using one) is configured correctly\n"
                     f"Original error: {error_msg}"
                 )
             raise Exception(f"Error calling OpenAI-compatible API: {error_msg}")
