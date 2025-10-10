@@ -134,10 +134,18 @@ class OpenAIClient:
         except Exception as e:
             # Provide more helpful error message for API key issues
             error_msg = str(e)
-            if "401" in error_msg or "invalid_api_key" in error_msg or "Incorrect API key" in error_msg:
+            # Check for authentication/token errors with broader pattern matching
+            if any(pattern in error_msg.lower() for pattern in [
+                "401", "invalid_api_key", "incorrect api key", "invalid api key", "invalid token", 
+                "invalid_request_error", "authentication", "unauthorized"
+            ]):
                 raise Exception(
-                    f"API authentication failed. Please verify your API key is correct. "
+                    f"API authentication failed. Please verify your API key/token is correct. "
                     f"You can update it via the web interface at http://localhost:5000. "
+                    f"Note: If using a proxy (like anas-proxy.xyz), ensure:\n"
+                    f"1. Your API key/token is valid for that specific proxy\n"
+                    f"2. The proxy URL is correct (should end with /v1)\n"
+                    f"3. The proxy service is currently accessible\n"
                     f"Original error: {error_msg}"
                 )
             # Provide helpful message for context length/token limit errors
