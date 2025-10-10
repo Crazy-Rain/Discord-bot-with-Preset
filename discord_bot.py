@@ -782,7 +782,9 @@ class DiscordBot(commands.Bot):
                 message_ids.append(last_message.id)
             return last_message, message_ids
         except Exception as e:
-            print(f"Error sending webhook message: {e}")
+            print(f"[WEBHOOK] Error sending webhook message: {e}")
+            import traceback
+            traceback.print_exc()
             return None, []
     
     async def edit_as_character(
@@ -1211,6 +1213,8 @@ class DiscordBot(commands.Bot):
             channel_id = ctx.channel.id
             server_id = ctx.guild.id if ctx.guild else None
             
+            print(f"\n[CHAT] Received message in channel {channel_id}: {message[:50]}...")
+            
             # Initialize conversation history if needed
             if channel_id not in self.conversations:
                 self.conversations[channel_id] = []
@@ -1233,6 +1237,8 @@ class DiscordBot(commands.Bot):
             # Parse character name from message
             character_name, actual_message = self.parse_character_message(message)
             
+            print(f"[CHAT] Parsed - Character: {character_name}, Message: {actual_message[:50]}...")
+            
             # Track character name if provided
             if character_name:
                 if character_name not in self.character_names[channel_id]:
@@ -1241,6 +1247,8 @@ class DiscordBot(commands.Bot):
             # Build messages using the new formatting system that supports
             # SillyTavern-style presets with proper role separation
             messages = self.build_chat_messages(channel_id, actual_message, character_name, server_id)
+            
+            print(f"[CHAT] Built {len(messages)} messages for API call")
             
             # Get preset parameters (check channel-specific first, then server-specific, then default)
             preset = self.get_preset_for_channel(channel_id, server_id)
@@ -1251,6 +1259,7 @@ class DiscordBot(commands.Bot):
             try:
                 async with PersistentTyping(ctx.channel):
                     # Generate response
+                    print(f"[CHAT] Calling OpenAI API...")
                     response = await openai_client.chat_completion(
                         messages=messages,
                         temperature=preset.get("temperature", 0.7),
@@ -1261,6 +1270,7 @@ class DiscordBot(commands.Bot):
                         frequency_penalty_enabled=preset.get("frequency_penalty_enabled", True),
                         presence_penalty_enabled=preset.get("presence_penalty_enabled", True)
                     )
+                    print(f"[CHAT] Received response: {response[:100] if response else 'None'}...")
                 
                 # Apply thinking filter
                 full_response, filtered_response = self.filter_thinking_tags(response)
@@ -1313,6 +1323,7 @@ class DiscordBot(commands.Bot):
                 if channel_id in self.channel_characters:
                     # Try to send via webhook with character's avatar
                     character_data = self.channel_characters[channel_id]
+                    print(f"[CHAT] Sending via webhook as character: {character_data.get('name')}")
                     # Create view first (will update message_ids after sending)
                     view = SwipeButtonView(self, channel_id)
                     last_msg, msg_ids = await self.send_as_character(
@@ -1321,18 +1332,28 @@ class DiscordBot(commands.Bot):
                         character_data,
                         view=view
                     )
+                    # If webhook send failed, fall back to regular message
+                    if not last_msg or not msg_ids:
+                        print(f"[CHAT] Webhook send failed for channel {channel_id}, falling back to regular message")
+                        last_msg, msg_ids = await send_long_message_with_view(ctx.channel, filtered_response_with_cp, view=view)
                     # Update view with message IDs for multi-page swipe support
                     if msg_ids:
                         view.message_ids = msg_ids
+                    print(f"[CHAT] Message sent successfully, IDs: {msg_ids}")
                 else:
                     # No character loaded, send normal message - use embeds
+                    print(f"[CHAT] Sending via regular embed (no character loaded)")
                     view = SwipeButtonView(self, channel_id)
                     last_msg, msg_ids = await send_long_message_with_view(ctx.channel, filtered_response_with_cp, view=view)
                     # Update view with message IDs for multi-page swipe support
                     if msg_ids:
                         view.message_ids = msg_ids
+                    print(f"[CHAT] Message sent successfully, IDs: {msg_ids}")
             
             except Exception as e:
+                print(f"[CHAT] Error occurred: {str(e)}")
+                import traceback
+                traceback.print_exc()
                 await ctx.send(f"Error: {str(e)}")
         
         @self.command(name="clear", help="Clear conversation history")
@@ -1980,6 +2001,10 @@ Visit http://localhost:5000 to configure the bot via web interface.
                         character_data,
                         view=view
                     )
+                    # If webhook send failed, fall back to regular message
+                    if not last_msg or not msg_ids:
+                        print(f"Webhook send failed for channel {channel_id}, falling back to regular message")
+                        last_msg, msg_ids = await send_long_message_with_view(ctx.channel, filtered_response, view=view)
                     # Update view with message IDs for multi-page swipe support
                     if msg_ids:
                         view.message_ids = msg_ids
@@ -2033,6 +2058,10 @@ Visit http://localhost:5000 to configure the bot via web interface.
                     character_data,
                     view=view
                 )
+                # If webhook send failed, fall back to regular message
+                if not last_msg or not msg_ids:
+                    print(f"Webhook send failed for channel {channel_id}, falling back to regular message")
+                    last_msg, msg_ids = await send_long_message_with_view(ctx.channel, response, view=view)
                 # Update view with message IDs for multi-page swipe support
                 if msg_ids:
                     view.message_ids = msg_ids
@@ -2085,8 +2114,9 @@ Visit http://localhost:5000 to configure the bot via web interface.
                     character_data,
                     view=view
                 )
-                if not last_msg:
-                    # Fallback to normal message if webhook fails - use embeds
+                # If webhook send failed, fall back to regular message
+                if not last_msg or not msg_ids:
+                    print(f"Webhook send failed for channel {channel_id}, falling back to regular message")
                     last_msg, msg_ids = await send_long_message_with_view(ctx.channel, response, view=view)
                 # Update view with message IDs for multi-page swipe support
                 if msg_ids:
