@@ -295,9 +295,14 @@ class LorebookManager:
         # Include global lorebooks (linked_characters is None) and character-specific lorebooks
         entries = []
         
+        # Debug logging
+        print(f"[LOREBOOK] Getting lorebook entries for character: {character_name}")
+        print(f"[LOREBOOK] Total lorebooks: {len(self.lorebooks)}")
+        
         for lorebook_name, lorebook in self.lorebooks.items():
             # Skip disabled lorebooks
             if not lorebook.get("enabled", True):
+                print(f"[LOREBOOK] Skipping disabled lorebook: {lorebook_name}")
                 continue
             
             linked_chars = lorebook.get("linked_characters")
@@ -306,8 +311,10 @@ class LorebookManager:
             # Global: linked_chars is None or empty list
             # Character-specific: character_name is in linked_chars list
             if not linked_chars or (character_name and character_name in linked_chars):
+                print(f"[LOREBOOK] Including lorebook '{lorebook_name}' (linked_chars: {linked_chars})")
                 lorebook_entries = lorebook.get("entries", {})
                 
+                entry_count = 0
                 for entry in lorebook_entries.values():
                     # Get activation type (with backward compatibility)
                     activation_type = entry.get("activation_type")
@@ -318,14 +325,25 @@ class LorebookManager:
                     # Include if it's constant (always active)
                     if activation_type == "constant":
                         entries.append(entry)
+                        entry_count += 1
+                        print(f"[LOREBOOK]   Added constant entry: {entry['key']}")
                     # For normal/vectorized entries, include if relevant text contains keywords
                     elif relevant_text and activation_type in ["normal", "vectorized"]:
                         keywords = entry.get("keywords", [])
                         if any(keyword.lower() in relevant_text.lower() for keyword in keywords):
                             entries.append(entry)
+                            entry_count += 1
+                            print(f"[LOREBOOK]   Added keyword-matched entry: {entry['key']}")
+                
+                print(f"[LOREBOOK]   Total entries from '{lorebook_name}': {entry_count}")
+            else:
+                print(f"[LOREBOOK] Skipping lorebook '{lorebook_name}' (linked_chars: {linked_chars}, current: {character_name})")
         
         if not entries:
+            print(f"[LOREBOOK] No entries found, returning empty string")
             return ""
+        
+        print(f"[LOREBOOK] Total entries to include: {len(entries)}")
         
         sections = []
         sections.append("[Lorebook - World Information]")

@@ -2224,9 +2224,14 @@ FORMAT GUIDELINES:
                     
                     # Add lorebook entries
                     current_character_name = character_data.get("name") if character_data else None
+                    print(f"[LOREBOOK] Requesting lorebook for character: {current_character_name}")
+                    print(f"[LOREBOOK] Character data: {character_data.get('name') if character_data else 'None'}")
                     lorebook_section = self.lorebook_manager.get_system_prompt_section(user_message, current_character_name)
                     if lorebook_section:
                         enhanced_content += "\n\n" + lorebook_section
+                        print(f"[LOREBOOK] Added lorebook section ({len(lorebook_section)} chars)")
+                    else:
+                        print(f"[LOREBOOK] No lorebook content returned")
                     
                     # Add CP tracking prompt if enabled
                     cp_prompt = self.get_cp_tracking_prompt()
@@ -2274,9 +2279,14 @@ FORMAT GUIDELINES:
             # Add lorebook entries
             # Pass current character name to filter character-linked lorebooks
             current_character_name = character_data.get("name") if character_data else None
+            print(f"[LOREBOOK] Requesting lorebook for character: {current_character_name}")
+            print(f"[LOREBOOK] Character data: {character_data.get('name') if character_data else 'None'}")
             lorebook_section = self.lorebook_manager.get_system_prompt_section(user_message, current_character_name)
             if lorebook_section:
                 enhanced_system_prompt += "\n\n" + lorebook_section
+                print(f"[LOREBOOK] Added lorebook section ({len(lorebook_section)} chars)")
+            else:
+                print(f"[LOREBOOK] No lorebook content returned")
             
             # Add CP tracking prompt if enabled
             cp_prompt = self.get_cp_tracking_prompt()
