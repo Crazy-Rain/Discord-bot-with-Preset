@@ -1,8 +1,7 @@
 {
   "discord_token": "YOUR_DISCORD_BOT_TOKEN",
   "openai_config": {
-    "api_key": "",
-    "base_url": "https://api.openai.com/v1",
+    "base_url": "https://new-proxy.com/v1",
     "model": "gpt-4"
   },
   "web_server": {
@@ -15,25 +14,7 @@
     "end_tag": "</think>"
   },
   "auto_context_limit": 50,
-  "default_preset": {
-    "prompt_sections": [
-      {
-        "id": "default-prompt-section-0",
-        "role": "system",
-        "content": "You are a helpful AI assistant.",
-        "order": 0,
-        "enabled": true
-      }
-    ],
-    "temperature": 0.7,
-    "max_tokens": 2100,
-    "max_response_length": 2000,
-    "top_p": 1,
-    "frequency_penalty": 0,
-    "presence_penalty": 0,
-    "frequency_penalty_enabled": true,
-    "presence_penalty_enabled": true
-  },
+  "default_preset": {},
   "server_configs": {
     "987654321": {
       "preset": "creative",

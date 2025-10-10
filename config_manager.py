@@ -30,9 +30,19 @@ class ConfigManager:
         with open(self.config_path, "w") as f:
             json.dump(self.config, f, indent=2)
     
+    def deep_update(self, target: Dict[str, Any], updates: Dict[str, Any]) -> None:
+        """Recursively update target dict with updates dict."""
+        for key, value in updates.items():
+            if key in target and isinstance(target[key], dict) and isinstance(value, dict):
+                # Recursively update nested dicts
+                self.deep_update(target[key], value)
+            else:
+                # Replace value
+                target[key] = value
+    
     def update_config(self, updates: Dict[str, Any]) -> None:
-        """Update configuration with new values."""
-        self.config.update(updates)
+        """Update configuration with new values using deep merge."""
+        self.deep_update(self.config, updates)
         self.save_config()
     
     def get(self, key: str, default: Any = None) -> Any:
