@@ -57,44 +57,79 @@ def test_system_prompt_with_multi_character():
     lm.create_lorebook("Team Lore", "Shared lore", enabled=True, 
                       linked_characters=["Luna", "Sherlock"])
     lm.add_or_update_entry(
-        "Team Secret",
+        "Team Constant",
         "The team has a secret base",
         keywords=["team"],
         activation_type="constant",
         lorebook_name="Team Lore"
     )
+    lm.add_or_update_entry(
+        "Team Normal",
+        "The team's normal info",
+        keywords=["team", "normal"],
+        activation_type="normal",
+        lorebook_name="Team Lore"
+    )
     
-    # Create Luna-only lorebook
+    # Create Luna-only lorebook with both constant and normal
     lm.create_lorebook("Luna's Lore", "Luna lore", enabled=True, 
                       linked_characters=["Luna"])
     lm.add_or_update_entry(
-        "Luna's Power",
-        "Luna has moonlight powers",
+        "Luna's Constant",
+        "Luna has moonlight powers (constant)",
         keywords=["luna"],
         activation_type="constant",
         lorebook_name="Luna's Lore"
     )
+    lm.add_or_update_entry(
+        "Luna's Normal",
+        "Luna's normal info",
+        keywords=["luna", "normal"],
+        activation_type="normal",
+        lorebook_name="Luna's Lore"
+    )
     
-    # Test with Luna - should include global + team + Luna's
-    prompt = lm.get_system_prompt_section("test", character_name="Luna")
+    # Test with Luna - should include:
+    # - Global constant: YES
+    # - Team constant: YES (Luna is in team)
+    # - Team normal: YES (Luna is in team + keywords match)
+    # - Luna's constant: YES (Luna is active)
+    # - Luna's normal: YES (Luna is active + keywords match)
+    prompt = lm.get_system_prompt_section("team normal luna", character_name="Luna")
     assert "World Rule" in prompt
-    assert "Team Secret" in prompt
-    assert "Luna's Power" in prompt
+    assert "Team Constant" in prompt
+    assert "Team Normal" in prompt
+    assert "Luna's Constant" in prompt
+    assert "Luna's Normal" in prompt
     print("✓ Luna's prompt includes global + team + Luna-specific")
     
-    # Test with Sherlock - should include global + team (but not Luna's)
-    prompt = lm.get_system_prompt_section("test", character_name="Sherlock")
+    # Test with Sherlock - should include:
+    # - Global constant: YES
+    # - Team constant: YES (constant always included)
+    # - Team normal: YES (Sherlock is in team + keywords match)
+    # - Luna's constant: YES (constant always included)
+    # - Luna's Normal: NO (Sherlock is not Luna)
+    prompt = lm.get_system_prompt_section("team normal luna", character_name="Sherlock")
     assert "World Rule" in prompt
-    assert "Team Secret" in prompt
-    assert "Luna's Power" not in prompt
-    print("✓ Sherlock's prompt includes global + team (excludes Luna-specific)")
+    assert "Team Constant" in prompt
+    assert "Team Normal" in prompt
+    assert "Luna's Constant" in prompt  # Constant always included
+    assert "Luna's Normal" not in prompt  # Normal requires character match
+    print("✓ Sherlock's prompt includes global + team + Luna's constant (excludes Luna's normal)")
     
-    # Test with Alice - should include only global (not team or Luna's)
-    prompt = lm.get_system_prompt_section("test", character_name="Alice")
+    # Test with Alice - should include:
+    # - Global constant: YES
+    # - Team constant: YES (constant always included)
+    # - Team normal: NO (Alice not in team)
+    # - Luna's constant: YES (constant always included)
+    # - Luna's Normal: NO (Alice is not Luna)
+    prompt = lm.get_system_prompt_section("team normal luna", character_name="Alice")
     assert "World Rule" in prompt
-    assert "Team Secret" not in prompt
-    assert "Luna's Power" not in prompt
-    print("✓ Alice's prompt includes only global")
+    assert "Team Constant" in prompt  # Constant always included
+    assert "Team Normal" not in prompt  # Alice not in team
+    assert "Luna's Constant" in prompt  # Constant always included
+    assert "Luna's Normal" not in prompt  # Alice is not Luna
+    print("✓ Alice's prompt includes global + all constants (excludes normal entries from non-matching lorebooks)")
 
 def test_update_to_multi_character():
     """Test updating a lorebook from single to multiple characters."""

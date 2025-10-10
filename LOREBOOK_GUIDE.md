@@ -22,53 +22,71 @@ The Lorebook feature allows you to add world-building and lore information that 
 **UPDATED FEATURE**: You can now link lorebooks to **multiple characters**, not just one!
 
 - **Global Lorebooks**: No character links (default). Active whenever they are enabled, regardless of which character is loaded.
-- **Character-Linked Lorebooks**: Linked to one or more specific characters. Only active when any of those characters are loaded and being used by the AI.
+- **Character-Linked Lorebooks**: Linked to one or more specific characters. Character links control **Normal** and **Vectorized** entries only. **Constant** entries are always included regardless of character links.
 - **Team/Group Lorebooks**: Link to multiple characters to share lore across a team or group.
+
+**Important**: Character links only affect **Normal** (keyword-triggered) and **Vectorized** (semantic) entries. **Constant** entries are ALWAYS included from all enabled lorebooks, matching SillyTavern behavior.
 
 **Use Cases:**
 - Create a "Base World Rules" lorebook that's always active (global)
 - Create character-specific lorebooks like "Luna's Backstory" that only activate when Luna is the active character
 - Create team lorebooks like "Team Adventure" that activate when any team member is active
 - Combine all types: global world lore + team lore + character-specific details
+- **Note**: Constant entries are always included from ALL enabled lorebooks, even character-linked ones
 
 **Example:**
 ```
 Global Lorebook: "Fantasy World Rules"
-  - Magic System (always active)
-  - Currency System (always active)
+  - Magic System (constant - always active)
+  - Currency System (constant - always active)
 
 Team Lorebook: "Adventure Team" (Linked to: Luna, Sherlock, Alice)
-  - Team's shared history
-  - Team headquarters
-  - Group relationships
+  - Team's shared history (constant - always active)
+  - Team headquarters (normal - only when keywords match AND any team member is active)
+  - Group relationships (normal - only when keywords match AND any team member is active)
 
 Character-Linked: "Luna's Lore" (Linked to: Luna)
-  - Luna's secret past
-  - Luna's special abilities
-  - People only Luna knows
+  - Luna's secret past (constant - always active)
+  - Luna's special abilities (constant - always active)
+  - People only Luna knows (normal - only when keywords match AND Luna is active)
 
 Character-Linked: "Sherlock's Lore" (Linked to: Sherlock)
-  - Sherlock's deductive techniques
-  - Victorian London details specific to Sherlock
+  - Sherlock's deductive techniques (constant - always active)
+  - Victorian London details (normal - only when keywords match AND Sherlock is active)
 ```
 
-When Luna is active: You get Fantasy World Rules + Adventure Team + Luna's Lore
-When Sherlock is active: You get Fantasy World Rules + Adventure Team + Sherlock's Lore
-When Alice is active: You get Fantasy World Rules + Adventure Team (but not Luna's or Sherlock's)
-When no character is loaded: You only get Fantasy World Rules
+When Luna is active:
+- Fantasy World Rules: All constant entries + keyword-matched normal entries
+- Adventure Team: All constant entries + keyword-matched normal entries (Luna is a team member)
+- Luna's Lore: All constant entries + keyword-matched normal entries (Luna is active)
+- Sherlock's Lore: All constant entries only (Sherlock is not active, so normal entries excluded)
+
+When Sherlock is active:
+- Fantasy World Rules: All constant entries + keyword-matched normal entries
+- Adventure Team: All constant entries + keyword-matched normal entries (Sherlock is a team member)
+- Sherlock's Lore: All constant entries + keyword-matched normal entries (Sherlock is active)
+- Luna's Lore: All constant entries only (Luna is not active, so normal entries excluded)
+
+When no character is loaded:
+- Fantasy World Rules: All constant entries + keyword-matched normal entries (global lorebook)
+- Adventure Team: All constant entries only (no team member active, so normal entries excluded)
+- Luna's Lore: All constant entries only (Luna not active, so normal entries excluded)
+- Sherlock's Lore: All constant entries only (Sherlock not active, so normal entries excluded)
 
 ### Activation Types
 
 Lorebook entries now support three activation types:
 
-1. **Normal (Keyword-triggered)**: Entry appears when any of its keywords are mentioned in the conversation
-2. **Constant (Always Active)**: Entry is always included in the AI's context, regardless of keywords
+1. **Normal (Keyword-triggered)**: Entry appears when any of its keywords are mentioned in the conversation AND (for character-linked lorebooks) the linked character is active
+2. **Constant (Always Active)**: Entry is always included in the AI's context, regardless of keywords or character links. This matches SillyTavern behavior.
 3. **Vectorized (Semantic search)**: *Planned feature* - Will use semantic similarity to determine relevance. Currently works like Normal.
 
 Choose the activation type based on how you want the entry to be used:
-- Use **Constant** for fundamental world rules, magic systems, or core setting information
-- Use **Normal** for locations, characters, or events that should only appear when relevant
+- Use **Constant** for fundamental world rules, magic systems, or core setting information that should always be available
+- Use **Normal** for locations, characters, or events that should only appear when relevant (keywords match) and (for character-linked lorebooks) when the character is active
 - Use **Vectorized** for future semantic search capabilities (currently behaves like Normal)
+
+**Important**: Constant entries ignore character links and are ALWAYS included from all enabled lorebooks. Character links only control Normal and Vectorized entries.
 
 ## Managing Multiple Lorebooks
 

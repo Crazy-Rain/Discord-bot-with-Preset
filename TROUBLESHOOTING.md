@@ -34,9 +34,11 @@ The lorebook system is working correctly. If your lorebooks aren't appearing in 
 - Check the character name in the Characters tab matches the lorebook link
 
 #### 3. ✓ Entry Activation Type is Set Correctly
-- **Constant** = Always included in every message (recommended for important lore)
-- **Normal** = Only included when keywords appear in the message
+- **Constant** = Always included in every message from ALL enabled lorebooks (even character-linked ones)
+- **Normal** = Only included when keywords appear in the message AND (for character-linked lorebooks) the character is active
 - **Vectorized** = Currently works the same as Normal (semantic search not yet implemented)
+
+**Important**: Character links only affect Normal/Vectorized entries. Constant entries are ALWAYS included, matching SillyTavern behavior.
 
 #### 4. ✓ Entries Actually Exist
 - Make sure you've created entries in your lorebook

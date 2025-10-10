@@ -60,7 +60,7 @@ def test_create_character_linked_lorebook():
 
 def test_system_prompt_without_character():
     """Test system prompt generation without character."""
-    print("\nTest 3: System prompt without character (only global lorebooks)...")
+    print("\nTest 3: System prompt without character...")
     test_dir = setup_test_env()
     lm = LorebookManager(test_dir)
     
@@ -74,27 +74,42 @@ def test_system_prompt_without_character():
         lorebook_name="Global"
     )
     
-    # Create character-linked lorebook
+    # Create character-linked lorebook with constant entry
     lm.create_lorebook("Luna's Lore", "Luna lore", enabled=True, linked_character="Luna")
     lm.add_or_update_entry(
-        "Luna's Secret",
-        "Luna has a secret power",
+        "Luna's Constant",
+        "Luna has moon powers (constant)",
         keywords=["luna"],
         activation_type="constant",
         lorebook_name="Luna's Lore"
     )
     
-    # Get system prompt without character - should only include global
-    prompt = lm.get_system_prompt_section("test message", character_name=None)
+    # Create character-linked lorebook with normal entry
+    lm.add_or_update_entry(
+        "Luna's Normal",
+        "Luna's backstory (normal)",
+        keywords=["luna", "backstory"],
+        activation_type="normal",
+        lorebook_name="Luna's Lore"
+    )
+    
+    # Get system prompt without character
+    # - Global constant entries: YES
+    # - Character-linked constant entries: YES (constant = always included)
+    # - Character-linked normal entries: NO (character not active)
+    prompt = lm.get_system_prompt_section("test luna backstory", character_name=None)
     
     assert "World Rule" in prompt
     assert "The world is flat" in prompt
-    assert "Luna's Secret" not in prompt
-    print("✓ System prompt correctly includes only global lorebooks")
+    assert "Luna's Constant" in prompt  # Constant entries always included
+    assert "moon powers" in prompt
+    assert "Luna's Normal" not in prompt  # Normal entries need character match
+    assert "backstory (normal)" not in prompt
+    print("✓ System prompt includes global + character constant entries, excludes character normal entries")
 
 def test_system_prompt_with_character():
     """Test system prompt generation with character."""
-    print("\nTest 4: System prompt with character (global + character-specific)...")
+    print("\nTest 4: System prompt with character...")
     test_dir = setup_test_env()
     lm = LorebookManager(test_dir)
     
@@ -108,43 +123,47 @@ def test_system_prompt_with_character():
         lorebook_name="Global"
     )
     
-    # Create Luna-linked lorebook
+    # Create Luna-linked lorebook with constant entry
     lm.create_lorebook("Luna's Lore", "Luna lore", enabled=True, linked_character="Luna")
     lm.add_or_update_entry(
-        "Luna's Secret",
-        "Luna has a secret power",
+        "Luna's Constant",
+        "Luna has moon powers (constant)",
         keywords=["luna"],
         activation_type="constant",
         lorebook_name="Luna's Lore"
     )
     
-    # Create Sherlock-linked lorebook
+    # Create Sherlock-linked lorebook with constant entry
     lm.create_lorebook("Sherlock's Lore", "Sherlock lore", enabled=True, linked_character="Sherlock")
     lm.add_or_update_entry(
-        "Sherlock's Method",
-        "Sherlock uses deductive reasoning",
+        "Sherlock's Constant",
+        "Sherlock uses deductive reasoning (constant)",
         keywords=["sherlock"],
         activation_type="constant",
         lorebook_name="Sherlock's Lore"
     )
     
-    # Get system prompt with Luna character - should include global + Luna's
+    # Get system prompt with Luna character
+    # - Global entries: YES
+    # - Luna's constant: YES (Luna is active)
+    # - Sherlock's constant: YES (constant = always included, even when character not active)
     prompt = lm.get_system_prompt_section("test message", character_name="Luna")
     
     assert "World Rule" in prompt
     assert "The world is flat" in prompt
-    assert "Luna's Secret" in prompt
-    assert "Luna has a secret power" in prompt
-    assert "Sherlock's Method" not in prompt
-    print("✓ System prompt correctly includes global + Luna's lorebooks")
+    assert "Luna's Constant" in prompt
+    assert "moon powers" in prompt
+    assert "Sherlock's Constant" in prompt  # Constant entries always included
+    assert "deductive reasoning" in prompt
+    print("✓ System prompt includes global + all constant entries from all lorebooks")
     
     # Get system prompt with Sherlock character
     prompt = lm.get_system_prompt_section("test message", character_name="Sherlock")
     
     assert "World Rule" in prompt
-    assert "Sherlock's Method" in prompt
-    assert "Luna's Secret" not in prompt
-    print("✓ System prompt correctly includes global + Sherlock's lorebooks")
+    assert "Sherlock's Constant" in prompt
+    assert "Luna's Constant" in prompt  # Constant entries always included
+    print("✓ System prompt with Sherlock includes all constant entries")
 
 def test_update_linked_character():
     """Test updating a lorebook's linked character."""
