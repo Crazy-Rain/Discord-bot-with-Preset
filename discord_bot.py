@@ -1321,6 +1321,10 @@ class DiscordBot(commands.Bot):
                         character_data,
                         view=view
                     )
+                    # If webhook send failed, fall back to regular message
+                    if not last_msg or not msg_ids:
+                        print(f"Webhook send failed for channel {channel_id}, falling back to regular message")
+                        last_msg, msg_ids = await send_long_message_with_view(ctx.channel, filtered_response_with_cp, view=view)
                     # Update view with message IDs for multi-page swipe support
                     if msg_ids:
                         view.message_ids = msg_ids
@@ -1980,6 +1984,10 @@ Visit http://localhost:5000 to configure the bot via web interface.
                         character_data,
                         view=view
                     )
+                    # If webhook send failed, fall back to regular message
+                    if not last_msg or not msg_ids:
+                        print(f"Webhook send failed for channel {channel_id}, falling back to regular message")
+                        last_msg, msg_ids = await send_long_message_with_view(ctx.channel, filtered_response, view=view)
                     # Update view with message IDs for multi-page swipe support
                     if msg_ids:
                         view.message_ids = msg_ids
@@ -2033,6 +2041,10 @@ Visit http://localhost:5000 to configure the bot via web interface.
                     character_data,
                     view=view
                 )
+                # If webhook send failed, fall back to regular message
+                if not last_msg or not msg_ids:
+                    print(f"Webhook send failed for channel {channel_id}, falling back to regular message")
+                    last_msg, msg_ids = await send_long_message_with_view(ctx.channel, response, view=view)
                 # Update view with message IDs for multi-page swipe support
                 if msg_ids:
                     view.message_ids = msg_ids
@@ -2085,8 +2097,9 @@ Visit http://localhost:5000 to configure the bot via web interface.
                     character_data,
                     view=view
                 )
-                if not last_msg:
-                    # Fallback to normal message if webhook fails - use embeds
+                # If webhook send failed, fall back to regular message
+                if not last_msg or not msg_ids:
+                    print(f"Webhook send failed for channel {channel_id}, falling back to regular message")
                     last_msg, msg_ids = await send_long_message_with_view(ctx.channel, response, view=view)
                 # Update view with message IDs for multi-page swipe support
                 if msg_ids:
