@@ -309,43 +309,46 @@ class LorebookManager:
                 continue
             
             linked_chars = lorebook.get("linked_characters")
+            lorebook_entries = lorebook.get("entries", {})
             
-            # Include if it's a global lorebook OR if it matches the current character
+            # Track entries added from this lorebook
+            entry_count = 0
+            
+            # Check if lorebook matches character filter for normal/vectorized entries
             # Global: linked_chars is None or empty list
             # Character-specific: character_name is in linked_chars list
-            if not linked_chars or (character_name and character_name in linked_chars):
-                if self.debug_logging:
-                    print(f"[LOREBOOK] Including lorebook '{lorebook_name}' (linked_chars: {linked_chars})")
-                lorebook_entries = lorebook.get("entries", {})
+            character_matches = not linked_chars or (character_name is not None and character_name in linked_chars)
+            
+            if self.debug_logging:
+                print(f"[LOREBOOK] Processing lorebook '{lorebook_name}' (linked_chars: {linked_chars}, character_matches: {character_matches})")
+            
+            for entry in lorebook_entries.values():
+                # Get activation type (with backward compatibility)
+                activation_type = entry.get("activation_type")
+                if activation_type is None:
+                    # Fall back to always_active for old entries
+                    activation_type = "constant" if entry.get("always_active", False) else "normal"
                 
-                entry_count = 0
-                for entry in lorebook_entries.values():
-                    # Get activation type (with backward compatibility)
-                    activation_type = entry.get("activation_type")
-                    if activation_type is None:
-                        # Fall back to always_active for old entries
-                        activation_type = "constant" if entry.get("always_active", False) else "normal"
-                    
-                    # Include if it's constant (always active)
-                    if activation_type == "constant":
-                        entries.append(entry)
-                        entry_count += 1
-                        if self.debug_logging:
-                            print(f"[LOREBOOK]   Added constant entry: {entry['key']}")
-                    # For normal/vectorized entries, include if relevant text contains keywords
-                    elif relevant_text and activation_type in ["normal", "vectorized"]:
+                # Constant entries are ALWAYS included from ALL enabled lorebooks
+                # (character links don't apply to constant entries, matching SillyTavern behavior)
+                if activation_type == "constant":
+                    entries.append(entry)
+                    entry_count += 1
+                    if self.debug_logging:
+                        print(f"[LOREBOOK]   Added constant entry: {entry['key']} (always included)")
+                # For normal/vectorized entries, respect character filtering
+                elif character_matches:
+                    # Include if relevant text contains keywords
+                    if relevant_text and activation_type in ["normal", "vectorized"]:
                         keywords = entry.get("keywords", [])
                         if any(keyword.lower() in relevant_text.lower() for keyword in keywords):
                             entries.append(entry)
                             entry_count += 1
                             if self.debug_logging:
                                 print(f"[LOREBOOK]   Added keyword-matched entry: {entry['key']}")
-                
-                if self.debug_logging:
-                    print(f"[LOREBOOK]   Total entries from '{lorebook_name}': {entry_count}")
-            else:
-                if self.debug_logging:
-                    print(f"[LOREBOOK] Skipping lorebook '{lorebook_name}' (linked_chars: {linked_chars}, current: {character_name})")
+            
+            if self.debug_logging:
+                print(f"[LOREBOOK]   Total entries from '{lorebook_name}': {entry_count}")
         
         if not entries:
             if self.debug_logging:
