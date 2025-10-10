@@ -801,6 +801,12 @@ class WebServer:
                 })
             except Exception as e:
                 return jsonify({"status": "error", "message": str(e)}), 400
+        
+        @self.app.route('/character_avatars/<filename>')
+        def serve_character_avatar(filename):
+            """Serve character avatar images."""
+            avatars_dir = os.path.join(os.getcwd(), 'character_avatars')
+            return send_from_directory(avatars_dir, filename)
     
     def run(self, host: str = "0.0.0.0", port: int = 5000, debug: bool = False):
         """Run the web server."""
