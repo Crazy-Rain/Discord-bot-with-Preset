@@ -4,6 +4,11 @@ from typing import Dict, Any, List, Optional
 
 class OpenAIClient:
     def __init__(self, api_key: str, base_url: str, model: str = "gpt-3.5-turbo"):
+        # Clean and validate inputs for proxy compatibility
+        # Strip whitespace from API key and base URL to handle copy-paste errors
+        api_key = (api_key or "").strip()
+        base_url = (base_url or "").strip()
+        
         # Store the API key even if it's a placeholder
         # This allows the bot to start and be configured via web interface
         self.api_key = api_key or "none"
@@ -20,12 +25,19 @@ class OpenAIClient:
             # Create a dummy client - will be replaced when config is updated
             self.client = OpenAI(
                 api_key="none",  # Placeholder to prevent errors
-                base_url=base_url
+                base_url=base_url or "https://api.openai.com/v1"
             )
     
     def update_config(self, api_key: Optional[str] = None, base_url: Optional[str] = None, model: Optional[str] = None):
-        """Update client configuration."""
+        """Update client configuration.
+        
+        Note: This method is currently not used in the main codebase.
+        The bot recreates the client instead via update_openai_config.
+        Kept for potential future use or backwards compatibility.
+        """
         if api_key:
+            # Strip whitespace for proxy compatibility
+            api_key = api_key.strip()
             # Validate API key is not a placeholder
             if api_key in ["YOUR_API_KEY", "", "none"]:
                 raise ValueError(
@@ -34,6 +46,8 @@ class OpenAIClient:
             self.client.api_key = api_key
             self.api_key = api_key
         if base_url:
+            # Strip whitespace for proxy compatibility
+            base_url = base_url.strip()
             self.client.base_url = base_url
         if model:
             self.model = model

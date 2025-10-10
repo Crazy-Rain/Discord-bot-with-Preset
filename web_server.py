@@ -52,6 +52,16 @@ class WebServer:
             """Update configuration."""
             try:
                 data = request.json
+                
+                # Sanitize OpenAI config fields for proxy compatibility (strip whitespace)
+                if 'openai_config' in data:
+                    if 'api_key' in data['openai_config'] and data['openai_config']['api_key'] != '***HIDDEN***':
+                        data['openai_config']['api_key'] = data['openai_config']['api_key'].strip()
+                    if 'base_url' in data['openai_config']:
+                        data['openai_config']['base_url'] = data['openai_config']['base_url'].strip()
+                    if 'model' in data['openai_config']:
+                        data['openai_config']['model'] = data['openai_config']['model'].strip()
+                
                 # Track if OpenAI config changed
                 openai_config_changed = False
                 new_api_key = None
@@ -123,8 +133,8 @@ class WebServer:
             """Fetch available models from the configured API endpoint."""
             try:
                 data = request.json
-                api_key = data.get('api_key')
-                base_url = data.get('base_url')
+                api_key = data.get('api_key', '').strip()  # Strip whitespace for proxy compatibility
+                base_url = data.get('base_url', '').strip()  # Strip whitespace for proxy compatibility
                 
                 if not api_key or not base_url:
                     return jsonify({"status": "error", "message": "API key and base URL are required"}), 400
@@ -171,9 +181,9 @@ class WebServer:
             """Save an API configuration."""
             try:
                 data = request.json
-                api_key = data.get('api_key')
-                base_url = data.get('base_url')
-                model = data.get('model')
+                api_key = data.get('api_key', '').strip() if data.get('api_key') else ''  # Strip whitespace for proxy compatibility
+                base_url = data.get('base_url', '').strip() if data.get('base_url') else ''  # Strip whitespace for proxy compatibility
+                model = data.get('model', '').strip() if data.get('model') else ''
                 
                 if not all([api_key, base_url, model]):
                     return jsonify({"status": "error", "message": "Missing required fields"}), 400
