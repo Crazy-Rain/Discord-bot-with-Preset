@@ -958,35 +958,49 @@ class DiscordBot(commands.Bot):
         if total_tokens <= max_tokens:
             return messages
         
-        # We need to trim. Keep system messages and trim from oldest user/assistant messages
+        # We need to trim. Keep system messages and the last user message, trim from middle
         system_messages = [msg for msg in messages if msg.get('role') == 'system']
-        other_messages = [msg for msg in messages if msg.get('role') != 'system']
+        non_system_messages = [msg for msg in messages if msg.get('role') != 'system']
         
         # Calculate tokens in system messages (these are kept)
         system_tokens = sum(self.estimate_tokens(msg['content']) for msg in system_messages)
         
+        # Always keep the last message (current user message)
+        if non_system_messages:
+            last_message = non_system_messages[-1]
+            last_message_tokens = self.estimate_tokens(last_message['content'])
+            other_messages = non_system_messages[:-1]
+        else:
+            last_message = None
+            last_message_tokens = 0
+            other_messages = []
+        
         # Available tokens for other messages
-        available_tokens = max_tokens - system_tokens
+        available_tokens = max_tokens - system_tokens - last_message_tokens
         
         # Reserve some tokens for the final response
         available_tokens = max(available_tokens - 500, 0)  # Reserve 500 tokens for response
         
-        # Trim from the beginning (oldest messages first)
+        # Add messages from the end (most recent) until we hit the limit
         trimmed_messages = []
         current_tokens = 0
         
-        # Add messages from the end (most recent) until we hit the limit
         for msg in reversed(other_messages):
             msg_tokens = self.estimate_tokens(msg['content'])
             if current_tokens + msg_tokens <= available_tokens:
                 trimmed_messages.insert(0, msg)
                 current_tokens += msg_tokens
             else:
-                print(f"[CONTEXT] Trimmed {len(other_messages) - len(trimmed_messages)} older messages to fit token limit")
+                # We've hit the limit, stop adding messages
                 break
         
-        # Combine system messages with trimmed other messages
+        if len(other_messages) > len(trimmed_messages):
+            print(f"[CONTEXT] Trimmed {len(other_messages) - len(trimmed_messages)} older messages to fit token limit")
+        
+        # Combine: system messages + trimmed history + last message
         result = system_messages + trimmed_messages
+        if last_message:
+            result.append(last_message)
         
         final_tokens = sum(self.estimate_tokens(msg['content']) for msg in result)
         print(f"[CONTEXT] Final estimated tokens: {final_tokens}")
