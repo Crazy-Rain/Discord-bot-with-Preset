@@ -1215,6 +1215,12 @@ class DiscordBot(commands.Bot):
             
             print(f"\n[CHAT] Received message in channel {channel_id}: {message[:50]}...")
             
+            # Check if manual send mode is enabled
+            manual_send_enabled = self.config_manager.get('manual_send_enabled', False)
+            if manual_send_enabled:
+                await ctx.send("⚠️ Manual Send Mode is enabled. API calls are disabled. Use the Manual Send tab in the web interface to send messages.")
+                return
+            
             # Initialize conversation history if needed
             if channel_id not in self.conversations:
                 self.conversations[channel_id] = []

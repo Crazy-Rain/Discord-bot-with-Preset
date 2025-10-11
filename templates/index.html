@@ -367,6 +367,7 @@
             <button class="tab" onclick="switchTab('characters')">Characters</button>
             <button class="tab" onclick="switchTab('user_characters')">User Characters</button>
             <button class="tab" onclick="switchTab('lorebook')">Lorebook</button>
+            <button class="tab" onclick="switchTab('manual_send')">Manual Send</button>
             <button class="tab" onclick="switchTab('servers')">Servers/Channels</button>
         </div>
         
@@ -533,6 +534,22 @@
                 <input type="range" id="auto-context-limit" min="10" max="8000" step="10" value="50" oninput="updateSlider('auto-context', this.value)">
                 <small style="color: #666; display: block; margin-top: 5px;">
                     Number of messages to automatically load from channel history. Higher values provide more context but take longer to load. Can also be set via Discord using !setcontext command.
+                </small>
+            </div>
+            
+            <!-- Manual Send Mode Section -->
+            <h3 style="margin-top: 30px;">Manual Send Mode</h3>
+            <p style="color: #666; margin-bottom: 15px;">
+                When enabled, the bot will NOT send any messages to the API. Only manual messages sent via the Manual Send tab will be used.
+            </p>
+            
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="manual-send-enabled" style="width: auto; margin-right: 8px;">
+                    Enable Manual Send Mode
+                </label>
+                <small style="color: #666; display: block; margin-top: 5px;">
+                    When enabled, all API calls are disabled. Use the Manual Send tab to manually send messages as characters.
                 </small>
             </div>
             
@@ -1017,6 +1034,35 @@
             
             <div id="servers-list"></div>
         </div>
+        
+        <!-- Manual Send Tab -->
+        <div id="manual_send" class="tab-content">
+            <div id="manual-send-message" class="message"></div>
+            <h2>Manual Send</h2>
+            <p style="margin-bottom: 20px; color: #666;">Manually send messages to Discord channels as a selected character without AI involvement. Useful when Manual Send Mode is enabled in Configuration.</p>
+            
+            <div class="form-group">
+                <label>Select Channel</label>
+                <select id="manual-send-channel" style="width: 100%;">
+                    <option value="">-- Select a channel --</option>
+                </select>
+                <button class="btn btn-secondary" onclick="loadManualSendChannels()" style="margin-top: 10px;">🔄 Refresh Channels</button>
+            </div>
+            
+            <div class="form-group">
+                <label>Select Character</label>
+                <select id="manual-send-character" style="width: 100%;">
+                    <option value="">-- Select a character --</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Message</label>
+                <textarea id="manual-send-message-text" placeholder="Enter your message here..." style="min-height: 200px; resize: vertical;"></textarea>
+            </div>
+            
+            <button class="btn btn-primary" onclick="sendManualMessage()">Send Message</button>
+        </div>
     </div>
     
     <script>
@@ -1044,6 +1090,9 @@
                 loadUserCharactersList();
             } else if (tabName === 'lorebook') {
                 loadLorebookList();
+            } else if (tabName === 'manual_send') {
+                loadManualSendChannels();
+                loadManualSendCharacters();
             } else if (tabName === 'servers') {
                 loadServersList();
             }
@@ -1193,6 +1242,9 @@
                 document.getElementById('auto-context-limit').value = autoContextLimit;
                 updateSlider('auto-context', autoContextLimit);
                 
+                // Load manual send mode setting
+                document.getElementById('manual-send-enabled').checked = config.manual_send_enabled || false;
+                
                 // Load CP tracking settings
                 const cpTracking = config.cp_tracking || {};
                 document.getElementById('cp-tracking-enabled').checked = cpTracking.enabled || false;
@@ -1223,6 +1275,7 @@
                         end_tag: document.getElementById('thinking-end-tag').value
                     },
                     auto_context_limit: parseInt(document.getElementById('auto-context-limit').value),
+                    manual_send_enabled: document.getElementById('manual-send-enabled').checked,
                     cp_tracking: {
                         enabled: document.getElementById('cp-tracking-enabled').checked,
                         cp_per_count: parseInt(document.getElementById('cp-per-count').value) || 100,
@@ -3564,6 +3617,89 @@
                 showMessage('servers-message', result.message, result.status === 'success' ? 'success' : 'error');
             } catch (error) {
                 showMessage('servers-message', 'Error saving server configuration: ' + error.message, 'error');
+            }
+        }
+        
+        // Manual Send functions
+        async function loadManualSendChannels() {
+            try {
+                const response = await fetch('/api/manual_send/channels');
+                const data = await response.json();
+                
+                const select = document.getElementById('manual-send-channel');
+                select.innerHTML = '<option value="">-- Select a channel --</option>';
+                
+                data.channels.forEach(channel => {
+                    const option = document.createElement('option');
+                    option.value = channel.id;
+                    option.textContent = `${channel.server_name} / ${channel.name} (ID: ${channel.id})`;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                showMessage('manual-send-message', 'Error loading channels: ' + error.message, 'error');
+            }
+        }
+        
+        async function loadManualSendCharacters() {
+            try {
+                const response = await fetch('/api/characters');
+                const data = await response.json();
+                
+                const select = document.getElementById('manual-send-character');
+                select.innerHTML = '<option value="">-- Select a character --</option>';
+                
+                data.characters.forEach(character => {
+                    const option = document.createElement('option');
+                    option.value = character;
+                    option.textContent = character;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                showMessage('manual-send-message', 'Error loading characters: ' + error.message, 'error');
+            }
+        }
+        
+        async function sendManualMessage() {
+            try {
+                const channelId = document.getElementById('manual-send-channel').value;
+                const characterName = document.getElementById('manual-send-character').value;
+                const messageText = document.getElementById('manual-send-message-text').value;
+                
+                if (!channelId) {
+                    showMessage('manual-send-message', 'Please select a channel', 'error');
+                    return;
+                }
+                
+                if (!characterName) {
+                    showMessage('manual-send-message', 'Please select a character', 'error');
+                    return;
+                }
+                
+                if (!messageText.trim()) {
+                    showMessage('manual-send-message', 'Please enter a message', 'error');
+                    return;
+                }
+                
+                const response = await fetch('/api/manual_send', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        channel_id: channelId,
+                        character_name: characterName,
+                        message: messageText
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    showMessage('manual-send-message', 'Message sent successfully!', 'success');
+                    document.getElementById('manual-send-message-text').value = '';
+                } else {
+                    showMessage('manual-send-message', result.message, 'error');
+                }
+            } catch (error) {
+                showMessage('manual-send-message', 'Error sending message: ' + error.message, 'error');
             }
         }
         

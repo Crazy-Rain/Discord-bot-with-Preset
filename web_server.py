@@ -896,6 +896,83 @@ class WebServer:
             except Exception as e:
                 return jsonify({"status": "error", "message": str(e)}), 400
         
+        @self.app.route('/api/manual_send/channels', methods=['GET'])
+        def get_manual_send_channels():
+            """Get list of channels the bot has access to for manual sending."""
+            if not self.bot_instance:
+                return jsonify({"channels": []})
+            
+            channels = []
+            for guild in self.bot_instance.guilds:
+                for channel in guild.text_channels:
+                    channels.append({
+                        'id': str(channel.id),
+                        'name': channel.name,
+                        'server_name': guild.name,
+                        'server_id': str(guild.id)
+                    })
+            
+            return jsonify({"channels": channels})
+        
+        @self.app.route('/api/manual_send', methods=['POST'])
+        async def send_manual_message():
+            """Send a manual message to a Discord channel as a character."""
+            if not self.bot_instance:
+                return jsonify({"status": "error", "message": "Bot is not running"}), 400
+            
+            try:
+                data = request.json
+                channel_id = int(data.get('channel_id'))
+                character_name = data.get('character_name')
+                message = data.get('message')
+                
+                if not channel_id or not character_name or not message:
+                    return jsonify({
+                        "status": "error",
+                        "message": "Missing required fields"
+                    }), 400
+                
+                # Get the channel
+                channel = self.bot_instance.get_channel(channel_id)
+                if not channel:
+                    return jsonify({
+                        "status": "error",
+                        "message": f"Channel {channel_id} not found or bot doesn't have access"
+                    }), 404
+                
+                # Load the character
+                try:
+                    character_data = self.character_manager.load_character(character_name)
+                except Exception as e:
+                    return jsonify({
+                        "status": "error",
+                        "message": f"Failed to load character: {str(e)}"
+                    }), 400
+                
+                # Send the message as the character
+                last_msg, msg_ids = await self.bot_instance.send_as_character(
+                    channel,
+                    message,
+                    character_data
+                )
+                
+                if last_msg and msg_ids:
+                    return jsonify({
+                        "status": "success",
+                        "message": "Message sent successfully"
+                    })
+                else:
+                    return jsonify({
+                        "status": "error",
+                        "message": "Failed to send message via webhook"
+                    }), 500
+                
+            except Exception as e:
+                return jsonify({
+                    "status": "error",
+                    "message": str(e)
+                }), 500
+        
         @self.app.route('/character_avatars/<filename>')
         def serve_character_avatar(filename):
             """Serve character avatar images."""

@@ -14,6 +14,7 @@
     "end_tag": "</think>"
   },
   "auto_context_limit": 50,
+  "manual_send_enabled": false,
   "default_preset": {},
   "server_configs": {
     "987654321": {
