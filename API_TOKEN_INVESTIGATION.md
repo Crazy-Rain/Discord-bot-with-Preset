@@ -3,13 +3,13 @@
 ## Issue Summary
 Investigation of API token/authentication issues with the provided Google AI proxy credentials.
 
-## Provided Credentials (NOW REMOVED)
+## Provided Credentials (REDACTED)
 ```
-API URL: https://mouse-reads-venezuela-pool.trycloudflare.com/proxy/google-ai
-API KEY: necromp@proton.me
+API URL: [REDACTED - Cloudflare tunnel URL]
+API KEY: [REDACTED - Email-format key]
 ```
 
-**⚠️ These credentials have been used for testing purposes only and removed from the codebase.**
+**⚠️ Sensitive credentials have been redacted from this report. Testing was performed and credentials are not stored in the codebase.**
 
 ## Investigation Results
 
@@ -25,9 +25,9 @@ API KEY: necromp@proton.me
 
 ### 2. URL Format Analysis
 Tested multiple URL variations:
-- ❌ `https://mouse-reads-venezuela-pool.trycloudflare.com/proxy/google-ai`
-- ❌ `https://mouse-reads-venezuela-pool.trycloudflare.com/proxy/google-ai/v1`
-- ❌ `https://mouse-reads-venezuela-pool.trycloudflare.com/v1`
+- ❌ `[REDACTED]/proxy/google-ai`
+- ❌ `[REDACTED]/proxy/google-ai/v1`
+- ❌ `[REDACTED]/v1`
 
 **Finding:** All variations failed due to hostname resolution issues, not URL format.
 
@@ -35,7 +35,7 @@ Tested multiple URL variations:
 **Status:** ✅ Correct format  
 - API key is properly cleaned (whitespace trimmed)
 - No "Bearer" prefix issues detected
-- Format: Email-style key `necromp@proton.me`
+- Format: Email-style key (redacted)
 
 ## Known Issues and Fixes
 
@@ -71,7 +71,7 @@ Tested multiple URL variations:
 
 1. **Verify Proxy Accessibility**
    ```bash
-   curl -I https://mouse-reads-venezuela-pool.trycloudflare.com/proxy/google-ai
+   curl -I [YOUR_PROXY_URL]
    ```
 
 2. **Check URL Format**
