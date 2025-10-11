@@ -2410,6 +2410,21 @@ FORMAT GUIDELINES:
         """Called when bot is ready."""
         print(f"Bot is ready! Logged in as {self.user}")
         
+        # Display guild information for debugging
+        if len(self.guilds) == 0:
+            print("⚠️  WARNING: Bot is connected but not in any servers!")
+            print("   Please add the bot to a Discord server:")
+            print("   1. Go to https://discord.com/developers/applications")
+            print("   2. Select your bot application")
+            print("   3. Go to OAuth2 → URL Generator")
+            print("   4. Select 'bot' scope and required permissions")
+            print("   5. Use the generated URL to add the bot to a server")
+        else:
+            print(f"✅ Bot is in {len(self.guilds)} server(s):")
+            for guild in self.guilds:
+                channel_count = len(guild.text_channels) if hasattr(guild, 'text_channels') else 0
+                print(f"   - {guild.name} (ID: {guild.id}, {channel_count} text channels)")
+        
         # Load channel configurations from config
         channel_configs = self.config_manager.get('channel_configs', {})
         if channel_configs:
