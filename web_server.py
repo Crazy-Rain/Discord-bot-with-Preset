@@ -1048,21 +1048,30 @@ class WebServer:
             })
         
         @self.app.route('/api/manual_send', methods=['POST'])
-        async def send_manual_message():
+        def send_manual_message():
             """Send a manual message to a Discord channel as a character."""
             if not self.bot_instance:
                 return jsonify({"status": "error", "message": "Bot is not running"}), 400
             
             try:
                 data = request.json
-                channel_id = int(data.get('channel_id'))
+                channel_id_raw = data.get('channel_id')
                 character_name = data.get('character_name')
                 message = data.get('message')
                 
-                if not channel_id or not character_name or not message:
+                if not channel_id_raw or not character_name or not message:
                     return jsonify({
                         "status": "error",
                         "message": "Missing required fields"
+                    }), 400
+                
+                # Convert channel_id to int after validation
+                try:
+                    channel_id = int(channel_id_raw)
+                except (ValueError, TypeError):
+                    return jsonify({
+                        "status": "error",
+                        "message": "Invalid channel_id format"
                     }), 400
                 
                 # Get the channel
@@ -1082,12 +1091,20 @@ class WebServer:
                         "message": f"Failed to load character: {str(e)}"
                     }), 400
                 
-                # Send the message as the character
-                last_msg, msg_ids = await self.bot_instance.send_as_character(
-                    channel,
-                    message,
-                    character_data
-                )
+                # Send the message as the character (run async function in sync context)
+                import asyncio
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    last_msg, msg_ids = loop.run_until_complete(
+                        self.bot_instance.send_as_character(
+                            channel,
+                            message,
+                            character_data
+                        )
+                    )
+                finally:
+                    loop.close()
                 
                 if last_msg and msg_ids:
                     return jsonify({
