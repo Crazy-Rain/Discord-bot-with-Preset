@@ -3636,12 +3636,17 @@
                 const select = document.getElementById('manual-send-server');
                 select.innerHTML = '<option value="">-- Select a server --</option>';
                 
-                data.servers.forEach(server => {
-                    const option = document.createElement('option');
-                    option.value = server.id;
-                    option.textContent = `${server.name} (${server.channel_count} channels)`;
-                    select.appendChild(option);
-                });
+                if (data.servers && data.servers.length > 0) {
+                    data.servers.forEach(server => {
+                        const option = document.createElement('option');
+                        option.value = server.id;
+                        option.textContent = `${server.name} (${server.channel_count} channels)`;
+                        select.appendChild(option);
+                    });
+                } else {
+                    // No servers available - bot might not be connected
+                    showMessage('manual-send-message', 'No servers found. Make sure the bot is running and connected to Discord servers.', 'error');
+                }
                 
                 // Reset channel dropdown when servers are loaded
                 const channelSelect = document.getElementById('manual-send-channel');
@@ -3669,15 +3674,16 @@
                 
                 channelSelect.innerHTML = '<option value="">-- Select a channel --</option>';
                 
-                data.channels.forEach(channel => {
-                    const option = document.createElement('option');
-                    option.value = channel.id;
-                    option.textContent = `# ${channel.name}`;
-                    channelSelect.appendChild(option);
-                });
-                
-                if (data.channels.length === 0) {
+                if (data.channels && data.channels.length > 0) {
+                    data.channels.forEach(channel => {
+                        const option = document.createElement('option');
+                        option.value = channel.id;
+                        option.textContent = `# ${channel.name}`;
+                        channelSelect.appendChild(option);
+                    });
+                } else {
                     channelSelect.innerHTML = '<option value="">-- No channels found --</option>';
+                    showMessage('manual-send-message', 'No channels found for this server.', 'error');
                 }
             } catch (error) {
                 const channelSelect = document.getElementById('manual-send-channel');
@@ -3701,12 +3707,17 @@
                 const select = document.getElementById('manual-send-character');
                 select.innerHTML = '<option value="">-- Select a character --</option>';
                 
-                data.characters.forEach(character => {
-                    const option = document.createElement('option');
-                    option.value = character;
-                    option.textContent = character;
-                    select.appendChild(option);
-                });
+                if (data.characters && data.characters.length > 0) {
+                    data.characters.forEach(character => {
+                        const option = document.createElement('option');
+                        option.value = character;
+                        option.textContent = character;
+                        select.appendChild(option);
+                    });
+                } else {
+                    // No characters available
+                    showMessage('manual-send-message', 'No characters found. Please create a character in the Characters tab first.', 'error');
+                }
             } catch (error) {
                 showMessage('manual-send-message', 'Error loading characters: ' + error.message, 'error');
             }
