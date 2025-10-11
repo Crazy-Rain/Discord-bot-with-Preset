@@ -930,24 +930,72 @@ class DiscordBot(commands.Bot):
         # Return default client
         return self.openai_client
     
+    def estimate_tokens(self, text: str) -> int:
+        """Estimate token count for text using a simple approximation.
+        
+        This uses a rough estimate: 1 token ≈ 4 characters.
+        For more accurate counts, you could use tiktoken library.
+        """
+        # Simple estimation: average 4 characters per token
+        return len(text) // 4
+    
+    def trim_messages_to_fit(self, messages: List[Dict[str, str]], max_tokens: int) -> List[Dict[str, str]]:
+        """Trim oldest messages to fit within token limit.
+        
+        Args:
+            messages: List of message dicts with 'role' and 'content'
+            max_tokens: Maximum token limit for context
+            
+        Returns:
+            Trimmed list of messages that fits within the limit
+        """
+        # Calculate total tokens
+        total_tokens = sum(self.estimate_tokens(msg['content']) for msg in messages)
+        
+        print(f"[CONTEXT] Total estimated tokens: {total_tokens}, Max: {max_tokens}")
+        
+        # If we're under the limit, return as-is
+        if total_tokens <= max_tokens:
+            return messages
+        
+        # We need to trim. Keep system messages and trim from oldest user/assistant messages
+        system_messages = [msg for msg in messages if msg.get('role') == 'system']
+        other_messages = [msg for msg in messages if msg.get('role') != 'system']
+        
+        # Calculate tokens in system messages (these are kept)
+        system_tokens = sum(self.estimate_tokens(msg['content']) for msg in system_messages)
+        
+        # Available tokens for other messages
+        available_tokens = max_tokens - system_tokens
+        
+        # Reserve some tokens for the final response
+        available_tokens = max(available_tokens - 500, 0)  # Reserve 500 tokens for response
+        
+        # Trim from the beginning (oldest messages first)
+        trimmed_messages = []
+        current_tokens = 0
+        
+        # Add messages from the end (most recent) until we hit the limit
+        for msg in reversed(other_messages):
+            msg_tokens = self.estimate_tokens(msg['content'])
+            if current_tokens + msg_tokens <= available_tokens:
+                trimmed_messages.insert(0, msg)
+                current_tokens += msg_tokens
+            else:
+                print(f"[CONTEXT] Trimmed {len(other_messages) - len(trimmed_messages)} older messages to fit token limit")
+                break
+        
+        # Combine system messages with trimmed other messages
+        result = system_messages + trimmed_messages
+        
+        final_tokens = sum(self.estimate_tokens(msg['content']) for msg in result)
+        print(f"[CONTEXT] Final estimated tokens: {final_tokens}")
+        
+        return result
+    
     def get_preset_for_channel(self, channel_id: int, server_id: int = None):
-        """Get the appropriate preset for a channel (with channel or server-specific config if set)."""
-        # Priority: channel config > server config > default
-        
-        # Check for channel-specific preset first
-        preset_name = self.config_manager.get(f'channel_configs.{channel_id}.preset', '')
-        
-        # If no channel config and server_id provided, check server config
-        if not preset_name and server_id:
-            preset_name = self.config_manager.get(f'server_configs.{server_id}.preset', '')
-        
-        if preset_name:
-            try:
-                return self.preset_manager.get_preset(preset_name)
-            except:
-                pass
-        
-        # Return default preset
+        """Get the preset for a channel - always uses global default preset."""
+        # Always return the default preset (no channel/server overrides)
         return self.preset_manager.get_current_preset()
     
     def get_character_for_channel(self, channel_id: int, server_id: int = None):
@@ -2318,6 +2366,10 @@ FORMAT GUIDELINES:
             messages.append({"role": "user", "content": formatted_message})
         else:
             messages.append({"role": "user", "content": user_message})
+        
+        # 5. Trim messages to fit within max_tokens limit
+        max_tokens = preset.get('max_tokens', 2000)
+        messages = self.trim_messages_to_fit(messages, max_tokens)
         
         return messages
     
