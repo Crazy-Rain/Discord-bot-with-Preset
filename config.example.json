@@ -1,8 +1,9 @@
 {
   "discord_token": "YOUR_DISCORD_BOT_TOKEN",
   "openai_config": {
-    "base_url": "https://new-proxy.com/v1",
-    "model": "gpt-4"
+    "base_url": "https://api.openai.com/v1",
+    "model": "gpt-4",
+    "api_key": "sk-test123"
   },
   "web_server": {
     "host": "0.0.0.0",
