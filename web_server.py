@@ -53,10 +53,15 @@ class WebServer:
             try:
                 data = request.json
                 
-                # Sanitize OpenAI config fields for proxy compatibility (strip whitespace)
+                # Sanitize OpenAI config fields for proxy compatibility
                 if 'openai_config' in data:
                     if 'api_key' in data['openai_config'] and data['openai_config']['api_key'] != '***HIDDEN***':
-                        data['openai_config']['api_key'] = data['openai_config']['api_key'].strip()
+                        # Clean API key: strip whitespace and remove Bearer prefix if present
+                        api_key = data['openai_config']['api_key'].strip()
+                        # Remove "Bearer " prefix (case-insensitive) to prevent double "Bearer Bearer" in auth header
+                        if api_key.lower().startswith("bearer "):
+                            api_key = api_key[7:].strip()
+                        data['openai_config']['api_key'] = api_key
                     if 'base_url' in data['openai_config']:
                         data['openai_config']['base_url'] = data['openai_config']['base_url'].strip()
                     if 'model' in data['openai_config']:
@@ -133,7 +138,8 @@ class WebServer:
             """Fetch available models from the configured API endpoint."""
             try:
                 data = request.json
-                api_key = data.get('api_key', '').strip()  # Strip whitespace for proxy compatibility
+                # Note: OpenAIClient will clean the API key (strip whitespace and Bearer prefix)
+                api_key = data.get('api_key', '').strip()  # Basic strip for validation
                 base_url = data.get('base_url', '').strip()  # Strip whitespace for proxy compatibility
                 
                 if not api_key or not base_url:
