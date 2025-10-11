@@ -1100,7 +1100,7 @@ class WebServer:
                         print(f"[MANUAL_SEND] Bot is in {guilds_count} guilds")
                     return jsonify({
                         "status": "error",
-                        "message": f"Channel {channel_id} not found or bot doesn't have access"
+                        "message": f"Channel {channel_id} not found. Make sure: 1) The bot is connected and in the server, 2) The channel ID is correct, 3) The bot has permission to view the channel."
                     }), 404
                 
                 # Load the character
