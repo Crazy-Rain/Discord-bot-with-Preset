@@ -930,24 +930,86 @@ class DiscordBot(commands.Bot):
         # Return default client
         return self.openai_client
     
+    def estimate_tokens(self, text: str) -> int:
+        """Estimate token count for text using a simple approximation.
+        
+        This uses a rough estimate: 1 token ≈ 4 characters.
+        For more accurate counts, you could use tiktoken library.
+        """
+        # Simple estimation: average 4 characters per token
+        return len(text) // 4
+    
+    def trim_messages_to_fit(self, messages: List[Dict[str, str]], max_tokens: int) -> List[Dict[str, str]]:
+        """Trim oldest messages to fit within token limit.
+        
+        Args:
+            messages: List of message dicts with 'role' and 'content'
+            max_tokens: Maximum token limit for context
+            
+        Returns:
+            Trimmed list of messages that fits within the limit
+        """
+        # Calculate total tokens
+        total_tokens = sum(self.estimate_tokens(msg['content']) for msg in messages)
+        
+        print(f"[CONTEXT] Total estimated tokens: {total_tokens}, Max: {max_tokens}")
+        
+        # If we're under the limit, return as-is
+        if total_tokens <= max_tokens:
+            return messages
+        
+        # We need to trim. Keep system messages and the last user message, trim from middle
+        system_messages = [msg for msg in messages if msg.get('role') == 'system']
+        non_system_messages = [msg for msg in messages if msg.get('role') != 'system']
+        
+        # Calculate tokens in system messages (these are kept)
+        system_tokens = sum(self.estimate_tokens(msg['content']) for msg in system_messages)
+        
+        # Always keep the last message (current user message)
+        if non_system_messages:
+            last_message = non_system_messages[-1]
+            last_message_tokens = self.estimate_tokens(last_message['content'])
+            other_messages = non_system_messages[:-1]
+        else:
+            last_message = None
+            last_message_tokens = 0
+            other_messages = []
+        
+        # Available tokens for other messages
+        available_tokens = max_tokens - system_tokens - last_message_tokens
+        
+        # Reserve some tokens for the final response
+        available_tokens = max(available_tokens - 500, 0)  # Reserve 500 tokens for response
+        
+        # Add messages from the end (most recent) until we hit the limit
+        trimmed_messages = []
+        current_tokens = 0
+        
+        for msg in reversed(other_messages):
+            msg_tokens = self.estimate_tokens(msg['content'])
+            if current_tokens + msg_tokens <= available_tokens:
+                trimmed_messages.insert(0, msg)
+                current_tokens += msg_tokens
+            else:
+                # We've hit the limit, stop adding messages
+                break
+        
+        if len(other_messages) > len(trimmed_messages):
+            print(f"[CONTEXT] Trimmed {len(other_messages) - len(trimmed_messages)} older messages to fit token limit")
+        
+        # Combine: system messages + trimmed history + last message
+        result = system_messages + trimmed_messages
+        if last_message:
+            result.append(last_message)
+        
+        final_tokens = sum(self.estimate_tokens(msg['content']) for msg in result)
+        print(f"[CONTEXT] Final estimated tokens: {final_tokens}")
+        
+        return result
+    
     def get_preset_for_channel(self, channel_id: int, server_id: int = None):
-        """Get the appropriate preset for a channel (with channel or server-specific config if set)."""
-        # Priority: channel config > server config > default
-        
-        # Check for channel-specific preset first
-        preset_name = self.config_manager.get(f'channel_configs.{channel_id}.preset', '')
-        
-        # If no channel config and server_id provided, check server config
-        if not preset_name and server_id:
-            preset_name = self.config_manager.get(f'server_configs.{server_id}.preset', '')
-        
-        if preset_name:
-            try:
-                return self.preset_manager.get_preset(preset_name)
-            except:
-                pass
-        
-        # Return default preset
+        """Get the preset for a channel - always uses global default preset."""
+        # Always return the default preset (no channel/server overrides)
         return self.preset_manager.get_current_preset()
     
     def get_character_for_channel(self, channel_id: int, server_id: int = None):
@@ -1214,6 +1276,12 @@ class DiscordBot(commands.Bot):
             server_id = ctx.guild.id if ctx.guild else None
             
             print(f"\n[CHAT] Received message in channel {channel_id}: {message[:50]}...")
+            
+            # Check if manual send mode is enabled
+            manual_send_enabled = self.config_manager.get('manual_send_enabled', False)
+            if manual_send_enabled:
+                await ctx.send("⚠️ Manual Send Mode is enabled. API calls are disabled. Use the Manual Send tab in the web interface to send messages.")
+                return
             
             # Initialize conversation history if needed
             if channel_id not in self.conversations:
@@ -2312,6 +2380,10 @@ FORMAT GUIDELINES:
             messages.append({"role": "user", "content": formatted_message})
         else:
             messages.append({"role": "user", "content": user_message})
+        
+        # 5. Trim messages to fit within max_tokens limit
+        max_tokens = preset.get('max_tokens', 2000)
+        messages = self.trim_messages_to_fit(messages, max_tokens)
         
         return messages
     
