@@ -32,9 +32,12 @@ class WebServer:
         # Otherwise, try to get the current instance from main module (for production)
         try:
             import main
-            return main.bot_instance
-        except (ImportError, AttributeError):
-            # If main module can't be imported or doesn't have bot_instance, return None
+            bot = getattr(main, 'bot_instance', None)
+            return bot
+        except Exception as e:
+            # Catch all exceptions, not just ImportError/AttributeError
+            # This helps diagnose issues
+            print(f"[WebServer] Error accessing bot instance: {type(e).__name__}: {e}")
             return None
     
     def setup_routes(self):
@@ -1050,15 +1053,13 @@ class WebServer:
         @self.app.route('/api/manual_send', methods=['POST'])
         def send_manual_message():
             """Send a manual message to a Discord channel as a character."""
-            if not self.bot_instance:
-                return jsonify({"status": "error", "message": "Bot is not running"}), 400
-            
             try:
                 data = request.json
                 channel_id_raw = data.get('channel_id')
                 character_name = data.get('character_name')
                 message = data.get('message')
                 
+                # Validate required fields first (before checking bot)
                 if not channel_id_raw or not character_name or not message:
                     return jsonify({
                         "status": "error",
@@ -1074,12 +1075,32 @@ class WebServer:
                         "message": "Invalid channel_id format"
                     }), 400
                 
-                # Get the channel
-                channel = self.bot_instance.get_channel(channel_id)
-                if not channel:
+                # Now try to get the channel
+                # The bot needs to be connected to access channel information
+                if not self.bot_instance:
+                    print(f"[MANUAL_SEND] Bot instance not available for channel {channel_id}")
                     return jsonify({
                         "status": "error",
-                        "message": f"Channel {channel_id} not found or bot doesn't have access"
+                        "message": "Bot is not running"
+                    }), 400
+                
+                try:
+                    channel = self.bot_instance.get_channel(channel_id)
+                except AttributeError:
+                    # bot_instance exists but doesn't have get_channel (shouldn't happen)
+                    return jsonify({
+                        "status": "error",
+                        "message": "Bot is not properly initialized"
+                    }), 500
+                
+                if not channel:
+                    print(f"[MANUAL_SEND] Channel {channel_id} not found")
+                    if self.bot_instance:
+                        guilds_count = len(self.bot_instance.guilds) if hasattr(self.bot_instance, 'guilds') else 'unknown'
+                        print(f"[MANUAL_SEND] Bot is in {guilds_count} guilds")
+                    return jsonify({
+                        "status": "error",
+                        "message": f"Channel {channel_id} not found. Make sure: 1) The bot is connected and in the server, 2) The channel ID is correct, 3) The bot has permission to view the channel."
                     }), 404
                 
                 # Load the character
