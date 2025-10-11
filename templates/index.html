@@ -1041,19 +1041,52 @@
             <h2>Manual Send</h2>
             <p style="margin-bottom: 20px; color: #666;">Manually send messages to Discord channels as a selected character without AI involvement. Useful when Manual Send Mode is enabled in Configuration.</p>
             
+            <!-- Mode Toggle -->
             <div class="form-group">
-                <label>Select Server</label>
-                <select id="manual-send-server" style="width: 100%;" onchange="loadManualSendServerChannels()">
-                    <option value="">-- Select a server --</option>
-                </select>
-                <button class="btn btn-secondary" onclick="loadManualSendServers()" style="margin-top: 10px;">🔄 Refresh Servers</button>
+                <label>Input Mode</label>
+                <div style="margin-bottom: 15px;">
+                    <label style="margin-right: 20px; cursor: pointer;">
+                        <input type="radio" name="manual-send-mode" value="dropdown" checked onchange="toggleManualSendMode()"> 
+                        <span style="margin-left: 5px;">Dropdown Selection</span>
+                    </label>
+                    <label style="cursor: pointer;">
+                        <input type="radio" name="manual-send-mode" value="manual" onchange="toggleManualSendMode()"> 
+                        <span style="margin-left: 5px;">Manual ID Input</span>
+                    </label>
+                </div>
             </div>
             
-            <div class="form-group">
-                <label>Select Channel</label>
-                <select id="manual-send-channel" style="width: 100%;">
-                    <option value="">-- Select a server first --</option>
-                </select>
+            <!-- Dropdown Mode -->
+            <div id="manual-send-dropdown-mode">
+                <div class="form-group">
+                    <label>Select Server</label>
+                    <select id="manual-send-server" style="width: 100%;" onchange="loadManualSendServerChannels()">
+                        <option value="">-- Select a server --</option>
+                    </select>
+                    <button class="btn btn-secondary" onclick="loadManualSendServers()" style="margin-top: 10px;">🔄 Refresh Servers</button>
+                </div>
+                
+                <div class="form-group">
+                    <label>Select Channel</label>
+                    <select id="manual-send-channel" style="width: 100%;">
+                        <option value="">-- Select a server first --</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Manual Input Mode -->
+            <div id="manual-send-manual-mode" style="display: none;">
+                <div class="form-group">
+                    <label>Server ID</label>
+                    <input type="text" id="manual-send-server-id" placeholder="Enter Discord Server ID (e.g., 123456789012345678)" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px;">
+                    <small style="color: #666; display: block; margin-top: 5px;">Right-click on server → Copy Server ID (Developer Mode must be enabled in Discord settings)</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Channel ID</label>
+                    <input type="text" id="manual-send-channel-id" placeholder="Enter Discord Channel ID (e.g., 123456789012345678)" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px;">
+                    <small style="color: #666; display: block; margin-top: 5px;">Right-click on channel → Copy Channel ID (Developer Mode must be enabled in Discord settings)</small>
+                </div>
             </div>
             
             <div class="form-group">
@@ -3795,14 +3828,37 @@
             }
         }
         
+        function toggleManualSendMode() {
+            const mode = document.querySelector('input[name="manual-send-mode"]:checked').value;
+            const dropdownMode = document.getElementById('manual-send-dropdown-mode');
+            const manualMode = document.getElementById('manual-send-manual-mode');
+            
+            if (mode === 'dropdown') {
+                dropdownMode.style.display = 'block';
+                manualMode.style.display = 'none';
+            } else {
+                dropdownMode.style.display = 'none';
+                manualMode.style.display = 'block';
+            }
+        }
+        
         async function sendManualMessage() {
             try {
-                const channelId = document.getElementById('manual-send-channel').value;
+                const mode = document.querySelector('input[name="manual-send-mode"]:checked').value;
+                let channelId;
+                
+                // Get channel ID based on mode
+                if (mode === 'dropdown') {
+                    channelId = document.getElementById('manual-send-channel').value;
+                } else {
+                    channelId = document.getElementById('manual-send-channel-id').value.trim();
+                }
+                
                 const characterName = document.getElementById('manual-send-character').value;
                 const messageText = document.getElementById('manual-send-message-text').value;
                 
                 if (!channelId) {
-                    showMessage('manual-send-message', 'Please select a channel', 'error');
+                    showMessage('manual-send-message', 'Please ' + (mode === 'dropdown' ? 'select' : 'enter') + ' a channel', 'error');
                     return;
                 }
                 
