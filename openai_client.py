@@ -3,10 +3,40 @@ from openai import OpenAI
 from typing import Dict, Any, List, Optional
 
 class OpenAIClient:
+    @staticmethod
+    def _clean_api_key(api_key: str) -> str:
+        """
+        Clean API key by removing whitespace and Bearer prefix.
+        
+        Some users may accidentally include 'Bearer ' prefix when copying from
+        documentation or other tools. The OpenAI SDK automatically adds 'Bearer '
+        to create the Authorization header, so including it in the key would
+        result in 'Authorization: Bearer Bearer <key>' which causes authentication errors.
+        
+        Args:
+            api_key: Raw API key that may contain whitespace or Bearer prefix
+            
+        Returns:
+            Cleaned API key without whitespace or Bearer prefix
+        """
+        if not api_key:
+            return api_key
+        
+        # Strip whitespace
+        cleaned = api_key.strip()
+        
+        # Remove "Bearer " prefix if present (case-insensitive)
+        # Check for the prefix followed by at least one space
+        if cleaned.lower().startswith("bearer "):
+            prefix = "bearer "
+            cleaned = cleaned[len(prefix):].strip()  # Remove "Bearer " prefix and any trailing spaces
+        
+        return cleaned
+    
     def __init__(self, api_key: str, base_url: str, model: str = "gpt-3.5-turbo"):
         # Clean and validate inputs for proxy compatibility
-        # Strip whitespace from API key and base URL to handle copy-paste errors
-        api_key = (api_key or "").strip()
+        # Strip whitespace and Bearer prefix from API key to handle copy-paste errors
+        api_key = self._clean_api_key(api_key or "")
         base_url = (base_url or "").strip()
         
         # Store the API key even if it's a placeholder
@@ -36,8 +66,8 @@ class OpenAIClient:
         Kept for potential future use or backwards compatibility.
         """
         if api_key:
-            # Strip whitespace for proxy compatibility
-            api_key = api_key.strip()
+            # Clean API key (strip whitespace and Bearer prefix)
+            api_key = self._clean_api_key(api_key)
             # Validate API key is not a placeholder
             if api_key in ["YOUR_API_KEY", "", "none"]:
                 raise ValueError(

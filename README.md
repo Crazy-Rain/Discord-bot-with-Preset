@@ -9,6 +9,7 @@ A feature-rich Discord bot with OpenAI-compatible API integration, preset manage
   - **NEW**: Save and load multiple API configurations for quick switching between providers!
   - **NEW**: Manage multiple proxies and models with a simple dropdown!
   - **NEW**: Securely store API keys (hidden in UI, separate from bot settings)!
+  - **NEW**: Automatic API key cleaning - removes "Bearer " prefix to prevent authentication errors!
 - 🎨 **Advanced Preset System** - SillyTavern-style presets with proper role separation for optimal AI performance
   - **NEW**: Separate system, user, and assistant message roles
   - **NEW**: Character card integration with example dialogues
@@ -451,6 +452,12 @@ Discord-bot-with-Preset/
 - Verify your API key and base URL are correct
 - Check if the API endpoint is accessible
 - Ensure the model name is valid for your endpoint
+
+### Invalid Token / Authentication Errors
+- **Fixed!** The bot now automatically removes "Bearer " prefix from API keys
+- If you copied your API key with "Bearer " prefix (e.g., from curl examples), it's now handled automatically
+- API keys are cleaned of whitespace and Bearer prefix when saved
+- See [INVALID_TOKEN_QUICK_FIX.md](INVALID_TOKEN_QUICK_FIX.md) for details
 
 ### Web interface not accessible / 404 errors
 - The web server takes a few seconds to start - wait for the "✅ Web interface should now be accessible" message
