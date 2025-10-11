@@ -16,7 +16,8 @@ shutdown_flag = False
 def run_web_server(config_manager: ConfigManager):
     """Run the web server in a separate thread."""
     web_config = config_manager.get("web_server", {})
-    web_server = WebServer(config_manager, bot_instance)
+    # Don't pass bot_instance - let WebServer get current instance dynamically from main.bot_instance
+    web_server = WebServer(config_manager)
     web_server.run(
         host=web_config.get("host", "0.0.0.0"),
         port=web_config.get("port", 5000),
