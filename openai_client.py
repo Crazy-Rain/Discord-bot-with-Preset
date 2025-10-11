@@ -28,7 +28,8 @@ class OpenAIClient:
         # Remove "Bearer " prefix if present (case-insensitive)
         # Check for the prefix followed by at least one space
         if cleaned.lower().startswith("bearer "):
-            cleaned = cleaned[7:].strip()  # Remove "Bearer " (7 chars) and any trailing spaces
+            prefix = "bearer "
+            cleaned = cleaned[len(prefix):].strip()  # Remove "Bearer " prefix and any trailing spaces
         
         return cleaned
     
