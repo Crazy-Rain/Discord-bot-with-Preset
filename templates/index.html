@@ -461,7 +461,7 @@
                     
                     <div class="slider-container">
                         <label>Max Tokens (Context): <span class="slider-value" id="tokens-value">2000</span></label>
-                        <input type="range" id="max-tokens" min="100" max="200000" step="100" value="2000" oninput="updateSlider('tokens', this.value)">
+                        <input type="range" id="max-tokens" min="100" max="2000000" step="100" value="2000" oninput="updateSlider('tokens', this.value)">
                     </div>
                     
                     <div class="slider-container">
@@ -619,7 +619,7 @@
                 
                 <div class="slider-container">
                     <label>Max Tokens (Context): <span class="slider-value" id="preset-tokens-value">2000</span></label>
-                    <input type="range" id="preset-max-tokens" min="100" max="200000" step="100" value="2000" oninput="updateSlider('preset-tokens', this.value)">
+                    <input type="range" id="preset-max-tokens" min="100" max="2000000" step="100" value="2000" oninput="updateSlider('preset-tokens', this.value)">
                 </div>
                 
                 <div class="slider-container">
@@ -1042,11 +1042,18 @@
             <p style="margin-bottom: 20px; color: #666;">Manually send messages to Discord channels as a selected character without AI involvement. Useful when Manual Send Mode is enabled in Configuration.</p>
             
             <div class="form-group">
+                <label>Select Server</label>
+                <select id="manual-send-server" style="width: 100%;" onchange="loadManualSendServerChannels()">
+                    <option value="">-- Select a server --</option>
+                </select>
+                <button class="btn btn-secondary" onclick="loadManualSendServers()" style="margin-top: 10px;">🔄 Refresh Servers</button>
+            </div>
+            
+            <div class="form-group">
                 <label>Select Channel</label>
                 <select id="manual-send-channel" style="width: 100%;">
-                    <option value="">-- Select a channel --</option>
+                    <option value="">-- Select a server first --</option>
                 </select>
-                <button class="btn btn-secondary" onclick="loadManualSendChannels()" style="margin-top: 10px;">🔄 Refresh Channels</button>
             </div>
             
             <div class="form-group">
@@ -1091,7 +1098,7 @@
             } else if (tabName === 'lorebook') {
                 loadLorebookList();
             } else if (tabName === 'manual_send') {
-                loadManualSendChannels();
+                loadManualSendServers();
                 loadManualSendCharacters();
             } else if (tabName === 'servers') {
                 loadServersList();
@@ -3621,23 +3628,69 @@
         }
         
         // Manual Send functions
-        async function loadManualSendChannels() {
+        async function loadManualSendServers() {
             try {
-                const response = await fetch('/api/manual_send/channels');
+                const response = await fetch('/api/servers');
                 const data = await response.json();
                 
-                const select = document.getElementById('manual-send-channel');
-                select.innerHTML = '<option value="">-- Select a channel --</option>';
+                const select = document.getElementById('manual-send-server');
+                select.innerHTML = '<option value="">-- Select a server --</option>';
+                
+                data.servers.forEach(server => {
+                    const option = document.createElement('option');
+                    option.value = server.id;
+                    option.textContent = `${server.name} (${server.channel_count} channels)`;
+                    select.appendChild(option);
+                });
+                
+                // Reset channel dropdown when servers are loaded
+                const channelSelect = document.getElementById('manual-send-channel');
+                channelSelect.innerHTML = '<option value="">-- Select a server first --</option>';
+            } catch (error) {
+                showMessage('manual-send-message', 'Error loading servers: ' + error.message, 'error');
+            }
+        }
+        
+        async function loadManualSendServerChannels() {
+            try {
+                const serverSelect = document.getElementById('manual-send-server');
+                const serverId = serverSelect.value;
+                const channelSelect = document.getElementById('manual-send-channel');
+                
+                if (!serverId) {
+                    channelSelect.innerHTML = '<option value="">-- Select a server first --</option>';
+                    return;
+                }
+                
+                channelSelect.innerHTML = '<option value="">-- Loading channels... --</option>';
+                
+                const response = await fetch(`/api/servers/${serverId}/channels`);
+                const data = await response.json();
+                
+                channelSelect.innerHTML = '<option value="">-- Select a channel --</option>';
                 
                 data.channels.forEach(channel => {
                     const option = document.createElement('option');
                     option.value = channel.id;
-                    option.textContent = `${channel.server_name} / ${channel.name} (ID: ${channel.id})`;
-                    select.appendChild(option);
+                    option.textContent = `# ${channel.name}`;
+                    channelSelect.appendChild(option);
                 });
+                
+                if (data.channels.length === 0) {
+                    channelSelect.innerHTML = '<option value="">-- No channels found --</option>';
+                }
             } catch (error) {
+                const channelSelect = document.getElementById('manual-send-channel');
+                channelSelect.innerHTML = '<option value="">-- Error loading channels --</option>';
                 showMessage('manual-send-message', 'Error loading channels: ' + error.message, 'error');
             }
+        }
+        
+        // Keep the old function for backward compatibility but mark as deprecated
+        async function loadManualSendChannels() {
+            // This function is deprecated - now using two-dropdown approach
+            // Call loadManualSendServers instead
+            await loadManualSendServers();
         }
         
         async function loadManualSendCharacters() {

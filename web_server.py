@@ -24,9 +24,18 @@ class WebServer:
     
     @property
     def bot_instance(self):
-        """Get the current bot instance from main module."""
-        import main
-        return main.bot_instance
+        """Get the current bot instance from main module or use the passed instance."""
+        # First, try to use the instance passed during initialization (for tests)
+        if self._bot_instance_ref is not None:
+            return self._bot_instance_ref
+        
+        # Otherwise, try to get the current instance from main module (for production)
+        try:
+            import main
+            return main.bot_instance
+        except (ImportError, AttributeError):
+            # If main module can't be imported or doesn't have bot_instance, return None
+            return None
     
     def setup_routes(self):
         """Setup Flask routes."""
@@ -904,13 +913,20 @@ class WebServer:
             
             channels = []
             for guild in self.bot_instance.guilds:
-                for channel in guild.text_channels:
-                    channels.append({
-                        'id': str(channel.id),
-                        'name': channel.name,
-                        'server_name': guild.name,
-                        'server_id': str(guild.id)
-                    })
+                try:
+                    # Safely access text_channels - handle cases where it might be None or missing
+                    text_channels = guild.text_channels if hasattr(guild, 'text_channels') and guild.text_channels is not None else []
+                    for channel in text_channels:
+                        channels.append({
+                            'id': str(channel.id),
+                            'name': channel.name,
+                            'server_name': guild.name,
+                            'server_id': str(guild.id)
+                        })
+                except Exception as e:
+                    # If there's any error getting guild info, skip it but log the issue
+                    print(f"Error getting channels for guild {guild.id}: {e}")
+                    continue
             
             return jsonify({"channels": channels})
         

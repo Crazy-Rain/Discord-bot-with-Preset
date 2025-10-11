@@ -2237,7 +2237,18 @@ Visit http://localhost:5000 to configure the bot via web interface.
         # Get character data if loaded for this channel
         character_data = None
         if channel_id in self.channel_characters:
-            character_data = self.channel_characters[channel_id]
+            # Reload character data from disk to ensure we have latest changes
+            character_name = self.channel_characters[channel_id].get('name')
+            if character_name:
+                try:
+                    character_data = self.character_manager.load_character(character_name)
+                    # Update the cache with fresh data
+                    self.channel_characters[channel_id] = character_data
+                except FileNotFoundError:
+                    # Character was deleted, use cached data
+                    character_data = self.channel_characters[channel_id]
+            else:
+                character_data = self.channel_characters[channel_id]
         elif self.character_manager.current_character:
             character_data = self.character_manager.current_character
         
@@ -2284,6 +2295,8 @@ FORMAT GUIDELINES:
 - Text without quotes or asterisks is descriptive text or additional context"""
                         
                         # Add user character descriptions
+                        # Reload to ensure we have the latest data
+                        self.user_characters_manager.load_all_user_characters()
                         user_char_section = self.user_characters_manager.get_system_prompt_section(
                             self.character_names[channel_id]
                         )
@@ -2291,6 +2304,8 @@ FORMAT GUIDELINES:
                             enhanced_content += user_char_section
                     
                     # Add lorebook entries
+                    # Reload to ensure we have the latest data
+                    self.lorebook_manager.load_all_lorebooks()
                     current_character_name = character_data.get("name") if character_data else None
                     print(f"[LOREBOOK] Requesting lorebook for character: {current_character_name}")
                     print(f"[LOREBOOK] Character data: {character_data.get('name') if character_data else 'None'}")
@@ -2338,6 +2353,8 @@ FORMAT GUIDELINES:
 - Text without quotes or asterisks is descriptive text or additional context"""
                 
                 # Add user character descriptions
+                # Reload to ensure we have the latest data
+                self.user_characters_manager.load_all_user_characters()
                 user_char_section = self.user_characters_manager.get_system_prompt_section(
                     self.character_names[channel_id]
                 )
@@ -2345,6 +2362,8 @@ FORMAT GUIDELINES:
                     enhanced_system_prompt += user_char_section
             
             # Add lorebook entries
+            # Reload to ensure we have the latest data
+            self.lorebook_manager.load_all_lorebooks()
             # Pass current character name to filter character-linked lorebooks
             current_character_name = character_data.get("name") if character_data else None
             print(f"[LOREBOOK] Requesting lorebook for character: {current_character_name}")
