@@ -45,6 +45,67 @@ class WebServer:
             """Serve main configuration page."""
             return render_template('index.html')
         
+        @self.app.route('/api/health', methods=['GET'])
+        def health_check():
+            """Health check endpoint to verify bot status."""
+            import sys
+            
+            status = {
+                "web_server": "running",
+                "bot_connected": False,
+                "bot_name": None,
+                "guild_count": 0,
+                "guilds": [],
+                "issues": []
+            }
+            
+            # Check if we can import main module
+            try:
+                import main
+                status["main_module"] = "accessible"
+            except ImportError as e:
+                status["main_module"] = "not_accessible"
+                status["issues"].append(f"Cannot import main module: {e}")
+                return jsonify(status)
+            
+            # Check if bot_instance exists
+            if not hasattr(main, 'bot_instance'):
+                status["issues"].append("main.bot_instance attribute does not exist")
+                return jsonify(status)
+            
+            bot = main.bot_instance
+            if bot is None:
+                status["issues"].append("main.bot_instance is None - bot not initialized")
+                return jsonify(status)
+            
+            # Check if bot has user (connected)
+            if hasattr(bot, 'user') and bot.user:
+                status["bot_connected"] = True
+                status["bot_name"] = str(bot.user)
+            else:
+                status["issues"].append("Bot instance exists but user is None - bot may not be connected yet")
+            
+            # Check guilds
+            if hasattr(bot, 'guilds'):
+                guilds = bot.guilds
+                status["guild_count"] = len(guilds)
+                
+                if len(guilds) == 0:
+                    status["issues"].append("Bot is connected but not in any servers. Please add the bot to a Discord server.")
+                else:
+                    status["guilds"] = [
+                        {
+                            "id": str(g.id),
+                            "name": g.name,
+                            "channels": len(g.text_channels) if hasattr(g, 'text_channels') else 0
+                        }
+                        for g in guilds[:10]  # Limit to 10 for health check
+                    ]
+            else:
+                status["issues"].append("Bot instance has no 'guilds' attribute")
+            
+            return jsonify(status)
+        
         @self.app.route('/api/config', methods=['GET'])
         def get_config():
             """Get current configuration."""
@@ -697,10 +758,34 @@ class WebServer:
         def get_servers():
             """Get list of servers the bot is connected to (without channels)."""
             if not self.bot_instance:
-                return jsonify({"servers": []})
+                return jsonify({
+                    "servers": [],
+                    "bot_status": "not_connected",
+                    "message": "Bot instance not available. Make sure the bot is running."
+                })
+            
+            # Check if bot has guilds
+            if not hasattr(self.bot_instance, 'guilds'):
+                return jsonify({
+                    "servers": [],
+                    "bot_status": "no_guilds_attribute",
+                    "message": "Bot instance has no guilds attribute."
+                })
+            
+            guilds = self.bot_instance.guilds
+            if len(guilds) == 0:
+                # Bot is connected but has no guilds
+                bot_user = getattr(self.bot_instance, 'user', None)
+                bot_name = bot_user.name if bot_user else "Unknown"
+                return jsonify({
+                    "servers": [],
+                    "bot_status": "no_servers",
+                    "bot_name": bot_name,
+                    "message": "Bot is connected but is not in any servers. Please add the bot to a Discord server."
+                })
             
             servers = []
-            for guild in self.bot_instance.guilds:
+            for guild in guilds:
                 try:
                     # Safely get text_channels count
                     channel_count = len(guild.text_channels) if hasattr(guild, 'text_channels') and guild.text_channels is not None else 0
@@ -721,7 +806,11 @@ class WebServer:
                     print(f"Error getting info for guild {guild.id}: {e}")
                     continue
             
-            return jsonify({"servers": servers})
+            return jsonify({
+                "servers": servers,
+                "bot_status": "connected",
+                "server_count": len(servers)
+            })
         
         @self.app.route('/api/servers/<server_id>/channels', methods=['GET'])
         def get_server_channels(server_id):
@@ -909,10 +998,34 @@ class WebServer:
         def get_manual_send_channels():
             """Get list of channels the bot has access to for manual sending."""
             if not self.bot_instance:
-                return jsonify({"channels": []})
+                return jsonify({
+                    "channels": [],
+                    "bot_status": "not_connected",
+                    "message": "Bot instance not available. Make sure the bot is running."
+                })
+            
+            # Check if bot has guilds
+            if not hasattr(self.bot_instance, 'guilds'):
+                return jsonify({
+                    "channels": [],
+                    "bot_status": "no_guilds_attribute",
+                    "message": "Bot instance has no guilds attribute."
+                })
+            
+            guilds = self.bot_instance.guilds
+            if len(guilds) == 0:
+                # Bot is connected but has no guilds
+                bot_user = getattr(self.bot_instance, 'user', None)
+                bot_name = bot_user.name if bot_user else "Unknown"
+                return jsonify({
+                    "channels": [],
+                    "bot_status": "no_servers",
+                    "bot_name": bot_name,
+                    "message": "Bot is connected but is not in any servers. Please add the bot to a Discord server."
+                })
             
             channels = []
-            for guild in self.bot_instance.guilds:
+            for guild in guilds:
                 try:
                     # Safely access text_channels - handle cases where it might be None or missing
                     text_channels = guild.text_channels if hasattr(guild, 'text_channels') and guild.text_channels is not None else []
@@ -928,7 +1041,11 @@ class WebServer:
                     print(f"Error getting channels for guild {guild.id}: {e}")
                     continue
             
-            return jsonify({"channels": channels})
+            return jsonify({
+                "channels": channels,
+                "bot_status": "connected",
+                "channel_count": len(channels)
+            })
         
         @self.app.route('/api/manual_send', methods=['POST'])
         async def send_manual_message():

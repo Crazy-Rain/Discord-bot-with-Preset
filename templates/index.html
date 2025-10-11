@@ -3513,6 +3513,10 @@
             }
         }
         
+        // Track retry attempts for auto-reload on Servers/Channels tab
+        let serversListRetryCount = 0;
+        const MAX_SERVERS_LIST_RETRIES = 3;
+        
         async function loadServersList() {
             try {
                 // Load default configuration first (don't let errors block server loading)
@@ -3529,14 +3533,46 @@
                 const listEl = document.getElementById('servers-list');
                 
                 if (servers.length === 0) {
-                    // Bot not connected - show configs from config file instead
+                    // Bot not connected or no servers - show appropriate message based on status
+                    let warningTitle = '⚠️ Bot Not Connected to Discord';
+                    let warningMessage = 'The bot is not currently connected to Discord, so server and channel names are not available. However, you can still manage configurations saved in your config file.';
+                    let shouldRetry = false;
+                    
+                    if (data.bot_status === 'no_servers' && data.bot_name) {
+                        warningTitle = '⚠️ Bot Connected But Not in Any Servers';
+                        warningMessage = `Bot "${data.bot_name}" is connected to Discord but is not in any servers. Please add the bot to a Discord server:<br><br>
+                            <ol style="text-align: left; margin-left: 20px;">
+                                <li>Go to <a href="https://discord.com/developers/applications" target="_blank">Discord Developer Portal</a></li>
+                                <li>Select your bot application</li>
+                                <li>Go to OAuth2 → URL Generator</li>
+                                <li>Select "bot" scope and required permissions</li>
+                                <li>Use the generated URL to add the bot to a server</li>
+                            </ol>`;
+                    } else if (data.bot_status === 'not_connected') {
+                        warningMessage = 'The bot instance is not available. Make sure the bot is running and has connected to Discord. Check the console for any connection errors.';
+                        shouldRetry = true;
+                    } else if (data.message) {
+                        warningMessage = data.message;
+                    }
+                    
+                    let retryMessage = '';
+                    if (shouldRetry && serversListRetryCount < MAX_SERVERS_LIST_RETRIES) {
+                        serversListRetryCount++;
+                        const retryDelay = 3000; // 3 seconds
+                        retryMessage = `<p style="color: #856404; margin-top: 15px;">🔄 Will automatically retry in ${retryDelay/1000} seconds... (Attempt ${serversListRetryCount}/${MAX_SERVERS_LIST_RETRIES})</p>`;
+                        setTimeout(() => {
+                            console.log(`Auto-retrying servers list load (attempt ${serversListRetryCount}/${MAX_SERVERS_LIST_RETRIES})...`);
+                            loadServersList();
+                        }, retryDelay);
+                    }
+                    
                     listEl.innerHTML = `
                         <div style="background: #fff3cd; border: 2px solid #ffc107; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-                            <h3 style="margin-top: 0; color: #856404;">⚠️ Bot Not Connected to Discord</h3>
+                            <h3 style="margin-top: 0; color: #856404;">${warningTitle}</h3>
                             <p style="color: #856404;">
-                                The bot is not currently connected to Discord, so server and channel names are not available. 
-                                However, you can still manage configurations saved in your config file.
+                                ${warningMessage}
                             </p>
+                            ${retryMessage}
                             <button class="btn btn-primary" onclick="loadConfigFileSettings()" style="margin-top: 10px;">
                                 📁 View/Edit Config File Settings
                             </button>
@@ -3544,6 +3580,9 @@
                     `;
                     return;
                 }
+                
+                // Reset retry count on success
+                serversListRetryCount = 0;
                 
                 // Load config options once (presets, API configs, characters)
                 const presetsResponse = await fetch('/api/presets');
@@ -3628,6 +3667,10 @@
         }
         
         // Manual Send functions
+        // Track retry attempts for auto-reload
+        let serverLoadRetryCount = 0;
+        const MAX_SERVER_LOAD_RETRIES = 3;
+        
         async function loadManualSendServers() {
             try {
                 const response = await fetch('/api/servers');
@@ -3643,9 +3686,38 @@
                         option.textContent = `${server.name} (${server.channel_count} channels)`;
                         select.appendChild(option);
                     });
+                    // Reset retry count on success
+                    serverLoadRetryCount = 0;
                 } else {
-                    // No servers available - bot might not be connected
-                    showMessage('manual-send-message', 'No servers found. Make sure the bot is running and connected to Discord servers.', 'error');
+                    // No servers available - show specific error message based on bot status
+                    let errorMessage = 'No servers found.';
+                    let shouldRetry = false;
+                    
+                    if (data.bot_status === 'not_connected') {
+                        errorMessage = '⚠️ Bot is not connected. Make sure the bot is running and has connected to Discord.';
+                        shouldRetry = true;
+                    } else if (data.bot_status === 'no_servers') {
+                        errorMessage = `⚠️ Bot "${data.bot_name}" is connected but is not in any servers. Please add the bot to a Discord server using the OAuth2 URL from Discord Developer Portal.`;
+                    } else if (data.message) {
+                        errorMessage = `⚠️ ${data.message}`;
+                    } else {
+                        errorMessage = 'No servers found. Make sure the bot is running and connected to Discord servers.';
+                    }
+                    
+                    showMessage('manual-send-message', errorMessage, 'error');
+                    
+                    // Auto-retry if bot is not connected and we haven't exceeded retry limit
+                    if (shouldRetry && serverLoadRetryCount < MAX_SERVER_LOAD_RETRIES) {
+                        serverLoadRetryCount++;
+                        const retryDelay = 3000; // 3 seconds
+                        showMessage('manual-send-message', 
+                            errorMessage + `<br><br>🔄 Will automatically retry in ${retryDelay/1000} seconds... (Attempt ${serverLoadRetryCount}/${MAX_SERVER_LOAD_RETRIES})`, 
+                            'warning');
+                        setTimeout(() => {
+                            console.log(`Auto-retrying server load (attempt ${serverLoadRetryCount}/${MAX_SERVER_LOAD_RETRIES})...`);
+                            loadManualSendServers();
+                        }, retryDelay);
+                    }
                 }
                 
                 // Reset channel dropdown when servers are loaded
